@@ -1,0 +1,328 @@
+# Oberflaeche auf dem runden 466x466-AMOLED.
+#
+# Drei Seiten:
+#   page_main      Ring + Texte waehrend eines Sprachvorgangs
+#   page_standby   gedimmte Uhr
+#   page_controls  Lautstaerke und Stummschaltung per Touch
+#
+# Schwarz ist auf AMOLED echtes "Pixel aus" - deshalb ist der Hintergrund
+# ueberall schwarz und der Standby faellt kaum auf.
+
+font:
+  - file: "gfonts://Figtree@500"
+    id: font_small
+    size: 22
+    glyphsets: [GF_Latin_Core]
+  - file: "gfonts://Figtree@600"
+    id: font_medium
+    size: 30
+    glyphsets: [GF_Latin_Core]
+  - file: "gfonts://Figtree@600"
+    id: font_date
+    size: 26
+    glyphsets: [GF_Latin_Core]
+  - file: "gfonts://Figtree@700"
+    id: font_clock
+    size: 120
+    glyphsets: [GF_Latin_Core]
+
+lvgl:
+  displays: [disp]
+  touchscreens: [touch]
+  # Startwert. Bei Speicherproblemen (Boot-Loop, LVGL-Alloc-Fehler) auf 12
+  # reduzieren, bei ruckelnder Animation auf 50 erhoehen.
+  buffer_size: 25%
+  bg_color: 0x000000
+  on_idle:
+    timeout: ${standby_timeout}
+    then:
+      - script.execute: sleep_display
+
+  pages:
+    # ------------------------------------------------------------ Hauptseite
+    - id: page_main
+      bg_color: 0x000000
+      bg_opa: COVER
+      widgets:
+        # Statische Spur des Rings
+        - arc:
+            id: ring_track
+            align: CENTER
+            width: 430
+            height: 430
+            start_angle: 0
+            end_angle: 360
+            adjustable: false
+            value: 0
+            main:
+              arc_color: ${color_track}
+              arc_width: 14
+            indicator:
+              arc_opa: TRANSP
+
+        # Rotierender Teil des Rings
+        - spinner:
+            id: ring_spin
+            align: CENTER
+            width: 430
+            height: 430
+            spin_time: 1400ms
+            arc_length: 70
+            main:
+              arc_opa: TRANSP
+            indicator:
+              arc_color: ${color_listening}
+              arc_width: 14
+
+        - label:
+            id: lbl_phase
+            align: CENTER
+            y: -110
+            width: 300
+            text: ""
+            text_font: font_small
+            text_color: 0x9E9E9E
+            text_align: CENTER
+            long_mode: DOT
+
+        - label:
+            id: lbl_request
+            align: CENTER
+            y: -60
+            width: 310
+            text: ""
+            text_font: font_small
+            text_color: 0x707070
+            text_align: CENTER
+            long_mode: WRAP
+
+        - label:
+            id: lbl_response
+            align: CENTER
+            y: 40
+            width: 320
+            text: ""
+            text_font: font_medium
+            text_color: 0xFFFFFF
+            text_align: CENTER
+            long_mode: WRAP
+
+    # --------------------------------------------------------------- Standby
+    - id: page_standby
+      bg_color: 0x000000
+      bg_opa: COVER
+      widgets:
+        - label:
+            id: lbl_clock
+            align: CENTER
+            y: -20
+            text: "--:--"
+            text_font: font_clock
+            text_color: 0xFFFFFF
+            text_align: CENTER
+        - label:
+            id: lbl_date
+            align: CENTER
+            y: 70
+            text: ""
+            text_font: font_date
+            text_color: 0x707070
+            text_align: CENTER
+
+    # ------------------------------------------------------------- Bedienung
+    - id: page_controls
+      bg_color: 0x000000
+      bg_opa: COVER
+      widgets:
+        - arc:
+            id: volume_arc
+            align: CENTER
+            width: 400
+            height: 400
+            min_value: 0
+            max_value: 100
+            value: 50
+            adjustable: true
+            main:
+              arc_color: ${color_track}
+              arc_width: 18
+            indicator:
+              arc_color: ${color_replying}
+              arc_width: 18
+            knob:
+              bg_color: 0xFFFFFF
+            on_value:
+              - media_player.volume_set:
+                  id: media_out
+                  volume: !lambda return x / 100.0f;
+              - script.execute: controls_timeout
+
+        - label:
+            id: lbl_volume
+            align: CENTER
+            y: -50
+            text: "50%"
+            text_font: font_clock
+            text_color: 0xFFFFFF
+            text_align: CENTER
+
+        - button:
+            id: btn_mute
+            align: CENTER
+            y: 90
+            width: 200
+            height: 64
+            bg_color: 0x1A1A1A
+            radius: 32
+            widgets:
+              - label:
+                  id: lbl_mute
+                  align: CENTER
+                  text: "Stumm"
+                  text_font: font_small
+                  text_color: 0xFFFFFF
+            on_click:
+              - switch.toggle: mute
+              - script.execute: controls_timeout
+
+script:
+  # --------------------------------------------------- Statusanzeige updaten
+  - id: update_ui
+    mode: restart
+    then:
+      - lvgl.label.update:
+          id: lbl_phase
+          text: !lambda |-
+            switch (id(voice_assistant_phase)) {
+              case ${phase_listening}: return std::string("Ich hoere ...");
+              case ${phase_thinking}:  return std::string("Einen Moment ...");
+              case ${phase_replying}:  return std::string("");
+              case ${phase_error}:     return std::string("Fehler");
+              case ${phase_muted}:     return std::string("Mikrofon aus");
+              case ${phase_not_ready}: return std::string("Keine Verbindung");
+              default:                 return std::string("");
+            }
+      - lvgl.label.update:
+          id: lbl_request
+          text: !lambda return id(text_request).state;
+      - lvgl.label.update:
+          id: lbl_response
+          text: !lambda return id(text_response).state;
+      # spin_time/arc_length sind bei lvgl.widget.update nicht aenderbar
+      # (Spinner hat kein Modify-Schema). Die Phase wird deshalb allein
+      # ueber die Ringfarbe kommuniziert.
+      - lvgl.widget.update:
+          id: ring_spin
+          indicator:
+            arc_color: !lambda |-
+              switch (id(voice_assistant_phase)) {
+                case ${phase_listening}: return lv_color_hex(${color_listening});
+                case ${phase_thinking}:  return lv_color_hex(${color_thinking});
+                case ${phase_replying}:  return lv_color_hex(${color_replying});
+                case ${phase_error}:     return lv_color_hex(${color_error});
+                case ${phase_muted}:     return lv_color_hex(${color_muted});
+                default:                 return lv_color_hex(${color_not_ready});
+              }
+      # Im Leerlauf gibt es nichts anzuzeigen -> Standby.
+      # Alles andere weckt das Display.
+      - if:
+          condition:
+            lambda: return id(voice_assistant_phase) == ${phase_idle};
+          then:
+            - script.execute: sleep_display
+          else:
+            - script.execute: wake_display
+
+  # Antippen im Standby oeffnet die Bedienseite. Waehrend eines laufenden
+  # Sprachvorgangs weckt es nur das Display, ohne die Anzeige zu verlassen.
+  - id: on_screen_touch
+    mode: restart
+    then:
+      - if:
+          condition:
+            lambda: |-
+              return id(voice_assistant_phase) == ${phase_idle}
+                  || id(voice_assistant_phase) == ${phase_muted};
+          then:
+            - script.execute: show_controls
+          else:
+            - script.execute: wake_display
+
+  # ------------------------------------------------------- Display aufwecken
+  - id: wake_display
+    mode: restart
+    then:
+      - lvgl.page.show: page_main
+      - light.turn_on:
+          id: display_brightness
+          brightness: ${active_brightness}
+
+  - id: sleep_display
+    mode: restart
+    then:
+      - script.execute: update_clock
+      - lvgl.page.show: page_standby
+      - light.turn_on:
+          id: display_brightness
+          brightness: ${standby_brightness}
+
+  # ---------------------------------------------------------- Bedienseite
+  - id: show_controls
+    mode: restart
+    then:
+      - lvgl.arc.update:
+          id: volume_arc
+          value: !lambda return id(media_out).volume * 100.0f;
+      - lvgl.label.update:
+          id: lbl_volume
+          text: !lambda |-
+            return esphome::str_sprintf("%d%%", (int) (id(media_out).volume * 100.0f));
+      - lvgl.label.update:
+          id: lbl_mute
+          text: !lambda |-
+            return id(mute).state ? std::string("Stumm aus") : std::string("Stumm");
+      - lvgl.page.show: page_controls
+      - light.turn_on:
+          id: display_brightness
+          brightness: ${active_brightness}
+      - script.execute: controls_timeout
+
+  # Nach 8 s ohne Bedienung zurueck in den Standby
+  - id: controls_timeout
+    mode: restart
+    then:
+      - delay: 8s
+      - script.execute: sleep_display
+
+  # ---------------------------------------------------------------- Uhrzeit
+  - id: update_clock
+    then:
+      - lvgl.label.update:
+          id: lbl_clock
+          text: !lambda |-
+            return id(ha_time).now().is_valid()
+                 ? id(ha_time).now().strftime("%H:%M")
+                 : std::string("--:--");
+      - lvgl.label.update:
+          id: lbl_date
+          text: !lambda |-
+            return id(ha_time).now().is_valid()
+                 ? id(ha_time).now().strftime("%d.%m.%Y")
+                 : std::string("");
+
+interval:
+  # Uhr aktualisieren
+  - interval: 10s
+    then:
+      - script.execute: update_clock
+
+  # AMOLED-Schutz: die Uhr wandert minuetlich ein paar Pixel, damit sich
+  # nichts einbrennt.
+  - interval: 60s
+    then:
+      - lvgl.widget.update:
+          id: lbl_clock
+          y: !lambda return -20 + (int8_t) (random_uint32() % 17) - 8;
+      - lvgl.widget.update:
+          id: lbl_date
+          y: !lambda return 70 + (int8_t) (random_uint32() % 17) - 8;

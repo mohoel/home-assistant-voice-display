@@ -1,0 +1,76 @@
+# Basis: SoC, Netzwerk, API, OTA, Zeit.
+
+esphome:
+  name: ${name}
+  friendly_name: ${friendly_name}
+  # CST9217-Touch-Support (Plattform cst9220) gibt es erst ab 2026.7.0.
+  min_version: 2026.7.0
+  project:
+    name: mohoel.assist-satellit
+    version: ${project_version}
+  # Hinweis: platformio_options (flash_mode, f_flash, f_cpu) aus der
+  # Community-Config wirken beim nativen ESP-IDF-Toolchain nicht und wurden
+  # entfernt. Die CPU-Frequenz steht unten im esp32-Block.
+
+esp32:
+  variant: esp32s3
+  flash_size: 16MB
+  cpu_frequency: 240MHz
+  framework:
+    type: esp-idf
+
+psram:
+  mode: octal
+  speed: 80MHz
+
+logger:
+  hardware_uart: USB_SERIAL_JTAG
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  ap:
+    password: !secret ap_password
+
+captive_portal:
+
+api:
+  encryption:
+    key: !secret api_encryption_key
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+# Zeitquelle fuer die Standby-Uhr
+time:
+  - platform: homeassistant
+    id: ha_time
+
+# Diagnose-Entities: helfen beim Einschaetzen des Speicherdrucks
+# (LVGL + Voice Assistant sind zusammen speicherhungrig).
+debug:
+  update_interval: 60s
+
+sensor:
+  - platform: debug
+    free:
+      name: "Freier Heap"
+      entity_category: diagnostic
+    psram:
+      name: "Freier PSRAM"
+      entity_category: diagnostic
+  - platform: wifi_signal
+    name: "WLAN-Signal"
+    update_interval: 60s
+    entity_category: diagnostic
+
+text_sensor:
+  - platform: version
+    name: "ESPHome-Version"
+    entity_category: diagnostic
+
+button:
+  - platform: restart
+    name: "Neustart"
+    entity_category: config

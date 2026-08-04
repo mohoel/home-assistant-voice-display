@@ -1,0 +1,13 @@
+# Echte Zugangsdaten — niemals ins Repo!
+secrets.yaml
+
+# ESPHome Build-Artefakte
+.esphome/
+*.bin
+*.elf
+
+# macOS
+.DS_Store
+
+# Fremde Tools
+.Rhistory

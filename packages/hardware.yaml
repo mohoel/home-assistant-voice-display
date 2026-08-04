@@ -1,0 +1,133 @@
+# Hardware des Waveshare ESP32-S3-Touch-AMOLED-1.75.
+# Pins verifiziert gegen das Waveshare-BSP
+# (components/esp32_s3_touch_amoled_1_75/include/bsp/esp32_s3_touch_amoled_1_75.h)
+# und die ESPHome-Device-Seite.
+
+i2c:
+  - id: bus_i2c
+    sda: GPIO15
+    scl: GPIO14
+    scan: true
+
+# ---------------------------------------------------------------- Display ---
+spi:
+  - id: bus_qspi
+    type: quad
+    clk_pin: GPIO38
+    data_pins: [GPIO4, GPIO5, GPIO6, GPIO7]
+
+display:
+  - platform: mipi_spi
+    id: disp
+    model: CO5300
+    spi_id: bus_qspi
+    bus_mode: quad
+    cs_pin: GPIO12
+    reset_pin: GPIO39
+    dimensions:
+      width: 466
+      height: 466
+    auto_clear_enabled: false
+    update_interval: never
+
+# AMOLED hat keine Hintergrundbeleuchtung - die Helligkeit ist ein
+# Display-Kommando. Als monochromatic light verpackt, damit sich Standby
+# und HA-Entity sauber darueber steuern lassen.
+output:
+  - platform: template
+    id: out_brightness
+    type: float
+    write_action:
+      - lambda: id(disp).set_brightness((uint8_t) (state * 255));
+
+light:
+  - platform: monochromatic
+    id: display_brightness
+    name: "Displayhelligkeit"
+    output: out_brightness
+    restore_mode: ALWAYS_ON
+    default_transition_length: 300ms
+    initial_state:
+      brightness: 100%
+
+touchscreen:
+  - platform: cst9220          # unterstuetzt CST9220 und CST9217
+    id: touch
+    i2c_id: bus_i2c
+    display: disp
+    interrupt_pin: GPIO11
+    reset_pin: GPIO40
+    transform:
+      mirror_x: true
+      mirror_y: true
+    on_touch:
+      - script.execute: on_screen_touch
+
+# ------------------------------------------------------------------ Audio ---
+# Ein einziger I2S-Bus fuer Mikrofon und Lautsprecher. Das Board hat laut BSP
+# genau einen I2S-Controller mit DOUT und DSIN - wie beim ESP32-S3-Box-3.
+i2s_audio:
+  - id: bus_i2s
+    i2s_bclk_pin: GPIO9
+    i2s_lrclk_pin: GPIO45
+    i2s_mclk_pin: GPIO42
+
+audio_adc:
+  - platform: es7210
+    id: adc_es7210
+    i2c_id: bus_i2c
+    sample_rate: 16000
+    bits_per_sample: 16bit
+
+audio_dac:
+  - platform: es8311
+    id: dac_es8311
+    i2c_id: bus_i2c
+    sample_rate: 48000
+    bits_per_sample: 16bit
+
+microphone:
+  - platform: i2s_audio
+    id: mic
+    i2s_audio_id: bus_i2s
+    i2s_din_pin: GPIO10
+    adc_type: external
+    sample_rate: 16000
+    bits_per_sample: 16bit
+    channel: left
+
+speaker:
+  - platform: i2s_audio
+    id: spk
+    i2s_audio_id: bus_i2s
+    i2s_dout_pin: GPIO8
+    dac_type: external
+    audio_dac: dac_es8311
+    sample_rate: 48000
+    bits_per_sample: 16bit
+    channel: mono
+    buffer_duration: 100ms
+
+media_player:
+  - platform: speaker
+    id: media_out
+    name: None
+    volume_min: 0.4
+    volume_max: 0.85
+    announcement_pipeline:
+      speaker: spk
+      format: FLAC
+      sample_rate: 48000
+      num_channels: 1
+
+switch:
+  # Verstaerker-Enable. GPIO46 ist ein Strapping-Pin des ESP32-S3.
+  - platform: gpio
+    id: amp_enable
+    name: "Lautsprecherverstaerker"
+    pin:
+      number: GPIO46
+      ignore_strapping_warning: true
+    restore_mode: RESTORE_DEFAULT_ON
+    entity_category: config
+    disabled_by_default: true

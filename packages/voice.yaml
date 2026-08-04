@@ -1,0 +1,258 @@
+# Voice Assistant, Wake Word und die zugehoerigen HA-Entities.
+# Logik uebernommen vom offiziellen esphome/wake-word-voice-assistants
+# (esp32-s3-box-3) und home-assistant-voice-pe.
+
+globals:
+  - id: init_in_progress
+    type: bool
+    restore_value: false
+    initial_value: "true"
+  - id: voice_assistant_phase
+    type: int
+    restore_value: false
+    initial_value: ${phase_not_ready}
+
+micro_wake_word:
+  id: mww
+  microphone:
+    microphone: mic
+    gain_factor: 4
+  stop_after_detection: false
+  task_stack_in_psram: true
+  vad:
+  models:
+    - model: okay_nabu
+      id: mww_okay_nabu
+    - model: hey_jarvis
+      id: mww_hey_jarvis
+    - model: hey_mycroft
+      id: mww_hey_mycroft
+  on_wake_word_detected:
+    - if:
+        condition:
+          switch.is_off: mute
+        then:
+          - voice_assistant.start:
+              wake_word: !lambda return wake_word;
+
+voice_assistant:
+  id: va
+  microphone: mic
+  media_player: media_out
+  micro_wake_word: mww
+  use_wake_word: false
+  noise_suppression_level: 2
+  auto_gain: 31dBFS
+  volume_multiplier: 2.0
+
+  on_listening:
+    - lambda: id(voice_assistant_phase) = ${phase_listening};
+    - text_sensor.template.publish:
+        id: text_request
+        state: ""
+    - text_sensor.template.publish:
+        id: text_response
+        state: ""
+    - script.execute: update_ui
+
+  on_stt_vad_end:
+    - lambda: id(voice_assistant_phase) = ${phase_thinking};
+    - script.execute: update_ui
+
+  # x = erkannter Text des Nutzers
+  on_stt_end:
+    - text_sensor.template.publish:
+        id: text_request
+        state: !lambda return x;
+    - script.execute: update_ui
+
+  # x = Antworttext des Assistenten
+  on_tts_start:
+    - lambda: id(voice_assistant_phase) = ${phase_replying};
+    - text_sensor.template.publish:
+        id: text_response
+        state: !lambda return x;
+    - script.execute: update_ui
+
+  on_end:
+    # Warten bis die Sprachausgabe wirklich durch ist, sonst kollidiert
+    # das Wake Word mit dem noch belegten I2S-Bus.
+    - wait_until:
+        condition:
+          media_player.is_announcing:
+        timeout: 0.5s
+    - wait_until:
+        - and:
+            - not:
+                media_player.is_announcing:
+            - not:
+                speaker.is_playing:
+    - if:
+        condition:
+          lambda: return id(wake_word_engine_location).current_option() == "Auf dem Geraet";
+        then:
+          - lambda: id(va).set_use_wake_word(false);
+          - micro_wake_word.start:
+    # Antworttext noch kurz stehen lassen, dann aufraeumen
+    - delay: 8s
+    - script.execute: set_idle_or_muted
+    - text_sensor.template.publish:
+        id: text_request
+        state: ""
+    - text_sensor.template.publish:
+        id: text_response
+        state: ""
+    - script.execute: update_ui
+
+  on_error:
+    # duplicate_wake_up_detected und stt-no-text-recognized sind Rauschen
+    - if:
+        condition:
+          and:
+            - lambda: return !id(init_in_progress);
+            - lambda: return code != "duplicate_wake_up_detected";
+            - lambda: return code != "stt-no-text-recognized";
+        then:
+          - lambda: id(voice_assistant_phase) = ${phase_error};
+          - text_sensor.template.publish:
+              id: text_response
+              state: !lambda return message;
+          - script.execute: update_ui
+          - delay: 3s
+          - script.execute: set_idle_or_muted
+          - text_sensor.template.publish:
+              id: text_response
+              state: ""
+          - script.execute: update_ui
+
+  on_client_connected:
+    - lambda: id(init_in_progress) = false;
+    - script.execute: start_wake_word
+    - script.execute: set_idle_or_muted
+    - script.execute: update_ui
+
+  on_client_disconnected:
+    - script.execute: stop_wake_word
+    - lambda: id(voice_assistant_phase) = ${phase_not_ready};
+    - script.execute: update_ui
+
+text_sensor:
+  - platform: template
+    id: text_request
+    name: "Erkannter Text"
+    icon: mdi:account-voice
+  - platform: template
+    id: text_response
+    name: "Antwort"
+    icon: mdi:message-text
+
+switch:
+  - platform: template
+    id: mute
+    name: "Mikrofon stumm"
+    icon: mdi:microphone-off
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+    on_turn_on:
+      - script.execute: stop_wake_word
+      - lambda: id(voice_assistant_phase) = ${phase_muted};
+      - script.execute: update_ui
+    on_turn_off:
+      - script.execute: start_wake_word
+      - lambda: id(voice_assistant_phase) = ${phase_idle};
+      - script.execute: update_ui
+
+select:
+  # Die vom Nutzer gewuenschte Umschaltung zwischen lokalem Wake Word und
+  # Wake Word in Home Assistant (openWakeWord).
+  - platform: template
+    id: wake_word_engine_location
+    name: "Wake-Word-Engine"
+    icon: mdi:account-voice
+    optimistic: true
+    restore_value: true
+    entity_category: config
+    initial_option: "Auf dem Geraet"
+    options:
+      - "Auf dem Geraet"
+      - "In Home Assistant"
+    on_value:
+      - if:
+          condition:
+            lambda: return !id(init_in_progress);
+          then:
+            - wait_until:
+                lambda: |-
+                  return id(voice_assistant_phase) == ${phase_idle}
+                      || id(voice_assistant_phase) == ${phase_muted};
+            - script.execute: stop_wake_word
+            - delay: 500ms
+            - script.execute: start_wake_word
+
+  - platform: template
+    id: wake_word_sensitivity
+    name: "Wake-Word-Empfindlichkeit"
+    icon: mdi:tune
+    optimistic: true
+    restore_value: true
+    entity_category: config
+    initial_option: "Mittel"
+    options:
+      - "Niedrig"
+      - "Mittel"
+      - "Hoch"
+    on_value:
+      # Kalibrierte Schwellwerte aus home-assistant-voice-pe.
+      # Werte sind quantisierte uint8 (0-255) der Wahrscheinlichkeit.
+      - lambda: |-
+          if (x == "Niedrig") {
+            id(mww_okay_nabu).set_probability_cutoff(217);
+            id(mww_hey_jarvis).set_probability_cutoff(247);
+            id(mww_hey_mycroft).set_probability_cutoff(253);
+          } else if (x == "Mittel") {
+            id(mww_okay_nabu).set_probability_cutoff(176);
+            id(mww_hey_jarvis).set_probability_cutoff(235);
+            id(mww_hey_mycroft).set_probability_cutoff(242);
+          } else {
+            id(mww_okay_nabu).set_probability_cutoff(143);
+            id(mww_hey_jarvis).set_probability_cutoff(212);
+            id(mww_hey_mycroft).set_probability_cutoff(237);
+          }
+
+script:
+  # Startet die Wake-Word-Erkennung passend zur gewaehlten Engine.
+  - id: start_wake_word
+    mode: restart
+    then:
+      - if:
+          condition:
+            switch.is_off: mute
+          then:
+            - if:
+                condition:
+                  lambda: return id(wake_word_engine_location).current_option() == "In Home Assistant";
+                then:
+                  - micro_wake_word.stop:
+                  - lambda: id(va).set_use_wake_word(true);
+                  - voice_assistant.start_continuous:
+                else:
+                  - lambda: id(va).set_use_wake_word(false);
+                  - voice_assistant.stop:
+                  - micro_wake_word.start:
+
+  - id: stop_wake_word
+    mode: restart
+    then:
+      - micro_wake_word.stop:
+      - lambda: id(va).set_use_wake_word(false);
+      - voice_assistant.stop:
+
+  - id: set_idle_or_muted
+    then:
+      - if:
+          condition:
+            switch.is_on: mute
+          then:
+            - lambda: id(voice_assistant_phase) = ${phase_muted};
+          else:
+            - lambda: id(voice_assistant_phase) = ${phase_idle};

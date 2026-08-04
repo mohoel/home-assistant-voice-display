@@ -1,0 +1,40 @@
+# Home Assistant Voice Satellite
+# Waveshare ESP32-S3-Touch-AMOLED-1.75 (rundes AMOLED 466x466, CO5300 + CST9217)
+#
+# Bauen und flashen:            esphome run assist-satellit.yaml
+# Nur Konfiguration pruefen:    esphome config assist-satellit.yaml
+
+substitutions:
+  name: assist-satellit
+  friendly_name: Assist Satellit
+  project_version: "0.1.0"
+
+  # Voice-Assistant-Phasen. Die IDs entsprechen dem offiziellen
+  # ESP32-S3-Box-3-Projekt, damit spaeter Code von dort uebernommen werden kann.
+  phase_idle: "1"
+  phase_listening: "2"
+  phase_thinking: "3"
+  phase_replying: "4"
+  phase_not_ready: "10"
+  phase_error: "11"
+  phase_muted: "12"
+
+  # Ring-Farben je Phase (0xRRGGBB)
+  color_listening: "0x03A9F4"
+  color_thinking: "0xFFC107"
+  color_replying: "0x4CAF50"
+  color_error: "0xF44336"
+  color_muted: "0x9E9E9E"
+  color_not_ready: "0x616161"
+  color_track: "0x1A1A1A"
+
+  # Standby
+  standby_timeout: 30s
+  standby_brightness: "8%"
+  active_brightness: "100%"
+
+packages:
+  core: !include packages/core.yaml
+  hardware: !include packages/hardware.yaml
+  voice: !include packages/voice.yaml
+  ui: !include packages/ui.yaml
