@@ -24,14 +24,27 @@ spi:
 display:
   - platform: mipi_spi
     id: disp
-    model: CO5300
+    # Board-spezifisches Modell statt generischem CO5300 + manuellen
+    # dimensions: - das war der eigentliche Ring-Bug (Ring/Icon auf dem
+    # ganzen System nach oben-links verschoben, Foto-Befund). Der generische
+    # CO5300-Treiber hat ein 480x480-GRAM; unsere 466x466-Sichtflaeche liegt
+    # darin nicht bei Spalte 0, sondern bei Spalte 6 (offset_width: 6). Ohne
+    # dieses Offset schreibt LVGL seinen 466x466-Canvas ab GRAM-Spalte 0,
+    # der sichtbare runde Ausschnitt des Panels beginnt aber erst bei Spalte
+    # 6 - alles auf dem Display sitzt dadurch systematisch verschoben, nicht
+    # nur der Ring. Das board-spezifische Modell traegt width/height/
+    # offset_width/offset_height/cs_pin/reset_pin schon korrekt aus dem
+    # ESPHome-mipi_spi-Treiber (components/mipi_spi/models/waveshare.py,
+    # CO5300.extend("WAVESHARE-ESP32-S3-TOUCH-AMOLED-1.75", offset_width: 6))
+    # - das ist der eigentliche Fix, keine manuelle dimensions:-Angabe mehr
+    # noetig. Bestaetigt auch im HA-Community-Thread "ESPHome mipi_spi
+    # display configuration for CO5300": offset_width: 6 behebt genau dieses
+    # Symptom ("viewable area didn't align with pixel position zero").
+    model: WAVESHARE-ESP32-S3-TOUCH-AMOLED-1.75
     spi_id: bus_qspi
     bus_mode: quad
     cs_pin: GPIO12
     reset_pin: GPIO39
-    dimensions:
-      width: 466
-      height: 466
     auto_clear_enabled: false
     update_interval: never
 

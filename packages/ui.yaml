@@ -1,9 +1,11 @@
 # Oberflaeche auf dem runden 466x466-AMOLED.
 #
-# Drei Seiten:
-#   page_main      Ring + Texte waehrend eines Sprachvorgangs
+# Zwei Seiten:
+#   page_main      Ring + Statusicon waehrend eines Sprachvorgangs
 #   page_standby   gedimmte Uhr
-#   page_controls  Lautstaerke und Stummschaltung per Touch
+#
+# Lautstaerke und Stummschaltung gibt es bewusst nicht als Touch-Bedienseite
+# auf dem Geraet - beides bleibt HA-Entities (`media_out`, `switch.mute`).
 #
 # Schwarz ist auf AMOLED echtes "Pixel aus" - deshalb ist der Hintergrund
 # ueberall schwarz und der Standby faellt kaum auf.
@@ -49,14 +51,11 @@ lvgl:
   # ein paar Arcs und Labels im Teilbild-Modus reichlich.
   # Bei ruckelnder Animation wieder erhoehen, bei LVGL-Alloc-Fehlern senken.
   #
-  # TEMPORAER 100% zum Debuggen: Ring bei Listening/Bedienseite erscheint
-  # klein und nach oben-links verschoben (Foto-Befund, siehe Chat). Verdacht:
-  # Teilbild-Rendering (12,5%) kollidiert mit dem runden Panel/CO5300 beim
-  # Neuzeichnen von Arc/Spinner-Widgets. 100% passt nicht mehr ins interne
-  # RAM und landet komplett im PSRAM - eliminiert Teilbild-Rendering als
-  # Variable, ohne mit Audio/WLAN um internes RAM zu konkurrieren. Nach dem
-  # Test wieder auf 12% zuruecksetzen, falls es nicht die Ursache war.
-  buffer_size: 100%
+  # Getestet als Ursache fuer den Ring-Bug (klein/nach oben-links verschoben
+  # bei Listening- und Bedienseiten-Ring, siehe Chat-Verlauf): 100% (voll in
+  # PSRAM, kein Teilbild-Rendering) aenderte am Fehlerbild nichts. Teilbild-
+  # Rendering ist damit als Ursache ausgeschlossen - zurueck auf 12%.
+  buffer_size: 12%
   bg_color: 0x000000
   on_idle:
     timeout: ${standby_timeout}
@@ -85,13 +84,24 @@ lvgl:
       # sichtbar, umgeschaltet in update_ui.
       widgets:
         # Statische Spur des Rings
+        #
+        # end_angle: 359 statt 360 ist Absicht, nicht Tippfehler: LVGL
+        # zeichnet bei start_angle/end_angle 0/360 keinen vollen Kreis,
+        # sondern einen degenerierten Bogen der Laenge 0 (die Naht faellt auf
+        # sich selbst zurueck) - das war der eigentliche Ring-Bug (klein und
+        # nach oben-links verschoben, siehe Chat-Verlauf und Foto-Befund).
+        # Bekannter LVGL-Grenzfall, siehe
+        # https://forum.lvgl.io/t/how-to-how-to-draw-lv-arc-by-start-angle-0-with-end-angle-360/1456
+        # und den zugehoerigen ESPHome-Fix-PR
+        # https://github.com/esphome/esphome/pull/15860. Gilt fuer jeden
+        # 0/360-Vollkreis-Arc in dieser Datei, nicht nur diesen.
         - arc:
             id: ring_track
             align: CENTER
             width: ${ring_size}
             height: ${ring_size}
             start_angle: 0
-            end_angle: 360
+            end_angle: 359
             adjustable: false
             value: 0
             main:
@@ -107,7 +117,7 @@ lvgl:
             width: ${ring_glow_size}
             height: ${ring_glow_size}
             start_angle: 0
-            end_angle: 360
+            end_angle: 359
             adjustable: false
             min_value: 0
             max_value: 100
@@ -125,7 +135,7 @@ lvgl:
             width: ${ring_size}
             height: ${ring_size}
             start_angle: 0
-            end_angle: 360
+            end_angle: 359
             adjustable: false
             min_value: 0
             max_value: 100
@@ -271,81 +281,6 @@ lvgl:
             text_color: ${color_text_dim}
             text_align: CENTER
 
-    # ------------------------------------------------------------- Bedienung
-    - id: page_controls
-      bg_color: 0x000000
-      bg_opa: COVER
-      widgets:
-        - arc:
-            id: volume_arc
-            align: CENTER
-            width: 400
-            height: 400
-            start_angle: 0
-            end_angle: 360
-            min_value: 0
-            max_value: 100
-            value: 50
-            adjustable: true
-            main:
-              arc_color: ${color_track}
-              arc_width: 18
-            indicator:
-              arc_color: ${color_replying}
-              arc_width: 18
-            knob:
-              bg_color: 0xFFFFFF
-            # Waehrend des Ziehens nur die Anzeige mitfuehren. Jedes
-            # volume_set schreibt den Wert ueber save_volume_restore_state_()
-            # in den NVS-Flash - beim Ziehen waeren das hunderte Schreibzugriffe
-            # pro Bedienvorgang (Flash-Verschleiss), und der Media-Player
-            # verwirft ohnehin Kommandos, sobald seine Queue voll ist.
-            on_value:
-              - lvgl.label.update:
-                  id: lbl_volume
-                  text: !lambda return esphome::str_sprintf("%d%%", (int) x);
-              - script.execute: controls_timeout
-            # Erst beim Loslassen tatsaechlich setzen: ein Schreibzugriff.
-            on_release:
-              - media_player.volume_set:
-                  id: media_out
-                  volume: !lambda return x / 100.0f;
-              - script.execute: controls_timeout
-
-        - label:
-            id: lbl_volume
-            align: CENTER
-            y: -50
-            text: "50%"
-            text_font: font_clock
-            text_color: 0xFFFFFF
-            text_align: CENTER
-
-        - button:
-            id: btn_mute
-            align: CENTER
-            y: 90
-            width: 200
-            height: 64
-            bg_color: 0x1A1A1A
-            radius: 32
-            widgets:
-              - label:
-                  id: lbl_mute
-                  align: CENTER
-                  text: "Stumm"
-                  text_font: font_small
-                  text_color: 0xFFFFFF
-            on_click:
-              - switch.toggle: mute
-              # Beschriftung nachziehen - ohne das behaelt der Knopf die
-              # Aufschrift, die show_controls beim Oeffnen gesetzt hat.
-              - lvgl.label.update:
-                  id: lbl_mute
-                  text: !lambda |-
-                    return id(mute).state ? std::string("Stumm aus") : std::string("Stumm");
-              - script.execute: controls_timeout
-
 script:
   # --------------------------------------------------- Statusanzeige updaten
   - id: update_ui
@@ -453,48 +388,30 @@ script:
           else:
             - script.execute: wake_display
 
-  # Antippen im Standby oeffnet die Bedienseite. Waehrend eines laufenden
-  # Sprachvorgangs weckt es nur das Display, ohne die Anzeige zu verlassen.
+  # Antippen weckt das Display. Im Leerlauf/stumm bleibt die Standby-Uhr
+  # sichtbar, nur heller - dafuer braucht es keinen eigenen Ruecksprung-Timer,
+  # das erledigt lvgl.on_idle oben schon (faellt nach ${standby_timeout}
+  # von selbst zurueck in sleep_display).
   - id: on_screen_touch
     mode: restart
     then:
       - if:
           condition:
-            lvgl.page.is_showing: page_controls
+            lambda: |-
+              return id(voice_assistant_phase) == ${phase_idle}
+                  || id(voice_assistant_phase) == ${phase_muted};
           then:
-            # Schon auf der Bedienseite: nur den Ruecksprung-Timer verlaengern.
-            # show_controls wuerde die Widgets neu setzen und dabei den Arc auf
-            # den gespeicherten Wert zuruecksetzen - mitten im Bedienen.
-            - script.execute: controls_timeout
+            - light.turn_on:
+                id: display_brightness
+                brightness: ${active_brightness}
           else:
-            - if:
-                condition:
-                  lambda: |-
-                    return id(voice_assistant_phase) == ${phase_idle}
-                        || id(voice_assistant_phase) == ${phase_muted};
-                then:
-                  - script.execute: show_controls
-                else:
-                  - script.execute: wake_display
+            - script.execute: wake_display
 
   # ------------------------------------------------------- Display aufwecken
   - id: wake_display
     mode: restart
     then:
-      # Die Bedienseite nicht wegreissen, solange kein Sprachvorgang laeuft.
-      # Sonst springt schon der Druck auf den Stumm-Knopf zurueck auf
-      # page_main, weil der mute-Switch update_ui ausloest. Bei Listening,
-      # Thinking oder Replying hat die Statusanzeige dagegen Vorrang.
-      - if:
-          condition:
-            not:
-              and:
-                - lvgl.page.is_showing: page_controls
-                - lambda: |-
-                    return id(voice_assistant_phase) == ${phase_idle}
-                        || id(voice_assistant_phase) == ${phase_muted};
-          then:
-            - lvgl.page.show: page_main
+      - lvgl.page.show: page_main
       - light.turn_on:
           id: display_brightness
           brightness: ${active_brightness}
@@ -507,34 +424,6 @@ script:
       - light.turn_on:
           id: display_brightness
           brightness: ${standby_brightness}
-
-  # ---------------------------------------------------------- Bedienseite
-  - id: show_controls
-    mode: restart
-    then:
-      - lvgl.arc.update:
-          id: volume_arc
-          value: !lambda return id(media_out).volume * 100.0f;
-      - lvgl.label.update:
-          id: lbl_volume
-          text: !lambda |-
-            return esphome::str_sprintf("%d%%", (int) (id(media_out).volume * 100.0f));
-      - lvgl.label.update:
-          id: lbl_mute
-          text: !lambda |-
-            return id(mute).state ? std::string("Stumm aus") : std::string("Stumm");
-      - lvgl.page.show: page_controls
-      - light.turn_on:
-          id: display_brightness
-          brightness: ${active_brightness}
-      - script.execute: controls_timeout
-
-  # Nach 8 s ohne Bedienung zurueck in den Standby
-  - id: controls_timeout
-    mode: restart
-    then:
-      - delay: 8s
-      - script.execute: sleep_display
 
   # ---------------------------------------------------------------- Uhrzeit
   - id: update_clock

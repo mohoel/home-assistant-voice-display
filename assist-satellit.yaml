@@ -45,7 +45,7 @@ substitutions:
 
   # Standby
   standby_timeout: 30s
-  standby_brightness: "8%"
+  standby_brightness: "50%"
   active_brightness: "100%"
 
 packages:

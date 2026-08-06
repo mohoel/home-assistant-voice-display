@@ -67,7 +67,7 @@ Geräte-YAML + Packages. **Farben, Phasen-IDs und Timings stehen als Substitutio
 | `packages/core.yaml` | SoC, PSRAM, WLAN, API, OTA, Zeit, Diagnose |
 | `packages/hardware.yaml` | I2C, QSPI-Display, Touch, I2S, ES7210/ES8311, Media Player |
 | `packages/voice.yaml` | Wake Word, Voice Assistant, Engine-Umschaltung, Mute |
-| `packages/ui.yaml` | Fonts, LVGL-Seiten, Ring, Standby-Uhr, Bedienseite |
+| `packages/ui.yaml` | Fonts, LVGL-Seiten, Ring, Standby-Uhr |
 
 Die Voice-Assistant-Logik folgt `esphome/wake-word-voice-assistants`
 (esp32-s3-box-3) und `esphome/home-assistant-voice-pe`. Bei neuen Features zuerst
@@ -84,7 +84,6 @@ Querverbindungen:
 |---|---|---|
 | `hardware.yaml` → `touchscreen.on_touch` | `script: on_screen_touch` | `ui.yaml` |
 | `voice.yaml` → jeder Phasenwechsel | `script: update_ui` | `ui.yaml` |
-| `ui.yaml` → Bedienseite | `mute`-Switch, `media_out` | `voice.yaml`, `hardware.yaml` |
 | `ui.yaml` → Standby-Uhr | `ha_time` | `core.yaml` |
 | `ui.yaml` → Helligkeit | `light: display_brightness` | `hardware.yaml` |
 | `core.yaml` → `on_boot` | `script: update_ui` | `ui.yaml` |
@@ -105,8 +104,7 @@ Die Skripte sind die Bedienoberfläche der Logik, nicht die Handler selbst:
 
 - `voice.yaml`: `start_wake_word`, `stop_wake_word`, `set_idle_or_muted`,
   `end_session`, `clear_error`
-- `ui.yaml`: `update_ui`, `wake_display`, `sleep_display`, `show_controls`,
-  `controls_timeout`, `update_clock`
+- `ui.yaml`: `update_ui`, `wake_display`, `sleep_display`, `update_clock`
 
 **Alles mit `delay:` oder `wait_until:` gehört in ein Skript mit `mode: restart`,
 nie direkt in einen Trigger.** Ein Trigger ist eine Aktionsliste ohne

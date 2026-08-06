@@ -131,7 +131,7 @@ git checkout v0.1.0 && esphome run assist-satellit.yaml --device assist-satellit
 | `packages/core.yaml` | SoC, PSRAM, WLAN, API, OTA, Zeit, Diagnose |
 | `packages/hardware.yaml` | I2C, QSPI-Display, Touch, I2S-Audio, Codecs, Media Player |
 | `packages/voice.yaml` | Wake Word, Voice Assistant, Selects, Mute, Text-Sensoren |
-| `packages/ui.yaml` | Fonts, LVGL-Seiten, Ring-Animation, Standby-Uhr, Bedienseite |
+| `packages/ui.yaml` | Fonts, LVGL-Seiten, Ring-Animation, Standby-Uhr |
 
 Farben, Phasen-IDs und Standby-Zeiten stehen als Substitutions in
 `assist-satellit.yaml` — dort anpassen, nicht in den Packages.
