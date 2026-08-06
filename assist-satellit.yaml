@@ -24,9 +24,24 @@ substitutions:
   color_thinking: "0xFFC107"
   color_replying: "0x4CAF50"
   color_error: "0xF44336"
-  color_muted: "0x9E9E9E"
-  color_not_ready: "0x616161"
+  color_muted: "0x4A4A4A"
+  color_not_ready: "0x78909C"
   color_track: "0x1A1A1A"
+
+  # Texte
+  color_text: "0xFFFFFF"
+  color_text_dim: "0x707070"
+
+  # Ring-Geometrie und -Tempo. Der Glow ist eine breitere, halbtransparente
+  # Kopie hinter dem scharfen Ring; damit beide konzentrisch liegen, ist die
+  # Glow-Box um (glow_width - ring_width) groesser.
+  ring_size: "430"
+  ring_width: "14"
+  ring_glow_size: "442"
+  ring_glow_width: "26"
+  ring_glow_opa: "40%"
+  spin_time_listening: 1400ms
+  spin_time_thinking: 800ms
 
   # Standby
   standby_timeout: 30s

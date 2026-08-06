@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<![CDATA[
+<helmet>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Figtree:wght@500;600;700&display=swap');
+    body { margin: 0; background: #0a0a0a; font-family: 'Figtree', sans-serif; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</helmet>
+
+<div style="display:flex; flex-direction:column; gap:56px; padding:80px 60px; background:#0a0a0a; min-height:100vh; box-sizing:border-box;">
+
+  <div style="color:#8a8a8a; font-size:15px; letter-spacing:0.04em; font-weight:500;">VOICE SATELLITE — 1.75" AMOLED, 466×466, rund</div>
+
+  <div style="display:flex; gap:48px; flex-wrap:wrap;">
+
+    <!-- STANDBY -->
+    <div style="display:flex; flex-direction:column; align-items:center; gap:20px;">
+      <div style="width:466px; height:466px; border-radius:50%; background:radial-gradient(circle at 50% 50%, #050505 0%, #000000 70%); box-shadow: 0 0 0 6px #131313, 0 0 0 8px #1a1a1a, 0 30px 60px -20px rgba(0,0,0,0.7); position:relative; display:flex; align-items:center; justify-content:center; overflow:hidden;">
+        <div style="display:flex; flex-direction:column; align-items:center; opacity:0.55;">
+          <div style="font-size:108px; font-weight:700; color:#ffffff; letter-spacing:0.01em; line-height:1;">14:32</div>
+          <div style="font-size:24px; font-weight:600; color:#707070; margin-top:14px;">Dienstag, 4. August</div>
+        </div>
+      </div>
+      <div style="color:#eaeaea; font-size:18px; font-weight:600;">Standby</div>
+      <div style="color:#707070; font-size:14px;">Display stark gedimmt, Uhr wandert minütlich (AMOLED-Schutz)</div>
+    </div>
+
+    <!-- LISTENING -->
+    <div style="display:flex; flex-direction:column; align-items:center; gap:20px;">
+      <div style="width:466px; height:466px; border-radius:50%; background:#000000; box-shadow: 0 0 0 6px #131313, 0 0 0 8px #1a1a1a, 0 30px 60px -20px rgba(0,0,0,0.7); position:relative; display:flex; align-items:center; justify-content:center; overflow:hidden;">
+        <svg width="466" height="466" style="position:absolute; top:0; left:0;">
+          <circle cx="233" cy="233" r="215" fill="none" stroke="#1A1A1A" stroke-width="14"/>
+        </svg>
+        <div style="position:absolute; top:18px; left:18px; width:430px; height:430px; border-radius:50%; animation: spin 1.4s linear infinite;
+          -webkit-mask-image: radial-gradient(circle, transparent 201px, #000 201px, #000 215px, transparent 215px);
+          mask-image: radial-gradient(circle, transparent 201px, #000 201px, #000 215px, transparent 215px);
+          background: conic-gradient(from -90deg, transparent 0deg, rgba(3,169,244,0.05) 8deg, #03A9F4 70deg, transparent 70.5deg, transparent 360deg);
+          filter: drop-shadow(0 0 16px rgba(3,169,244,0.85)) drop-shadow(0 0 34px rgba(3,169,244,0.5));"></div>
+        <div style="display:flex; flex-direction:column; align-items:center; width:320px;">
+          <div style="font-size:34px; font-weight:700; color:#ffffff; letter-spacing:0.01em;">Ich höre</div>
+        </div>
+      </div>
+      <div style="color:#eaeaea; font-size:18px; font-weight:600;">Listening</div>
+      <div style="color:#707070; font-size:14px;">Spinner-Arc 70°, blau, 1.4s Umlauf</div>
+    </div>
+
+    <!-- THINKING / VERARBEITUNG -->
+    <div style="display:flex; flex-direction:column; align-items:center; gap:20px;">
+      <div style="width:466px; height:466px; border-radius:50%; background:#000000; box-shadow: 0 0 0 6px #131313, 0 0 0 8px #1a1a1a, 0 30px 60px -20px rgba(0,0,0,0.7); position:relative; display:flex; align-items:center; justify-content:center; overflow:hidden;">
+        <svg width="466" height="466" style="position:absolute; top:0; left:0;">
+          <circle cx="233" cy="233" r="215" fill="none" stroke="#1A1A1A" stroke-width="14"/>
+        </svg>
+        <div style="position:absolute; top:18px; left:18px; width:430px; height:430px; border-radius:50%; animation: spin 0.8s linear infinite;
+          -webkit-mask-image: radial-gradient(circle, transparent 201px, #000 201px, #000 215px, transparent 215px);
+          mask-image: radial-gradient(circle, transparent 201px, #000 201px, #000 215px, transparent 215px);
+          background: conic-gradient(from -90deg, transparent 0deg, rgba(255,193,7,0.05) 8deg, #FFC107 70deg, transparent 70.5deg, transparent 360deg);
+          filter: drop-shadow(0 0 16px rgba(255,193,7,0.85)) drop-shadow(0 0 34px rgba(255,193,7,0.5));"></div>
+        <div style="display:flex; flex-direction:column; align-items:center; width:320px; gap:10px;">
+          <div style="font-size:34px; font-weight:700; color:#ffffff; letter-spacing:0.01em;">Einen Moment</div>
+          <div style="font-size:22px; font-weight:500; color:#707070; text-align:center; margin-top:50px;">„Schalte das Licht im Wohnzimmer ein“</div>
+        </div>
+      </div>
+      <div style="color:#eaeaea; font-size:18px; font-weight:600;">Verarbeitung</div>
+      <div style="color:#707070; font-size:14px;">Spinner-Arc 70°, amber, 0.8s Umlauf (schneller)</div>
+    </div>
+
+    <!-- REPLYING / AUSGEFÜHRT -->
+    <div style="display:flex; flex-direction:column; align-items:center; gap:20px;">
+      <div style="width:466px; height:466px; border-radius:50%; background:#000000; box-shadow: 0 0 0 6px #131313, 0 0 0 8px #1a1a1a, 0 30px 60px -20px rgba(0,0,0,0.7); position:relative; display:flex; align-items:center; justify-content:center; overflow:hidden;">
+        <svg width="466" height="466" style="position:absolute; top:0; left:0;">
+          <circle cx="233" cy="233" r="215" fill="none" stroke="#1A1A1A" stroke-width="14"/>
+          <circle cx="233" cy="233" r="215" fill="none" stroke="#4CAF50" stroke-width="14"
+            style="filter: drop-shadow(0 0 20px #4CAF50) drop-shadow(0 0 40px rgba(76,175,80,0.55));"/>
+        </svg>
+        <div style="display:flex; flex-direction:column; align-items:center; width:320px; gap:8px;">
+          <div style="font-size:22px; font-weight:500; color:#707070;">„Schalte das Licht im Wohnzimmer ein“</div>
+          <div style="font-size:30px; font-weight:600; color:#ffffff; text-align:center; margin-top:20px; line-height:1.35;">Licht im Wohnzimmer ist an.</div>
+        </div>
+      </div>
+      <div style="color:#eaeaea; font-size:18px; font-weight:600;">Ausgeführt</div>
+      <div style="color:#707070; font-size:14px;">Voller Ring, grün, statisch — kein Rotieren beim Sprechen</div>
+    </div>
+
+  </div>
+
+  <div style="color:#5a5a5a; font-size:13px; max-width:900px; line-height:1.6;">
+    Farben und Texte entsprechen 1:1 <span style="color:#8a8a8a;">packages/ui.yaml</span>: Track #1A1A1A, Listening #03A9F4, Verarbeitung #FFC107, Ausgeführt #4CAF50. Font Figtree 500/600/700 mit GF_Latin_Core-Glyphen für Umlaute. Auf dem echten LVGL-Display ist der Glow ein CSS-Approximat — LVGL kennt keinen echten Blur/Glow-Filter; am nächsten kommt eine zweite, größere, halbtransparente Arc-Kopie hinter dem Hauptring (im Bild bereits so simuliert) oder ein Canvas-Widget mit vorgerendertem Glow-PNG.
+  </div>
+
+</div>
+]]>
+</x-dc>
+</body>
+</html>

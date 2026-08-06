@@ -9,103 +9,245 @@
 # ueberall schwarz und der Standby faellt kaum auf.
 
 font:
+  # Groessen und Schnitte entsprechen den Design-Tokens aus
+  # design_handoff_voice_ui/README.md.
   - file: "gfonts://Figtree@500"
     id: font_small
     size: 22
     glyphsets: [GF_Latin_Core]
   - file: "gfonts://Figtree@600"
-    id: font_medium
-    size: 30
-    glyphsets: [GF_Latin_Core]
-  - file: "gfonts://Figtree@600"
     id: font_date
-    size: 26
+    size: 24
     glyphsets: [GF_Latin_Core]
   - file: "gfonts://Figtree@700"
     id: font_clock
-    size: 120
+    size: 108
     glyphsets: [GF_Latin_Core]
+
+  # Statusicons aus "Voice Assistant UI.dc.html" (Design-Handoff). Ersetzen
+  # auf page_main den frueheren Phasentext komplett - siehe update_ui.
+  # Codepoints aus dem offiziellen Material-Symbols-Codepoint-Register:
+  # https://github.com/google/material-design-icons/blob/master/variablefont/MaterialSymbolsOutlined%5BFILL%2CGRAD%2Copsz%2Cwght%5D.codepoints
+  - file: "gfonts://Material+Symbols+Outlined"
+    id: font_icon
+    size: 72
+    glyphs:
+      - "\U0000E31D" # mic       - listening
+      - "\U0000E02B" # mic_off   - muted
+      - "\U0000E668" # check     - replying
+      - "\U0000F083" # warning   - error
+      - "\U0000E648" # wifi_off  - not ready
 
 lvgl:
   displays: [disp]
   touchscreens: [touch]
-  # Startwert. Bei Speicherproblemen (Boot-Loop, LVGL-Alloc-Fehler) auf 12
-  # reduzieren, bei ruckelnder Animation auf 50 erhoehen.
-  buffer_size: 25%
+  # LVGL versucht den Zeichenpuffer zuerst im internen RAM anzulegen und faellt
+  # erst danach auf PSRAM zurueck (lvgl_esphome.cpp: buffer_frac_ >=
+  # MIN_BUFFER_FRAC/2). Bei 466x466 in RGB565 waren 25% rund 108 kB internes
+  # RAM - genau die Reserve, um die sich sonst Audio-Ringpuffer,
+  # micro_wake_word-Arena und WLAN-Stack streiten. 12,5% sind ~54 kB und fuer
+  # ein paar Arcs und Labels im Teilbild-Modus reichlich.
+  # Bei ruckelnder Animation wieder erhoehen, bei LVGL-Alloc-Fehlern senken.
+  #
+  # TEMPORAER 100% zum Debuggen: Ring bei Listening/Bedienseite erscheint
+  # klein und nach oben-links verschoben (Foto-Befund, siehe Chat). Verdacht:
+  # Teilbild-Rendering (12,5%) kollidiert mit dem runden Panel/CO5300 beim
+  # Neuzeichnen von Arc/Spinner-Widgets. 100% passt nicht mehr ins interne
+  # RAM und landet komplett im PSRAM - eliminiert Teilbild-Rendering als
+  # Variable, ohne mit Audio/WLAN um internes RAM zu konkurrieren. Nach dem
+  # Test wieder auf 12% zuruecksetzen, falls es nicht die Ursache war.
+  buffer_size: 100%
   bg_color: 0x000000
   on_idle:
     timeout: ${standby_timeout}
     then:
-      - script.execute: sleep_display
+      # on_idle misst reine Touch-Untaetigkeit, nicht Untaetigkeit des
+      # Assistenten. Ohne diese Bedingung faellt das Display mitten in einen
+      # laufenden Sprachvorgang in den Standby, sobald 30 s niemand den
+      # Bildschirm angefasst hat. Den Rueckweg in den Standby uebernimmt
+      # ohnehin update_ui, sobald die Phase wieder auf Idle steht.
+      - if:
+          condition:
+            lambda: |-
+              return id(voice_assistant_phase) != ${phase_listening}
+                  && id(voice_assistant_phase) != ${phase_thinking}
+                  && id(voice_assistant_phase) != ${phase_replying};
+          then:
+            - script.execute: sleep_display
 
   pages:
     # ------------------------------------------------------------ Hauptseite
     - id: page_main
       bg_color: 0x000000
       bg_opa: COVER
+      # Reihenfolge = Z-Ordnung: Spur unten, darueber je Glow und scharfer
+      # Ring, obenauf die Texte. Immer genau eine der drei Ringvarianten ist
+      # sichtbar, umgeschaltet in update_ui.
       widgets:
         # Statische Spur des Rings
         - arc:
             id: ring_track
             align: CENTER
-            width: 430
-            height: 430
+            width: ${ring_size}
+            height: ${ring_size}
             start_angle: 0
             end_angle: 360
             adjustable: false
             value: 0
             main:
               arc_color: ${color_track}
-              arc_width: 14
+              arc_width: ${ring_width}
             indicator:
               arc_opa: TRANSP
 
-        # Rotierender Teil des Rings
-        - spinner:
-            id: ring_spin
+        # --- Voller, stehender Ring: Antwort, Fehler, stumm, nicht bereit ---
+        - arc:
+            id: ring_full_glow
             align: CENTER
-            width: 430
-            height: 430
-            spin_time: 1400ms
+            width: ${ring_glow_size}
+            height: ${ring_glow_size}
+            start_angle: 0
+            end_angle: 360
+            adjustable: false
+            min_value: 0
+            max_value: 100
+            value: 100
+            main:
+              arc_opa: TRANSP
+            indicator:
+              arc_color: ${color_not_ready}
+              arc_width: ${ring_glow_width}
+              arc_opa: ${ring_glow_opa}
+
+        - arc:
+            id: ring_full
+            align: CENTER
+            width: ${ring_size}
+            height: ${ring_size}
+            start_angle: 0
+            end_angle: 360
+            adjustable: false
+            min_value: 0
+            max_value: 100
+            value: 100
+            main:
+              arc_opa: TRANSP
+            indicator:
+              arc_color: ${color_not_ready}
+              arc_width: ${ring_width}
+
+        # --- Langsamer Umlauf: Zuhoeren ---
+        # spin_time ist zur Laufzeit nicht aenderbar (Spinner hat kein
+        # Modify-Schema), deshalb zwei fertige Spinner statt einem.
+        - spinner:
+            id: ring_slow_glow
+            align: CENTER
+            width: ${ring_glow_size}
+            height: ${ring_glow_size}
+            spin_time: ${spin_time_listening}
             arc_length: 70
+            hidden: true
             main:
               arc_opa: TRANSP
             indicator:
               arc_color: ${color_listening}
-              arc_width: 14
+              arc_width: ${ring_glow_width}
+              arc_opa: ${ring_glow_opa}
 
-        - label:
-            id: lbl_phase
+        - spinner:
+            id: ring_slow
             align: CENTER
-            y: -110
-            width: 300
-            text: ""
-            text_font: font_small
-            text_color: 0x9E9E9E
-            text_align: CENTER
-            long_mode: DOT
+            width: ${ring_size}
+            height: ${ring_size}
+            spin_time: ${spin_time_listening}
+            arc_length: 70
+            hidden: true
+            main:
+              arc_opa: TRANSP
+            indicator:
+              arc_color: ${color_listening}
+              arc_width: ${ring_width}
 
-        - label:
-            id: lbl_request
+        # --- Schneller Umlauf: Verarbeitung ---
+        - spinner:
+            id: ring_fast_glow
             align: CENTER
-            y: -60
-            width: 310
-            text: ""
-            text_font: font_small
-            text_color: 0x707070
-            text_align: CENTER
-            long_mode: WRAP
+            width: ${ring_glow_size}
+            height: ${ring_glow_size}
+            spin_time: ${spin_time_thinking}
+            arc_length: 70
+            hidden: true
+            main:
+              arc_opa: TRANSP
+            indicator:
+              arc_color: ${color_thinking}
+              arc_width: ${ring_glow_width}
+              arc_opa: ${ring_glow_opa}
 
-        - label:
-            id: lbl_response
+        - spinner:
+            id: ring_fast
             align: CENTER
-            y: 40
-            width: 320
+            width: ${ring_size}
+            height: ${ring_size}
+            spin_time: ${spin_time_thinking}
+            arc_length: 70
+            hidden: true
+            main:
+              arc_opa: TRANSP
+            indicator:
+              arc_color: ${color_thinking}
+              arc_width: ${ring_width}
+
+        # --- Statusicon ---
+        # Ersetzt seit dem Design-Handoff (design_handoff_voice_ui) den
+        # Phasentext komplett - Glyph und Farbe setzt update_ui je Phase.
+        - label:
+            id: lbl_icon
+            align: CENTER
+            width: 90
+            height: 90
             text: ""
-            text_font: font_medium
-            text_color: 0xFFFFFF
+            text_font: font_icon
+            text_color: ${color_text}
             text_align: CENTER
-            long_mode: WRAP
+            hidden: true
+
+        # --- Drei Punkte: Verarbeitung ---
+        # Im Mockup blinken sie versetzt (flicker-ring); hier statisch, um
+        # keine eigene Endlos-Animation gegen den Spinner pflegen zu muessen.
+        - obj:
+            id: dot_1
+            align: CENTER
+            x: -30
+            width: 16
+            height: 16
+            radius: 8
+            bg_color: ${color_thinking}
+            bg_opa: COVER
+            border_width: 0
+            hidden: true
+        - obj:
+            id: dot_2
+            align: CENTER
+            x: 0
+            width: 16
+            height: 16
+            radius: 8
+            bg_color: ${color_thinking}
+            bg_opa: COVER
+            border_width: 0
+            hidden: true
+        - obj:
+            id: dot_3
+            align: CENTER
+            x: 30
+            width: 16
+            height: 16
+            radius: 8
+            bg_color: ${color_thinking}
+            bg_opa: COVER
+            border_width: 0
+            hidden: true
 
     # --------------------------------------------------------------- Standby
     - id: page_standby
@@ -118,15 +260,15 @@ lvgl:
             y: -20
             text: "--:--"
             text_font: font_clock
-            text_color: 0xFFFFFF
+            text_color: ${color_text}
             text_align: CENTER
         - label:
             id: lbl_date
             align: CENTER
-            y: 70
+            y: 61
             text: ""
             text_font: font_date
-            text_color: 0x707070
+            text_color: ${color_text_dim}
             text_align: CENTER
 
     # ------------------------------------------------------------- Bedienung
@@ -139,6 +281,8 @@ lvgl:
             align: CENTER
             width: 400
             height: 400
+            start_angle: 0
+            end_angle: 360
             min_value: 0
             max_value: 100
             value: 50
@@ -151,7 +295,18 @@ lvgl:
               arc_width: 18
             knob:
               bg_color: 0xFFFFFF
+            # Waehrend des Ziehens nur die Anzeige mitfuehren. Jedes
+            # volume_set schreibt den Wert ueber save_volume_restore_state_()
+            # in den NVS-Flash - beim Ziehen waeren das hunderte Schreibzugriffe
+            # pro Bedienvorgang (Flash-Verschleiss), und der Media-Player
+            # verwirft ohnehin Kommandos, sobald seine Queue voll ist.
             on_value:
+              - lvgl.label.update:
+                  id: lbl_volume
+                  text: !lambda return esphome::str_sprintf("%d%%", (int) x);
+              - script.execute: controls_timeout
+            # Erst beim Loslassen tatsaechlich setzen: ein Schreibzugriff.
+            on_release:
               - media_player.volume_set:
                   id: media_out
                   volume: !lambda return x / 100.0f;
@@ -183,6 +338,12 @@ lvgl:
                   text_color: 0xFFFFFF
             on_click:
               - switch.toggle: mute
+              # Beschriftung nachziehen - ohne das behaelt der Knopf die
+              # Aufschrift, die show_controls beim Oeffnen gesetzt hat.
+              - lvgl.label.update:
+                  id: lbl_mute
+                  text: !lambda |-
+                    return id(mute).state ? std::string("Stumm aus") : std::string("Stumm");
               - script.execute: controls_timeout
 
 script:
@@ -190,39 +351,98 @@ script:
   - id: update_ui
     mode: restart
     then:
-      - lvgl.label.update:
-          id: lbl_phase
-          text: !lambda |-
-            switch (id(voice_assistant_phase)) {
-              case ${phase_listening}: return std::string("Ich hoere ...");
-              case ${phase_thinking}:  return std::string("Einen Moment ...");
-              case ${phase_replying}:  return std::string("");
-              case ${phase_error}:     return std::string("Fehler");
-              case ${phase_muted}:     return std::string("Mikrofon aus");
-              case ${phase_not_ready}: return std::string("Keine Verbindung");
-              default:                 return std::string("");
-            }
-      - lvgl.label.update:
-          id: lbl_request
-          text: !lambda return id(text_request).state;
-      - lvgl.label.update:
-          id: lbl_response
-          text: !lambda return id(text_response).state;
-      # spin_time/arc_length sind bei lvgl.widget.update nicht aenderbar
-      # (Spinner hat kein Modify-Schema). Die Phase wird deshalb allein
-      # ueber die Ringfarbe kommuniziert.
-      - lvgl.widget.update:
-          id: ring_spin
-          indicator:
-            arc_color: !lambda |-
-              switch (id(voice_assistant_phase)) {
-                case ${phase_listening}: return lv_color_hex(${color_listening});
-                case ${phase_thinking}:  return lv_color_hex(${color_thinking});
-                case ${phase_replying}:  return lv_color_hex(${color_replying});
-                case ${phase_error}:     return lv_color_hex(${color_error});
-                case ${phase_muted}:     return lv_color_hex(${color_muted});
-                default:                 return lv_color_hex(${color_not_ready});
-              }
+      # Statusicon und Verarbeitungs-Punkte: erst alles aus, dann je Phase
+      # genau ein Icon oder die drei Punkte an. Text auf page_main gibt es
+      # seit dem Design-Handoff nicht mehr - Antworttext bleibt nur als
+      # text_sensor in HA verfuegbar, siehe design_handoff_voice_ui/README.md.
+      - lvgl.widget.hide: lbl_icon
+      - lvgl.widget.hide: dot_1
+      - lvgl.widget.hide: dot_2
+      - lvgl.widget.hide: dot_3
+      - if:
+          condition:
+            lambda: return id(voice_assistant_phase) == ${phase_thinking};
+          then:
+            - lvgl.widget.show: dot_1
+            - lvgl.widget.show: dot_2
+            - lvgl.widget.show: dot_3
+          else:
+            - if:
+                condition:
+                  lambda: |-
+                    return id(voice_assistant_phase) == ${phase_listening}
+                        || id(voice_assistant_phase) == ${phase_replying}
+                        || id(voice_assistant_phase) == ${phase_error}
+                        || id(voice_assistant_phase) == ${phase_muted}
+                        || id(voice_assistant_phase) == ${phase_not_ready};
+                then:
+                  - lvgl.label.update:
+                      id: lbl_icon
+                      text: !lambda |-
+                        switch (id(voice_assistant_phase)) {
+                          case ${phase_listening}: return std::string("\U0000E31D");
+                          case ${phase_replying}:  return std::string("\U0000E668");
+                          case ${phase_error}:     return std::string("\U0000F083");
+                          case ${phase_muted}:     return std::string("\U0000E02B");
+                          default:                 return std::string("\U0000E648");
+                        }
+                  - lvgl.widget.update:
+                      id: lbl_icon
+                      text_color: !lambda |-
+                        switch (id(voice_assistant_phase)) {
+                          case ${phase_muted}:
+                          case ${phase_not_ready}:
+                            return lv_color_hex(${color_text_dim});
+                          default:
+                            return lv_color_hex(${color_text});
+                        }
+                  - lvgl.widget.show: lbl_icon
+
+      # Ringvariante waehlen. Erst alles aus, dann genau eine Variante an -
+      # laeuft synchron innerhalb eines Durchgangs, also ohne Flackern.
+      - lvgl.widget.hide: ring_slow
+      - lvgl.widget.hide: ring_slow_glow
+      - lvgl.widget.hide: ring_fast
+      - lvgl.widget.hide: ring_fast_glow
+      - lvgl.widget.hide: ring_full
+      - lvgl.widget.hide: ring_full_glow
+      - if:
+          condition:
+            lambda: return id(voice_assistant_phase) == ${phase_listening};
+          then:
+            - lvgl.widget.show: ring_slow_glow
+            - lvgl.widget.show: ring_slow
+          else:
+            - if:
+                condition:
+                  lambda: return id(voice_assistant_phase) == ${phase_thinking};
+                then:
+                  - lvgl.widget.show: ring_fast_glow
+                  - lvgl.widget.show: ring_fast
+                else:
+                  # Antwort, Fehler, stumm, nicht bereit: stehender Vollring
+                  - lvgl.widget.update:
+                      id: ring_full
+                      indicator:
+                        arc_color: !lambda |-
+                          switch (id(voice_assistant_phase)) {
+                            case ${phase_replying}: return lv_color_hex(${color_replying});
+                            case ${phase_error}:    return lv_color_hex(${color_error});
+                            case ${phase_muted}:    return lv_color_hex(${color_muted});
+                            default:                return lv_color_hex(${color_not_ready});
+                          }
+                  - lvgl.widget.update:
+                      id: ring_full_glow
+                      indicator:
+                        arc_color: !lambda |-
+                          switch (id(voice_assistant_phase)) {
+                            case ${phase_replying}: return lv_color_hex(${color_replying});
+                            case ${phase_error}:    return lv_color_hex(${color_error});
+                            case ${phase_muted}:    return lv_color_hex(${color_muted});
+                            default:                return lv_color_hex(${color_not_ready});
+                          }
+                  - lvgl.widget.show: ring_full_glow
+                  - lvgl.widget.show: ring_full
       # Im Leerlauf gibt es nichts anzuzeigen -> Standby.
       # Alles andere weckt das Display.
       - if:
@@ -240,19 +460,41 @@ script:
     then:
       - if:
           condition:
-            lambda: |-
-              return id(voice_assistant_phase) == ${phase_idle}
-                  || id(voice_assistant_phase) == ${phase_muted};
+            lvgl.page.is_showing: page_controls
           then:
-            - script.execute: show_controls
+            # Schon auf der Bedienseite: nur den Ruecksprung-Timer verlaengern.
+            # show_controls wuerde die Widgets neu setzen und dabei den Arc auf
+            # den gespeicherten Wert zuruecksetzen - mitten im Bedienen.
+            - script.execute: controls_timeout
           else:
-            - script.execute: wake_display
+            - if:
+                condition:
+                  lambda: |-
+                    return id(voice_assistant_phase) == ${phase_idle}
+                        || id(voice_assistant_phase) == ${phase_muted};
+                then:
+                  - script.execute: show_controls
+                else:
+                  - script.execute: wake_display
 
   # ------------------------------------------------------- Display aufwecken
   - id: wake_display
     mode: restart
     then:
-      - lvgl.page.show: page_main
+      # Die Bedienseite nicht wegreissen, solange kein Sprachvorgang laeuft.
+      # Sonst springt schon der Druck auf den Stumm-Knopf zurueck auf
+      # page_main, weil der mute-Switch update_ui ausloest. Bei Listening,
+      # Thinking oder Replying hat die Statusanzeige dagegen Vorrang.
+      - if:
+          condition:
+            not:
+              and:
+                - lvgl.page.is_showing: page_controls
+                - lambda: |-
+                    return id(voice_assistant_phase) == ${phase_idle}
+                        || id(voice_assistant_phase) == ${phase_muted};
+          then:
+            - lvgl.page.show: page_main
       - light.turn_on:
           id: display_brightness
           brightness: ${active_brightness}
@@ -303,26 +545,25 @@ script:
             return id(ha_time).now().is_valid()
                  ? id(ha_time).now().strftime("%H:%M")
                  : std::string("--:--");
+      # "Dienstag, 4. August" - strftime kennt nur die C-Locale, also
+      # englische Namen. Deshalb von Hand.
       - lvgl.label.update:
           id: lbl_date
           text: !lambda |-
-            return id(ha_time).now().is_valid()
-                 ? id(ha_time).now().strftime("%d.%m.%Y")
-                 : std::string("");
+            static const char *const WOCHENTAG[] = {
+              "Sonntag", "Montag", "Dienstag", "Mittwoch",
+              "Donnerstag", "Freitag", "Samstag"};
+            static const char *const MONAT[] = {
+              "Januar", "Februar", "März", "April", "Mai", "Juni", "Juli",
+              "August", "September", "Oktober", "November", "Dezember"};
+            auto t = id(ha_time).now();
+            if (!t.is_valid())
+              return std::string("");
+            return esphome::str_sprintf("%s, %d. %s",
+                                        WOCHENTAG[t.day_of_week - 1],
+                                        t.day_of_month,
+                                        MONAT[t.month - 1]);
 
-interval:
-  # Uhr aktualisieren
-  - interval: 10s
-    then:
-      - script.execute: update_clock
-
-  # AMOLED-Schutz: die Uhr wandert minuetlich ein paar Pixel, damit sich
-  # nichts einbrennt.
-  - interval: 60s
-    then:
-      - lvgl.widget.update:
-          id: lbl_clock
-          y: !lambda return -20 + (int8_t) (random_uint32() % 17) - 8;
-      - lvgl.widget.update:
-          id: lbl_date
-          y: !lambda return 70 + (int8_t) (random_uint32() % 17) - 8;
+  # Minuetlicher Takt fuer Uhr und Einbrennschutz haengt am Zeitgeber in
+  # core.yaml (`time: ha_time` -> on_time), weil ESPHome Plattform-Listen
+  # ueber Package-Grenzen hinweg nicht per id zusammenfuehrt.

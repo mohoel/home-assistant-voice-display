@@ -1,0 +1,13 @@
+{
+  "name": "Assist Satellit",
+  "version": "1.0.0",
+  "new_install_prompt_erase": true,
+  "builds": [
+    {
+      "chipFamily": "ESP32-S3",
+      "parts": [
+        { "path": "../.esphome/build/assist-satellit/build/firmware.factory.bin", "offset": 0 }
+      ]
+    }
+  ]
+}

@@ -8,6 +8,11 @@ i2c:
     sda: GPIO15
     scl: GPIO14
     scan: true
+    # ESPHome faehrt I2C sonst mit 50 kHz. Der Touchcontroller wird bei jedem
+    # Interrupt komplett ausgelesen; bei 50 kHz blockiert das den Loop lange
+    # genug, um Audio-Callbacks zu verzoegern. CST9217, ES7210 und ES8311
+    # koennen laut Datenblatt alle 400 kHz.
+    frequency: 400kHz
 
 # ---------------------------------------------------------------- Display ---
 spi:
@@ -106,7 +111,10 @@ speaker:
     sample_rate: 48000
     bits_per_sample: 16bit
     channel: mono
-    buffer_duration: 100ms
+    # 100 ms reichen nicht, um WLAN-Jitter beim FLAC-Stream der TTS-Antwort
+    # aufzufangen - der Puffer laeuft leer und die Antwort stottert. 500 ms
+    # ist der ESPHome-Default und liegt dank PSRAM nicht im internen RAM.
+    buffer_duration: 500ms
 
 media_player:
   - platform: speaker

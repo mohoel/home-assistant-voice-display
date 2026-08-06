@@ -12,9 +12,10 @@ Statusanzeige statt eines LED-Rings.
 - Wake Word lokal auf dem Gerät (`micro_wake_word`) **oder** in Home Assistant —
   umschaltbar über eine Select-Entity, ohne Neustart
 - Gesprochener Text und Antwort erscheinen zusätzlich als Text auf dem Display
-- Animierter Ring beim Zuhören, Nachdenken und Antworten, farbcodiert nach Phase
-- Standby zeigt eine stark gedimmte Uhr; schwarzer AMOLED-Hintergrund heißt
-  physisch abgeschaltete Pixel
+- Ring als Statusanzeige, farbcodiert nach Phase: blau rotierend beim Zuhören,
+  amber und schneller beim Verarbeiten, grün und stehend bei der Antwort
+- Standby zeigt eine stark gedimmte Uhr mit Datum („Dienstag, 4. August");
+  schwarzer AMOLED-Hintergrund heißt physisch abgeschaltete Pixel
 - Antippen im Standby öffnet Lautstärke und Stummschaltung direkt auf dem Touchscreen
 - Stummschaltung, Wake-Word-Empfindlichkeit und Displayhelligkeit als HA-Entities
 
@@ -38,13 +39,24 @@ CST9217-Touchcontroller im Core enthalten.
 
 ### 2. Secrets anlegen
 
-```bash
-cp secrets.yaml.example secrets.yaml
+Im Projektordner eine Datei `secrets.yaml` mit diesen fünf Einträgen anlegen:
+
+```yaml
+wifi_ssid: "MeinWLAN"
+wifi_password: "..."
+ap_password: "..."            # Fallback-Hotspot, falls das WLAN fehlt
+api_encryption_key: "..."     # 32 Byte base64, für Home Assistant
+ota_password: "..."
 ```
 
-Danach in `secrets.yaml` WLAN-Name und -Passwort eintragen. API-Key und
-OTA-Passwort sind bereits generiert. Die Datei steht in `.gitignore` und wird
-nie committet.
+Schlüssel und Passwörter erzeugen:
+
+```bash
+openssl rand -base64 32
+```
+
+Die Datei steht in `.gitignore` und wird nie committet. Es gibt bewusst keine
+Beispieldatei im Repo.
 
 ### 3. Erstmaliges Flashen per USB
 
@@ -62,6 +74,30 @@ esphome run assist-satellit.yaml --device /dev/cu.usbmodem101
 
 Meldet sich kein Port, das Board in den Download-Modus bringen: **BOOT** halten,
 **RESET** kurz drücken, **BOOT** loslassen.
+
+**Alternative: ESPHome Desktop.** Seit August 2026 gibt es unter
+[desktop.esphome.io](https://desktop.esphome.io) ein natives macOS-DMG, das Python
+und ESPHome mitbringt (kein `brew install esphome` nötig) und im Browser das
+ESPHome-Device-Builder-Dashboard startet. Für den USB-Erstflash übernimmt die
+Dashboard-UI die Port-Erkennung und führt visuell durch den BOOT/RESET-Download-
+Modus — praktisch für den fummeligsten Teil des Ersteinrichtens. Im Dashboard als
+Konfigurationsverzeichnis den Projektordner (`/Users/moritzholzer/Claude/Assist`)
+wählen, nicht das Default-`~/esphome/`.
+
+⚠️ Das Dashboard committet bei jeder YAML-Änderung automatisch ins lokale
+Git-Repo. Für den einmaligen Erstflash unkritisch, für den laufenden
+Update-Workflow mit getaggten Versionen (siehe unten) sollte weiterhin die CLI
+(`esphome run … --device assist-satellit.local`) genutzt werden, damit Commits
+bewusst gesetzt werden.
+
+**Alternative: Browser-Flash ohne Terminal.** Nach einmal `esphome compile
+assist-satellit.yaml` liegt die fertige Firmware unter `.esphome/build/`. Die
+Seite [`web-flash/index.html`](web-flash/index.html) flasht sie per
+[ESP Web Tools](https://esphome.github.io/esp-web-tools/) über Web Serial in
+Chrome/Edge — kein `esphome run` nötig, nur einmalig ein lokaler Webserver
+(`python3 -m http.server 8000` im Projektordner, dann
+`http://localhost:8000/web-flash/` öffnen). Bei jeder neuen Kompilierung reicht
+Neuladen der Seite, da sie direkt auf die Build-Ausgabe zeigt.
 
 ### 4. In Home Assistant einbinden
 

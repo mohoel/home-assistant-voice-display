@@ -14,7 +14,11 @@ Anforderungen aus dem Gespräch:
 2. Erstmaliger Flash per USB am Computer (Mac)
 3. Einbindung in Home Assistant
 4. OTA-Updates für spätere Features, versioniert über ein **privates GitHub-Repo, lokal geklont**
-5. Antworttext zusätzlich auf dem Display anzeigen
+5. ~~Antworttext zusätzlich auf dem Display anzeigen~~ — mit dem zweiten
+   Design-Handoff (Statusicons statt Phasentext, siehe Phase 4) bewusst
+   verworfen: `page_main` zeigt seither nur noch Ring + Icon, der Antworttext
+   bleibt als `text_sensor` in HA verfügbar, erscheint aber nicht mehr auf dem
+   Display selbst.
 6. Standby = Display praktisch aus / gedimmte Uhr; bei Zuhören & Ausführen ein
    animierter Ring
 7. Wake-Word-Engine in HA umschaltbar (On device ↔ In Home Assistant)
@@ -108,16 +112,20 @@ zweites Gerät später nur eine weitere dünne Datei braucht.
 
 ### Voice-Assistant-Phasenmodell (übernommen von Box-3)
 
-| ID | Phase | Ring-Farbe | Deutscher Text |
+| ID | Phase | Ring-Farbe | Icon |
 |---|---|---|---|
 | 1 | idle | aus | (Standby-Page) |
-| 2 | listening | `#03A9F4` blau, Spinner | „Ich höre …" |
-| 3 | thinking | `#FFC107` amber, Spinner schneller | „Einen Moment …" |
-| 4 | replying | `#4CAF50` grün, Puls | Antworttext |
-| 10 | not ready | `#616161` grau | „Keine Verbindung" |
-| 11 | error | `#F44336` rot | Fehlermeldung |
-| 12 | muted | `#9E9E9E` grau, statisch | „Mikrofon aus" |
-| 20 | timer finished | `#FF9800` orange, blinkend | „Timer abgelaufen" |
+| 2 | listening | `#03A9F4` blau, Spinner | Mikrofon |
+| 3 | thinking | `#FFC107` amber, Spinner schneller | drei Punkte |
+| 4 | replying | `#4CAF50` grün, Vollring | Haken |
+| 10 | not ready | `#78909C` blaugrau, Vollring | WLAN aus |
+| 11 | error | `#F44336` rot, Vollring | Warndreieck |
+| 12 | muted | `#4A4A4A` grau, Vollring | Mikrofon aus |
+| 20 | timer finished | `#FF9800` orange, blinkend | — (Phase 6, noch offen) |
+
+Farben stehen als Substitutions in `assist-satellit.yaml`. Icons sind Glyphen aus
+`font_icon` (`gfonts://Material+Symbols+Outlined`) — siehe „Design-Referenz" in
+[CLAUDE.md](../CLAUDE.md).
 
 ### Display-Design
 
@@ -126,16 +134,19 @@ zweites Gerät später nur eine weitere dünne Datei braucht.
   Die Track-Arc (Hauptteil) bleibt dunkelgrau `#1A1A1A`, die Indikator-Arc bekommt
   die Phasenfarbe. `arc_length: 70°`, `spin_time` phasenabhängig
   (listening 1400 ms, thinking 800 ms).
-- Für `replying` und `muted` statt Spinner ein statischer `arc` über den vollen
-  Kreis in Phasenfarbe (kein Drehen während des Sprechens).
-- Zentrum, drei Labels innerhalb eines 300×300-Quadrats (rundes Display!):
-  - `lbl_phase` — Phasentext, klein, oben
-  - `lbl_request` — STT-Transkript aus `on_stt_end`, gedämpft grau
-  - `lbl_response` — TTS-Text aus `on_tts_start`, weiß, `long_mode: wrap`,
-    max. ~5 Zeilen
-- Textquellen: `voice_assistant.on_stt_end` (Variable `x` = Transkript) und
-  `voice_assistant.on_tts_start` (Variable `x` = Antworttext). Beide werden in
-  Template-Text-Sensoren gespiegelt, damit die Texte auch in HA sichtbar sind.
+- Für `replying`, `error`, `muted` und `not ready` statt Spinner ein statischer
+  `arc` über den vollen Kreis in Phasenfarbe (kein Drehen während des Sprechens).
+  Muted/Not-Ready sind im Design-Mockup gestrichelt/gepunktet — LVGL-Arc kann das
+  nicht, umgesetzt ist nur der Farbunterschied (siehe „Bekannte Einschränkungen"
+  in CLAUDE.md).
+- Zentrum: ein Statusicon (`lbl_icon`, Font `font_icon`) statt Text — Mikrofon,
+  Haken, Warndreieck, Mikrofon-aus oder WLAN-aus je nach Phase; bei `thinking`
+  stattdessen drei Punkte (`dot_1`–`dot_3`). Frühere Textlabels (`lbl_phase`,
+  `lbl_request`, `lbl_response`) sind entfallen, siehe Anforderung 5 oben.
+- Textquellen bleiben bestehen, nur ohne Display-Ausgabe:
+  `voice_assistant.on_stt_end` (Variable `x` = Transkript) und
+  `voice_assistant.on_tts_start` (Variable `x` = Antworttext) werden weiterhin in
+  Template-Text-Sensoren gespiegelt, damit die Texte in HA sichtbar sind.
 
 **Standby-Page**: große Uhr `HH:MM` (Font ~120 px), Datum klein darunter,
 Display-Helligkeit auf ~8 %. Gegen Einbrennen wird die Uhr-Position jede Minute um
@@ -159,6 +170,16 @@ Jede Phase endet mit einem flash- und testbaren Zustand.
 
 1. ESPHome-CLI installieren: `uv tool install esphome` (Fallback: `pipx install esphome`).
    Version prüfen, muss ≥ 2026.7.0 sein.
+   - **Alternative für den Erstflash:** [ESPHome Desktop](https://desktop.esphome.io)
+     (macOS-DMG, seit August 2026, v1.0.2) bringt Python + ESPHome mit und startet im
+     Browser das Device-Builder-Dashboard. Die Dashboard-UI übernimmt Port-Erkennung
+     und BOOT/RESET-Download-Modus-Dialog beim USB-Erstflash — spart die manuelle
+     `ls /dev/cu.usbmodem*`-Sucherei und den BOOT/RESET-Handgriff aus Phase 1/
+     Verification. Als Konfigurationsverzeichnis den Projektordner wählen (wird als
+     bestehendes Git-Repo erkannt, nicht neu initialisiert). Danach für Compile/OTA/
+     Logs bei der CLI bleiben (siehe Punkt unten) — das Dashboard committet bei jeder
+     YAML-Änderung automatisch, was dem getaggten Update-Workflow
+     (`git tag v0.1` …) in die Quere kommt, wenn man nicht aufpasst.
 2. `git init` in `/Users/moritzholzer/Claude/Assist`, `.gitignore` anlegen
    (`secrets.yaml`, `.esphome/`, `*.bin`, `.DS_Store`).
 3. `secrets.yaml.example` + reale `secrets.yaml`: `wifi_ssid`, `wifi_password`,
@@ -199,7 +220,9 @@ In `packages/hardware.yaml`:
 - `microphone: platform: i2s_audio`, `i2s_din_pin: GPIO10`, `adc_type: external`,
   16000 Hz / 16 bit
 - `speaker: platform: i2s_audio`, `i2s_dout_pin: GPIO8`, `dac_type: external`,
-  48000 Hz / 16 bit, `audio_dac: es8311_dac`, `buffer_duration: 100ms`
+  48000 Hz / 16 bit, `audio_dac: es8311_dac`, `buffer_duration: 500ms`
+  (ursprünglich waren hier 100 ms geplant — zu wenig, um WLAN-Jitter beim
+  FLAC-Stream abzufangen; 500 ms ist der ESPHome-Default)
 - `switch: platform: gpio` auf GPIO46 mit **`ignore_strapping_warning: true`**,
   `restore_mode: RESTORE_DEFAULT_ON` (Speaker-Amp)
 - `media_player: platform: speaker` mit `announcement_pipeline` (FLAC, 48 kHz,
@@ -255,9 +278,14 @@ erscheinen lesbar, deutsche Umlaute werden korrekt gerendert.
 
 ### Phase 5 — Standby, Uhr, Touch-Bedienung
 
-- Standby-Page mit Uhr, Pixel-Shift-Interval (60 s)
+- Standby-Page mit Uhr, Pixel-Shift im Minutentakt (umgesetzt als
+  `ha_time.on_time: seconds: 0` in `core.yaml`, nicht als `interval:` — nur
+  wenn `page_standby` sichtbar ist)
 - Control-Page: Volume-`arc` (adjustable) gebunden an `media_player.volume_set`,
-  Mute-Button gebunden an den Mute-Switch, Auto-Rückkehr nach 8 s
+  Mute-Button gebunden an den Mute-Switch, Auto-Rückkehr nach 8 s.
+  **`volume_set` gehört an `on_release`, nicht an `on_value`** — der
+  Speaker-Media-Player schreibt bei jedem Aufruf in den NVS-Flash, ein
+  einziger Ziehvorgang auf `on_value` erzeugt sonst hunderte Schreibzugriffe.
 - Optional: `number`-Entities in HA für Standby-Timeout und Standby-Helligkeit
 
 ### Phase 6 — Optional / später
@@ -269,6 +297,75 @@ erscheinen lesbar, deutsche Umlaute werden korrekt gerendert.
 - QMI8658-IMU als Wake-on-Motion statt/zusätzlich zum Touch
 - SD-Karte für lokale Sounds
 - Deutsches Wake-Word: eigenes microWakeWord-Modell trainieren
+
+### Phase 7 — Weitere Standby-Bildschirme (HA-Sensoren, Grafik)
+
+Statt einer einzelnen Standby-Uhr mehrere Standby-Pages, zwischen denen per
+Wisch- oder Tipp-Geste umgeschaltet wird (LVGL `page_standby_*`, gesteuert über
+`touchscreen: on_touch:` mit Geometrie-Auswertung der Touch-Koordinaten, oder
+LVGL-eigenes Swipe-Gesture-Handling ab der im Core verfügbaren LVGL-Version
+prüfen).
+
+- **Sensor-Page**: `text_sensor`/`sensor`-Werte aus HA per `homeassistant:`
+  Plattform einbinden (analog zu `ha_time` in `core.yaml`) — z. B. Innen-/
+  Außentemperatur, Luftfeuchte, ein Kalender-Termin. Layout als einfache
+  Label-Liste, kein Scrollen (rundes Display, Platz ist knapp).
+- **Grafik-Page**: entweder ein statisches SVG/PNG (LVGL `image`-Widget,
+  Asset in `packages/ui.yaml` als `image:`-Ressource) oder ein einfacher
+  Sparkline-Chart via LVGL `chart`-Widget für einen Verlaufswert (z. B.
+  Stromverbrauch, Temperaturkurve) — Datenversorgung über
+  `sensor.on_value` in einen `chart`-Series-Puffer.
+- Auswahl der aktiven Standby-Page bzw. Reihenfolge als `select`-Entity in HA,
+  analog zum bestehenden `wake_word_engine_location`-Select.
+- Achtung: jede zusätzliche Standby-Page erhöht den LVGL-Speicherbedarf
+  (`buffer_size`) — nach Einbau erneut auf Boot-Loops/Alloc-Fehler prüfen
+  (siehe Verification Phase 4/5).
+
+### Phase 8 — Menü für Einstellungen und OTA
+
+Eine über die Control-Page erreichbare Settings-Page (LVGL `page_settings`),
+damit Grundeinstellungen ohne HA-App am Gerät selbst änderbar sind:
+
+- Einträge: Standby-Helligkeit, Standby-Timeout, aktive Standby-Page(s),
+  Wake-Word-Engine-Standort (spiegelt den bestehenden HA-Select), Lautstärke.
+  Jeweils als LVGL-`arc`/`switch`/`dropdown`, rückgekoppelt an die
+  entsprechenden ESPHome-`number`/`select`-Entities, damit HA und Touch-UI
+  denselben Zustand zeigen.
+- **OTA-Status/-Anstoß im Menü**: aktuelle `project.version` (Substitution)
+  anzeigen, dazu ein Button, der einen manuellen `ota.trigger`-artigen Ablauf
+  simuliert — ESPHome hat keinen "Check for update"-Trigger im `ota:`-Kern,
+  daher realistisch nur: (a) Firmware-Version + WLAN-Signal/Uptime anzeigen,
+  (b) ein `button:`-Entity "Neustart in OTA-Bereitschaft", (c) tatsächliches
+  Einspielen bleibt der Mac-Workflow (`esphome run … --device
+  assist-satellit.local`) — das Menü zeigt Status, löst aber keinen
+  Remote-Fetch aus (das Gerät hat keinen Internetzugriff auf GitHub).
+- Erreichbarkeit: von der Control-Page ein zusätzlicher Button/Icon zum
+  Settings-Menü, mit demselben 8-s-Inaktivitäts-Timeout wie
+  `controls_timeout`.
+
+### Phase 9 — Alternativer Media Player für die Sprachausgabe (HA-seitig)
+
+Ziel: unter dem Voice-Satellite-Gerät in Home Assistant auswählen können, dass
+TTS-Antworten (und ggf. Wake-/Timer-Sounds) auf einem **anderen** `media_player`
+ausgegeben werden als dem eingebauten Lautsprecher — z. B. auf einer im Raum
+stehenden Sonos/Cast-Box.
+
+- Recherche nötig, ob das über HA-Bordmittel geht (Assist-Satellite-Entity hat
+  in aktuellen HA-Versionen teils eine Konfigurationsoption "bevorzugter
+  Media Player" für die Pipeline-Ausgabe) oder ob es geräteseitig gelöst werden
+  muss.
+- Geräteseitige Variante: zusätzliches `select`-Entity `Audio-Ausgabe`, das
+  zwischen dem eingebauten `speaker_media_player` und einem in HA
+  vorhandenen `media_player`-Entity umschaltet; die Weiterleitung an ein
+  fremdes Entity kann ESPHome selbst nicht (kein ausgehender
+  `media_player.play_media`-Call auf ein anderes HA-Entity aus dem Gerät
+  heraus) — das müsste dann per HA-Automatisierung erfolgen, die auf
+  `voice_assistant`-Events lauscht und die TTS-URL an das gewählte Ziel
+  weiterreicht, oder per HA-seitigem `assist_satellite`-Konfigurationsfeld,
+  falls die Integration das nativ unterstützt (zu prüfen anhand der
+  aktuellen HA-Release-Notes zur `assist_satellite`-Plattform).
+- Vor Umsetzung klären: Soll der eingebaute Lautsprecher dabei stumm bleiben
+  (echtes Umleiten) oder soll parallel ausgegeben werden?
 
 ---
 
@@ -303,6 +400,9 @@ cd /Users/moritzholzer/Claude/Assist && git pull && esphome run assist-satellit.
    ```bash
    cd /Users/moritzholzer/Claude/Assist && esphome run assist-satellit.yaml --device /dev/cu.usbmodem101
    ```
+   Alternativ per **ESPHome Desktop** (siehe Phase 0): Dashboard im Browser öffnen,
+   Projektordner als Konfigurationsverzeichnis wählen, Gerät im „Install"-Dialog per
+   USB flashen — die Port-/Download-Modus-Schritte übernimmt dort die UI.
 4. Danach hängt die Logausgabe am seriellen Port — Boot-Log auf Fehler prüfen
    (I2C-Scan muss ES7210, ES8311, CST9217, AXP2101 finden).
 5. In HA: Einstellungen → Geräte → ESPHome sollte `assist-satellit` per mDNS
@@ -362,3 +462,4 @@ cd /Users/moritzholzer/Claude/Assist && git pull && esphome run assist-satellit.
 - [ESPHome voice_assistant](https://esphome.io/components/voice_assistant/)
 - [ESPHome micro_wake_word](https://esphome.io/components/micro_wake_word/)
 - [ESPHome LVGL](https://esphome.io/components/lvgl/)
+- [ESPHome Desktop (macOS/Windows/Linux-App, seit August 2026)](https://github.com/esphome/esphome-desktop)

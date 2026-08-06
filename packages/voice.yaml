@@ -17,7 +17,12 @@ micro_wake_word:
   microphone:
     microphone: mic
     gain_factor: 4
-  stop_after_detection: false
+  # Nach einer Erkennung die Inferenz anhalten. Mit false lief das Wake-Word-
+  # Modell waehrend des gesamten Sprachvorgangs weiter, hat auf demselben
+  # Mikrofonstream permanent Erkennungen gemeldet (daher die
+  # duplicate_wake_up_detected-Filterung in on_error) und dabei dauerhaft
+  # CPU verbraucht. start_wake_word startet es in end_session wieder.
+  stop_after_detection: true
   task_stack_in_psram: true
   vad:
   models:
@@ -46,6 +51,10 @@ voice_assistant:
   volume_multiplier: 2.0
 
   on_listening:
+    # Aufraeum-Timer eines vorherigen Durchgangs abbrechen. Sonst setzt deren
+    # verzoegertes set_idle_or_muted mitten in den neuen Vorgang hinein.
+    - script.stop: end_session
+    - script.stop: clear_error
     - lambda: id(voice_assistant_phase) = ${phase_listening};
     - text_sensor.template.publish:
         id: text_request
@@ -74,35 +83,12 @@ voice_assistant:
         state: !lambda return x;
     - script.execute: update_ui
 
+  # Warten und Aufraeumen passiert in end_session. Ein Trigger ist keine
+  # Automation mit definierter Restart-Semantik - lage das wait_until/delay
+  # direkt hier, wuerde ein zweiter on_end-Aufruf in die noch laufende
+  # Aktionsliste hineinlaufen. Das Skript ist mode: restart und damit sauber.
   on_end:
-    # Warten bis die Sprachausgabe wirklich durch ist, sonst kollidiert
-    # das Wake Word mit dem noch belegten I2S-Bus.
-    - wait_until:
-        condition:
-          media_player.is_announcing:
-        timeout: 0.5s
-    - wait_until:
-        - and:
-            - not:
-                media_player.is_announcing:
-            - not:
-                speaker.is_playing:
-    - if:
-        condition:
-          lambda: return id(wake_word_engine_location).current_option() == "Auf dem Geraet";
-        then:
-          - lambda: id(va).set_use_wake_word(false);
-          - micro_wake_word.start:
-    # Antworttext noch kurz stehen lassen, dann aufraeumen
-    - delay: 8s
-    - script.execute: set_idle_or_muted
-    - text_sensor.template.publish:
-        id: text_request
-        state: ""
-    - text_sensor.template.publish:
-        id: text_response
-        state: ""
-    - script.execute: update_ui
+    - script.execute: end_session
 
   on_error:
     # duplicate_wake_up_detected und stt-no-text-recognized sind Rauschen
@@ -118,12 +104,7 @@ voice_assistant:
               id: text_response
               state: !lambda return message;
           - script.execute: update_ui
-          - delay: 3s
-          - script.execute: set_idle_or_muted
-          - text_sensor.template.publish:
-              id: text_response
-              state: ""
-          - script.execute: update_ui
+          - script.execute: clear_error
 
   on_client_connected:
     - lambda: id(init_in_progress) = false;
@@ -132,6 +113,10 @@ voice_assistant:
     - script.execute: update_ui
 
   on_client_disconnected:
+    # Laufende Aufraeum-Timer abbrechen, sonst ueberschreibt deren
+    # set_idle_or_muted spaeter die Not-Ready-Anzeige.
+    - script.stop: end_session
+    - script.stop: clear_error
     - script.execute: stop_wake_word
     - lambda: id(voice_assistant_phase) = ${phase_not_ready};
     - script.execute: update_ui
@@ -181,10 +166,14 @@ select:
           condition:
             lambda: return !id(init_in_progress);
           then:
+            # Timeout, damit die Umschaltung nicht dauerhaft haengen bleibt,
+            # falls die Phase wegen eines Fehlers nie in den Idle zurueckfaellt.
             - wait_until:
-                lambda: |-
-                  return id(voice_assistant_phase) == ${phase_idle}
-                      || id(voice_assistant_phase) == ${phase_muted};
+                condition:
+                  lambda: |-
+                    return id(voice_assistant_phase) == ${phase_idle}
+                        || id(voice_assistant_phase) == ${phase_muted};
+                timeout: 30s
             - script.execute: stop_wake_word
             - delay: 500ms
             - script.execute: start_wake_word
@@ -256,3 +245,64 @@ script:
             - lambda: id(voice_assistant_phase) = ${phase_muted};
           else:
             - lambda: id(voice_assistant_phase) = ${phase_idle};
+
+  # Abschluss eines Sprachvorgangs: Ausgabe abwarten, Wake Word wieder
+  # scharfstellen, Antwort noch kurz stehen lassen, dann zurueck in den Idle.
+  # Wird von on_listening abgebrochen, falls schon wieder gesprochen wird.
+  - id: end_session
+    mode: restart
+    then:
+      # Warten bis die Sprachausgabe wirklich durch ist, sonst kollidiert
+      # das Wake Word mit dem noch belegten I2S-Bus.
+      - wait_until:
+          condition:
+            media_player.is_announcing:
+          timeout: 0.5s
+      # Ohne Timeout haengt das Skript fuer immer, wenn der Speaker seinen
+      # Zustand nicht sauber zuruecksetzt - dann bleibt das Geraet ohne Wake
+      # Word in der Replying-Anzeige stehen. 30 s sind laenger als jede
+      # realistische TTS-Antwort.
+      - wait_until:
+          condition:
+            and:
+              - not:
+                  media_player.is_announcing:
+              - not:
+                  speaker.is_playing:
+          timeout: 30s
+      # Ueber das Skript statt direkt micro_wake_word.start: das beruecksichtigt
+      # die gewaehlte Engine und respektiert eine waehrend des Vorgangs
+      # gesetzte Stummschaltung.
+      - script.execute: start_wake_word
+      # Antworttext noch kurz stehen lassen, dann aufraeumen
+      - delay: 8s
+      - script.execute: set_idle_or_muted
+      - text_sensor.template.publish:
+          id: text_request
+          state: ""
+      - text_sensor.template.publish:
+          id: text_response
+          state: ""
+      - script.execute: update_ui
+
+  - id: clear_error
+    mode: restart
+    then:
+      - delay: 3s
+      # Mehrere Fehlerpfade im Voice Assistant (not-connected, failed-to-start,
+      # mic-channel-stalled, wake-provider-missing) loesen *nur* on_error aus,
+      # nie on_end. Ohne diesen Zweig bliebe das lokale Wake Word nach so einem
+      # Fehler dauerhaft gestoppt (stop_after_detection: true) und das Geraet
+      # taub. Die is_running-Pruefung verhindert, dass wir dabei einen noch
+      # laufenden Vorgang abwuergen - um den kuemmert sich end_session.
+      - if:
+          condition:
+            not:
+              voice_assistant.is_running:
+          then:
+            - script.execute: start_wake_word
+      - script.execute: set_idle_or_muted
+      - text_sensor.template.publish:
+          id: text_response
+          state: ""
+      - script.execute: update_ui
