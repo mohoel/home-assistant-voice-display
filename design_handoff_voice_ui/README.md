@@ -55,7 +55,9 @@ The mockup fakes the glow with a CSS `drop-shadow` filter, which LVGL does not h
 - Layer a second, larger, low-opacity arc behind the main one (partial approximation, no true blur), or
 - Use an LVGL `canvas` widget and draw the arc with manual per-pixel alpha falloff.
 
-**Implemented: the second option.** Each ring in `ui.yaml` has a `*_glow` twin — same colour, 26px instead of 14px, 40% opacity, bounding box 12px larger so the two strokes stay concentric. It reads as a soft edge, not as a true bloom; the falloff is a hard step rather than a gradient. If that is not close enough, the pre-rendered PNG route is the next step up.
+**Implemented: the second option, stacked three deep.** A single glow layer (26px, 40%) turned out to have a clearly visible edge on the device. Each ring in `ui.yaml` now has three glow copies in the same colour — 22px/45%, 32px/24%, 44px/11% — each with a bounding box grown by `width - 14` so all strokes stay concentric. Alpha-composited outward-in they land at roughly 11% / 32% / 63% / 100%, which reads as a falloff rather than a step. Widest layer is declared and shown first, sharp ring last. Still not a true bloom; the pre-rendered PNG route remains the next step up.
+
+The static ring track that used to sit behind the arc is gone — on the real panel it showed up as a grey path the spinner visibly travelled along.
 
 ## Files
 - `voice-ui-mockup.html` — the design reference, open in any browser

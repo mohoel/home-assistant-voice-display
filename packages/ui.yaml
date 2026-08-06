@@ -113,27 +113,18 @@ lvgl:
         # und https://github.com/esphome/esphome/pull/15860. Gilt fuer jeden
         # 0/360-Vollkreis-Arc in dieser Datei.
 
-        # Statische Spur des Rings
-        - arc:
-            id: ring_track
-            align: CENTER
-            width: ${ring_size}
-            height: ${ring_size}
-            start_angle: 0
-            end_angle: 359
-            adjustable: false
-            value: 0
-            arc_color: ${color_track}
-            arc_width: ${ring_width}
-            indicator:
-              arc_opa: TRANSP
+        # Eine statische Spur (ring_track) gab es hier frueher. Sie war auf dem
+        # Geraet als grauer Kreis sichtbar, dem der umlaufende Arc folgte -
+        # genau der Effekt, den das Design nicht will. Ersatzlos entfernt: die
+        # Spinner zeichnen ihren eigenen Main-Part ohnehin mit
+        # `arc_opa: TRANSP`, es gibt also nichts mehr im Hintergrund.
 
         # --- Voller, stehender Ring: Antwort, Fehler, stumm, nicht bereit ---
         - arc:
-            id: ring_full_glow
+            id: ring_full_glow3
             align: CENTER
-            width: ${ring_glow_size}
-            height: ${ring_glow_size}
+            width: ${ring_glow3_size}
+            height: ${ring_glow3_size}
             start_angle: 0
             end_angle: 359
             adjustable: false
@@ -143,8 +134,42 @@ lvgl:
             arc_opa: TRANSP
             indicator:
               arc_color: ${color_not_ready}
-              arc_width: ${ring_glow_width}
-              arc_opa: ${ring_glow_opa}
+              arc_width: ${ring_glow3_width}
+              arc_opa: ${ring_glow3_opa}
+
+        - arc:
+            id: ring_full_glow2
+            align: CENTER
+            width: ${ring_glow2_size}
+            height: ${ring_glow2_size}
+            start_angle: 0
+            end_angle: 359
+            adjustable: false
+            min_value: 0
+            max_value: 100
+            value: 100
+            arc_opa: TRANSP
+            indicator:
+              arc_color: ${color_not_ready}
+              arc_width: ${ring_glow2_width}
+              arc_opa: ${ring_glow2_opa}
+
+        - arc:
+            id: ring_full_glow1
+            align: CENTER
+            width: ${ring_glow1_size}
+            height: ${ring_glow1_size}
+            start_angle: 0
+            end_angle: 359
+            adjustable: false
+            min_value: 0
+            max_value: 100
+            value: 100
+            arc_opa: TRANSP
+            indicator:
+              arc_color: ${color_not_ready}
+              arc_width: ${ring_glow1_width}
+              arc_opa: ${ring_glow1_opa}
 
         - arc:
             id: ring_full
@@ -166,18 +191,46 @@ lvgl:
         # spin_time ist zur Laufzeit nicht aenderbar (Spinner hat kein
         # Modify-Schema), deshalb zwei fertige Spinner statt einem.
         - spinner:
-            id: ring_slow_glow
+            id: ring_slow_glow3
             align: CENTER
-            width: ${ring_glow_size}
-            height: ${ring_glow_size}
+            width: ${ring_glow3_size}
+            height: ${ring_glow3_size}
             spin_time: ${spin_time_listening}
             arc_length: 70
             hidden: true
             arc_opa: TRANSP
             indicator:
               arc_color: ${color_listening}
-              arc_width: ${ring_glow_width}
-              arc_opa: ${ring_glow_opa}
+              arc_width: ${ring_glow3_width}
+              arc_opa: ${ring_glow3_opa}
+
+        - spinner:
+            id: ring_slow_glow2
+            align: CENTER
+            width: ${ring_glow2_size}
+            height: ${ring_glow2_size}
+            spin_time: ${spin_time_listening}
+            arc_length: 70
+            hidden: true
+            arc_opa: TRANSP
+            indicator:
+              arc_color: ${color_listening}
+              arc_width: ${ring_glow2_width}
+              arc_opa: ${ring_glow2_opa}
+
+        - spinner:
+            id: ring_slow_glow1
+            align: CENTER
+            width: ${ring_glow1_size}
+            height: ${ring_glow1_size}
+            spin_time: ${spin_time_listening}
+            arc_length: 70
+            hidden: true
+            arc_opa: TRANSP
+            indicator:
+              arc_color: ${color_listening}
+              arc_width: ${ring_glow1_width}
+              arc_opa: ${ring_glow1_opa}
 
         - spinner:
             id: ring_slow
@@ -194,18 +247,46 @@ lvgl:
 
         # --- Schneller Umlauf: Verarbeitung ---
         - spinner:
-            id: ring_fast_glow
+            id: ring_fast_glow3
             align: CENTER
-            width: ${ring_glow_size}
-            height: ${ring_glow_size}
+            width: ${ring_glow3_size}
+            height: ${ring_glow3_size}
             spin_time: ${spin_time_thinking}
             arc_length: 70
             hidden: true
             arc_opa: TRANSP
             indicator:
               arc_color: ${color_thinking}
-              arc_width: ${ring_glow_width}
-              arc_opa: ${ring_glow_opa}
+              arc_width: ${ring_glow3_width}
+              arc_opa: ${ring_glow3_opa}
+
+        - spinner:
+            id: ring_fast_glow2
+            align: CENTER
+            width: ${ring_glow2_size}
+            height: ${ring_glow2_size}
+            spin_time: ${spin_time_thinking}
+            arc_length: 70
+            hidden: true
+            arc_opa: TRANSP
+            indicator:
+              arc_color: ${color_thinking}
+              arc_width: ${ring_glow2_width}
+              arc_opa: ${ring_glow2_opa}
+
+        - spinner:
+            id: ring_fast_glow1
+            align: CENTER
+            width: ${ring_glow1_size}
+            height: ${ring_glow1_size}
+            spin_time: ${spin_time_thinking}
+            arc_length: 70
+            hidden: true
+            arc_opa: TRANSP
+            indicator:
+              arc_color: ${color_thinking}
+              arc_width: ${ring_glow1_width}
+              arc_opa: ${ring_glow1_opa}
 
         - spinner:
             id: ring_fast
@@ -348,23 +429,33 @@ script:
       # Ringvariante waehlen. Erst alles aus, dann genau eine Variante an -
       # laeuft synchron innerhalb eines Durchgangs, also ohne Flackern.
       - lvgl.widget.hide: ring_slow
-      - lvgl.widget.hide: ring_slow_glow
+      - lvgl.widget.hide: ring_slow_glow1
+      - lvgl.widget.hide: ring_slow_glow2
+      - lvgl.widget.hide: ring_slow_glow3
       - lvgl.widget.hide: ring_fast
-      - lvgl.widget.hide: ring_fast_glow
+      - lvgl.widget.hide: ring_fast_glow1
+      - lvgl.widget.hide: ring_fast_glow2
+      - lvgl.widget.hide: ring_fast_glow3
       - lvgl.widget.hide: ring_full
-      - lvgl.widget.hide: ring_full_glow
+      - lvgl.widget.hide: ring_full_glow1
+      - lvgl.widget.hide: ring_full_glow2
+      - lvgl.widget.hide: ring_full_glow3
       - if:
           condition:
             lambda: return id(voice_assistant_phase) == ${phase_listening};
           then:
-            - lvgl.widget.show: ring_slow_glow
+            - lvgl.widget.show: ring_slow_glow3
+            - lvgl.widget.show: ring_slow_glow2
+            - lvgl.widget.show: ring_slow_glow1
             - lvgl.widget.show: ring_slow
           else:
             - if:
                 condition:
                   lambda: return id(voice_assistant_phase) == ${phase_thinking};
                 then:
-                  - lvgl.widget.show: ring_fast_glow
+                  - lvgl.widget.show: ring_fast_glow3
+                  - lvgl.widget.show: ring_fast_glow2
+                  - lvgl.widget.show: ring_fast_glow1
                   - lvgl.widget.show: ring_fast
                 else:
                   # Antwort, Fehler, stumm, nicht bereit: stehender Vollring
@@ -379,7 +470,7 @@ script:
                             default:                return lv_color_hex(${color_not_ready});
                           }
                   - lvgl.widget.update:
-                      id: ring_full_glow
+                      id: ring_full_glow1
                       indicator:
                         arc_color: !lambda |-
                           switch (id(voice_assistant_phase)) {
@@ -388,7 +479,29 @@ script:
                             case ${phase_muted}:    return lv_color_hex(${color_muted});
                             default:                return lv_color_hex(${color_not_ready});
                           }
-                  - lvgl.widget.show: ring_full_glow
+                  - lvgl.widget.update:
+                      id: ring_full_glow2
+                      indicator:
+                        arc_color: !lambda |-
+                          switch (id(voice_assistant_phase)) {
+                            case ${phase_replying}: return lv_color_hex(${color_replying});
+                            case ${phase_error}:    return lv_color_hex(${color_error});
+                            case ${phase_muted}:    return lv_color_hex(${color_muted});
+                            default:                return lv_color_hex(${color_not_ready});
+                          }
+                  - lvgl.widget.update:
+                      id: ring_full_glow3
+                      indicator:
+                        arc_color: !lambda |-
+                          switch (id(voice_assistant_phase)) {
+                            case ${phase_replying}: return lv_color_hex(${color_replying});
+                            case ${phase_error}:    return lv_color_hex(${color_error});
+                            case ${phase_muted}:    return lv_color_hex(${color_muted});
+                            default:                return lv_color_hex(${color_not_ready});
+                          }
+                  - lvgl.widget.show: ring_full_glow3
+                  - lvgl.widget.show: ring_full_glow2
+                  - lvgl.widget.show: ring_full_glow1
                   - lvgl.widget.show: ring_full
       # Im Leerlauf gibt es nichts anzuzeigen -> Standby.
       # Alles andere weckt das Display.

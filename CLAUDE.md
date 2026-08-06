@@ -152,11 +152,22 @@ LVGL-Widgets in `ui.yaml`; das Mockup selbst bleibt reine Vorlage, nicht Code.
   übereinander (`ring_slow` 1400 ms, `ring_fast` 800 ms, `ring_full` stehend),
   und `update_ui` blendet die passende ein. Neue Ringtempi heißen: neuer
   Spinner, nicht neuer Parameter.
-- **LVGL kennt keinen Blur.** Der Glow aus dem Design-Mockup ist als zweiter,
-  breiterer Ring mit `${ring_glow_opa}` dahinter angenähert (`*_glow`-Widgets).
-  Die beiden Spinner-Paare laufen synchron, weil sie dieselbe `spin_time` haben
-  und beim Seitenaufbau gemeinsam starten — driftet das auf dem Gerät sichtbar
-  auseinander, sind die Glow-Spinner das Erste, was rausfliegt.
+- **LVGL kennt keinen Blur.** Der Glow aus dem Design-Mockup ist als **drei**
+  immer breitere, immer transparentere Kopien hinter dem scharfen Ring
+  angenähert (`*_glow1`–`*_glow3`, Maße und Deckkraft als `ring_glow{1,2,3}_*`
+  in `assist-satellit.yaml`). Eine einzelne Glow-Schicht ergab auf dem Gerät
+  eine sichtbare Kante; die drei Schichten addieren sich per Alpha zu
+  ~11 % / 32 % / 63 % / 100 % von außen nach innen und lesen sich als Verlauf.
+  Reihenfolge ist Pflicht: breiteste Schicht zuerst anlegen und zuerst zeigen,
+  scharfer Ring zuletzt — LVGL stapelt in Deklarationsreihenfolge.
+  Die vier Spinner je Phase laufen synchron, weil sie dieselbe `spin_time`
+  haben und beim Seitenaufbau gemeinsam starten — driftet das auf dem Gerät
+  sichtbar auseinander, sind die Glow-Spinner das Erste, was rausfliegt
+  (`glow3` zuerst).
+- **Keine statische Ringspur.** Ein früherer `ring_track` (dunkelgrauer
+  Vollkreis unter dem Ring) war auf dem AMOLED als grauer Pfad sichtbar, dem
+  der umlaufende Arc folgte. Ersatzlos entfernt, samt `color_track`. Nicht
+  wieder einführen — der Arc soll im Schwarz laufen.
 - **LVGL-Arc kennt keine Strichelung.** Das zweite Design-Mockup zeigt Muted als
   gestrichelten und Not Ready als gepunkteten Ring — bewusste Design-Entscheidung
   war, das **nicht** über viele kleine Arc-Segmente nachzubauen, sondern nur die

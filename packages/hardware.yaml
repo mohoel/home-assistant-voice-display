@@ -42,6 +42,22 @@ display:
     bus_mode: quad
     cs_pin: GPIO12
     reset_pin: GPIO39
+    # Ohne diese Zeile faehrt der QSPI-Bus mit 10 MHz. Der Modelleintrag
+    # WAVESHARE-ESP32-S3-TOUCH-AMOLED-1.75 setzt als einziger der CO5300-Familie
+    # kein data_rate (mipi_spi/models/waveshare.py), und mipi_spi faellt dann auf
+    # seinen Schema-Default von 10 MHz zurueck (display.py: default_data_rate=
+    # 10_000_000). 10 MHz x 4 Lanes = 5 MB/s; ein voller Frame 466x466x2 = 434 kB
+    # braucht damit ~87 ms -> ~11 fps. Genau das war die ruckelnde Ringanimation:
+    # der Spinner bekommt bei spin_time 800 ms nur ~9 Bilder pro Umdrehung.
+    # 40 MHz sind das, was das Schwestermodell 2.16" (gleicher CO5300, gleiche
+    # Pins) und das Waveshare-BSP fuer dieses Board fahren -> 20 MB/s, ~22 ms
+    # pro Frame, ~45 fps. Darueber wird es unzuverlaessig: CLK GPIO38 und die
+    # Datenpins liegen nicht auf den IOMUX-Pins von SPI2, laufen also ueber die
+    # GPIO-Matrix; 80 MHz sind nur mit IOMUX-Routing sauber.
+    # Bremse ist danach LVGL selbst (LV_DEF_REFR_PERIOD = 16 ms, fest im
+    # ESPHome-lvgl-Codegen) bzw. der 60-Hz-Takt des Panels - beides deutlich
+    # ueber dem, was die Animation braucht. spin_time bleibt unveraendert.
+    data_rate: 40MHz
     auto_clear_enabled: false
     update_interval: never
 

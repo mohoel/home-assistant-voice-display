@@ -26,20 +26,31 @@ substitutions:
   color_error: "0xF44336"
   color_muted: "0x4A4A4A"
   color_not_ready: "0x78909C"
-  color_track: "0x1A1A1A"
 
   # Texte
   color_text: "0xFFFFFF"
   color_text_dim: "0x707070"
 
-  # Ring-Geometrie und -Tempo. Der Glow ist eine breitere, halbtransparente
-  # Kopie hinter dem scharfen Ring; damit beide konzentrisch liegen, ist die
-  # Glow-Box um (glow_width - ring_width) groesser.
+  # Ring-Geometrie und -Tempo. Der Glow besteht aus drei immer breiteren,
+  # immer transparenteren Kopien hinter dem scharfen Ring (aussen nach innen
+  # gestapelt). Eine einzige Schicht ergab eine sichtbare Kante; die drei
+  # Schichten addieren sich per Alpha zu ~11% / 32% / 63% / 100% und lesen
+  # sich dadurch als weicher Verlauf.
+  #
+  # Damit alle Ringe konzentrisch liegen, gilt fuer jede Schicht
+  # size = ring_size + (width - ring_width). Aussenkante der breitesten
+  # Schicht: 460 px, also 3 px Rand zum 466-px-Display.
   ring_size: "430"
   ring_width: "14"
-  ring_glow_size: "442"
-  ring_glow_width: "26"
-  ring_glow_opa: "40%"
+  ring_glow1_size: "438"
+  ring_glow1_width: "22"
+  ring_glow1_opa: "45%"
+  ring_glow2_size: "448"
+  ring_glow2_width: "32"
+  ring_glow2_opa: "24%"
+  ring_glow3_size: "460"
+  ring_glow3_width: "44"
+  ring_glow3_opa: "11%"
   spin_time_listening: 1400ms
   spin_time_thinking: 800ms
 
