@@ -83,18 +83,37 @@ lvgl:
       # Ring, obenauf die Texte. Immer genau eine der drei Ringvarianten ist
       # sichtbar, umgeschaltet in update_ui.
       widgets:
-        # Statische Spur des Rings
+        # KEIN expliziter `main:`-Block an Ring-Widgets, obwohl LVGL einen
+        # Main-Part hat. Das ist ein Workaround gegen einen Codegen-Bug in
+        # ESPHome 2026.7.3 (components/lvgl/widgets/__init__.py, collect_parts):
         #
-        # end_angle: 359 statt 360 ist Absicht, nicht Tippfehler: LVGL
-        # zeichnet bei start_angle/end_angle 0/360 keinen vollen Kreis,
-        # sondern einen degenerierten Bogen der Laenge 0 (die Naht faellt auf
-        # sich selbst zurueck) - das war der eigentliche Ring-Bug (klein und
-        # nach oben-links verschoben, siehe Chat-Verlauf und Foto-Befund).
-        # Bekannter LVGL-Grenzfall, siehe
+        #   parts = {CONF_MAIN: collect_states(config)}   # Top-Level-Props
+        #   for part in PARTS:                            # PARTS enthaelt "main"
+        #       if part in config:
+        #           parts[part] = collect_states(config[part])   # ueberschreibt
+        #
+        # Ein `main:`-Block ersetzt den Top-Level-Bucket, statt ihn zu
+        # ergaenzen - `align`, `width`, `height` und `hidden` fallen still weg.
+        # Sichtbar nur im generierten Code (.esphome/build/*/src/main.cpp):
+        # bei den Ringen fehlten `lv_obj_set_style_align/width/height` und
+        # `lv_obj_add_flag(HIDDEN)` komplett, bei `lbl_icon`/`dot_1` (ohne
+        # `main:`) waren sie da. Ergebnis auf dem Geraet: alle Ringe in
+        # LVGL-Defaultgroesse auf Position (0,0) und alle gleichzeitig
+        # sichtbar - das war der eigentliche Ring-Bug.
+        #
+        # Top-Level *ist* der Main-Part im Default-State, deshalb stehen die
+        # Main-Styles hier direkt oben. `indicator:` und andere echte
+        # Sub-Parts sind vom Bug nicht betroffen und bleiben als Block.
+        #
+        # end_angle: 359 statt 360 ist ebenfalls Absicht, aber ein anderes
+        # Thema: LVGL zeichnet bei 0/360 keinen vollen Kreis, sondern einen
+        # degenerierten Bogen der Laenge 0 (die Naht faellt auf sich selbst
+        # zurueck). Bekannter Grenzfall, siehe
         # https://forum.lvgl.io/t/how-to-how-to-draw-lv-arc-by-start-angle-0-with-end-angle-360/1456
-        # und den zugehoerigen ESPHome-Fix-PR
-        # https://github.com/esphome/esphome/pull/15860. Gilt fuer jeden
-        # 0/360-Vollkreis-Arc in dieser Datei, nicht nur diesen.
+        # und https://github.com/esphome/esphome/pull/15860. Gilt fuer jeden
+        # 0/360-Vollkreis-Arc in dieser Datei.
+
+        # Statische Spur des Rings
         - arc:
             id: ring_track
             align: CENTER
@@ -104,9 +123,8 @@ lvgl:
             end_angle: 359
             adjustable: false
             value: 0
-            main:
-              arc_color: ${color_track}
-              arc_width: ${ring_width}
+            arc_color: ${color_track}
+            arc_width: ${ring_width}
             indicator:
               arc_opa: TRANSP
 
@@ -122,8 +140,7 @@ lvgl:
             min_value: 0
             max_value: 100
             value: 100
-            main:
-              arc_opa: TRANSP
+            arc_opa: TRANSP
             indicator:
               arc_color: ${color_not_ready}
               arc_width: ${ring_glow_width}
@@ -140,8 +157,7 @@ lvgl:
             min_value: 0
             max_value: 100
             value: 100
-            main:
-              arc_opa: TRANSP
+            arc_opa: TRANSP
             indicator:
               arc_color: ${color_not_ready}
               arc_width: ${ring_width}
@@ -157,8 +173,7 @@ lvgl:
             spin_time: ${spin_time_listening}
             arc_length: 70
             hidden: true
-            main:
-              arc_opa: TRANSP
+            arc_opa: TRANSP
             indicator:
               arc_color: ${color_listening}
               arc_width: ${ring_glow_width}
@@ -172,8 +187,7 @@ lvgl:
             spin_time: ${spin_time_listening}
             arc_length: 70
             hidden: true
-            main:
-              arc_opa: TRANSP
+            arc_opa: TRANSP
             indicator:
               arc_color: ${color_listening}
               arc_width: ${ring_width}
@@ -187,8 +201,7 @@ lvgl:
             spin_time: ${spin_time_thinking}
             arc_length: 70
             hidden: true
-            main:
-              arc_opa: TRANSP
+            arc_opa: TRANSP
             indicator:
               arc_color: ${color_thinking}
               arc_width: ${ring_glow_width}
@@ -202,8 +215,7 @@ lvgl:
             spin_time: ${spin_time_thinking}
             arc_length: 70
             hidden: true
-            main:
-              arc_opa: TRANSP
+            arc_opa: TRANSP
             indicator:
               arc_color: ${color_thinking}
               arc_width: ${ring_width}

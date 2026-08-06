@@ -11,12 +11,13 @@ Statusanzeige statt eines LED-Rings.
 
 - Wake Word lokal auf dem Gerät (`micro_wake_word`) **oder** in Home Assistant —
   umschaltbar über eine Select-Entity, ohne Neustart
-- Gesprochener Text und Antwort erscheinen zusätzlich als Text auf dem Display
+- Gesprochener Text und Antwort erscheinen als Text-Sensoren in Home Assistant
+  (auf dem Display selbst zeigt der Ring nur ein Statusicon)
 - Ring als Statusanzeige, farbcodiert nach Phase: blau rotierend beim Zuhören,
   amber und schneller beim Verarbeiten, grün und stehend bei der Antwort
 - Standby zeigt eine stark gedimmte Uhr mit Datum („Dienstag, 4. August");
   schwarzer AMOLED-Hintergrund heißt physisch abgeschaltete Pixel
-- Antippen im Standby öffnet Lautstärke und Stummschaltung direkt auf dem Touchscreen
+- Antippen weckt das Display aus dem Standby
 - Stummschaltung, Wake-Word-Empfindlichkeit und Displayhelligkeit als HA-Entities
 
 ## Warum nicht das ESPHome-Add-on in Home Assistant?
