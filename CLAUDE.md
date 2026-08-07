@@ -59,8 +59,13 @@ nicht devices.esphome.io.
 
 ## Aufbau
 
-Geräte-YAML + Packages. **Farben, Phasen-IDs und Timings stehen als Substitutions in
-`assist-satellit.yaml`** — dort ändern, nicht in den Packages.
+Geräte-YAML + Packages. **Phasen-IDs und Timings stehen als Substitutions in
+`assist-satellit.yaml`** — dort ändern, nicht in den Packages. Für die
+**Symbolfarben** gilt das nur noch halb: die Substitutions sind der
+Auslieferungszustand und dienen als `initial_value` der Globals `col_*` in
+`web.yaml`; zur Laufzeit gilt, was auf der Web-Bedienseite eingestellt und per
+`restore_value` gespeichert ist. Eine Farbänderung in `assist-satellit.yaml`
+wirkt daher nur auf einem Gerät, das diese Farbe noch nie gesetzt bekommen hat.
 
 | Datei | Inhalt |
 |---|---|
@@ -68,6 +73,7 @@ Geräte-YAML + Packages. **Farben, Phasen-IDs und Timings stehen als Substitutio
 | `packages/hardware.yaml` | I2C, QSPI-Display, Touch, I2S, ES7210/ES8311, Media Player |
 | `packages/voice.yaml` | Wake Word, Voice Assistant, Engine-Umschaltung, Mute |
 | `packages/ui.yaml` | Fonts, LVGL-Seiten, Phasen-Animationen, Standby-Uhr |
+| `packages/web.yaml` | Web-Bedienseite: Webserver, Ausrichtung, Standby-Seite, Symbolfarben |
 
 Die Voice-Assistant-Logik folgt `esphome/wake-word-voice-assistants`
 (esp32-s3-box-3) und `esphome/home-assistant-voice-pe`. Bei neuen Features zuerst
@@ -87,7 +93,12 @@ Querverbindungen:
 | `ui.yaml` → Standby-Uhr | `ha_time` | `core.yaml` |
 | `ui.yaml` → Helligkeit | `light: display_brightness` | `hardware.yaml` |
 | `core.yaml` → `on_boot` | `script: update_ui` | `ui.yaml` |
+| `core.yaml` → `on_boot` | `script: apply_rotation`, `sync_color_texts`, `global: boot_done` | `web.yaml` |
+| `core.yaml` → `on_boot` | `script: apply_colors` | `ui.yaml` |
 | `core.yaml` → `ha_time.on_time` | `script: update_clock`, `lbl_clock`, `lbl_date` | `ui.yaml` |
+| `web.yaml` → jede Farbeingabe | `script: apply_colors` | `ui.yaml` |
+| `ui.yaml` → `update_ui`, `apply_colors` | `globals: col_*` | `web.yaml` |
+| `ui.yaml` → `show_standby_page` | `select: sel_standby_page` | `web.yaml` |
 
 Der Minutentakt für Uhr und Einbrennschutz liegt bewusst in `core.yaml` am
 `time:`-Block und nicht bei den Widgets: ESPHome führt **Plattform-Listen wie
@@ -104,7 +115,9 @@ Die Skripte sind die Bedienoberfläche der Logik, nicht die Handler selbst:
 
 - `voice.yaml`: `start_wake_word`, `stop_wake_word`, `set_idle_or_muted`,
   `end_session`, `clear_error`
-- `ui.yaml`: `update_ui`, `wake_display`, `sleep_display`, `update_clock`
+- `ui.yaml`: `update_ui`, `wake_display`, `sleep_display`, `show_standby_page`,
+  `update_clock`, `apply_colors`
+- `web.yaml`: `apply_rotation`, `sync_color_texts`
 
 **Alles mit `delay:` oder `wait_until:` gehört in ein Skript mit `mode: restart`,
 nie direkt in einen Trigger.** Ein Trigger ist eine Aktionsliste ohne
@@ -126,10 +139,18 @@ Zwei Punkte, die man beim Ändern leicht übersieht:
 - **`init_in_progress`** unterdrückt Fehler-Anzeigen und das `on_value` des
   Selects, bis die API-Verbindung steht (`on_client_connected` setzt es auf
   `false`). Neue Boot-Zeit-Logik muss diesen Guard mitprüfen.
+- **`boot_done`** (`web.yaml`) ist der zweite, unabhängige Guard: ein
+  Template-Select veröffentlicht seinen restaurierten Wert schon beim Setup und
+  feuert `on_value`, bevor LVGL steht. `apply_rotation` steigt deshalb aus,
+  solange `boot_done` false ist; gesetzt wird es in `core.yaml` im `on_boot`
+  mit priority `-100`. Nicht mit `init_in_progress` verwechseln — das hängt an
+  der API-Verbindung und käme für die Ausrichtung viel zu spät.
 
 Substitutions aus `assist-satellit.yaml` werden auch **innerhalb von Lambdas**
-als `${phase_listening}` / `${color_thinking}` eingesetzt (Textersetzung vor dem
-YAML-Parsing) — daher `switch/case` über Phasen statt Enums.
+als `${phase_listening}` eingesetzt (Textersetzung vor dem YAML-Parsing) — daher
+`switch/case` über Phasen statt Enums. Für Farben gilt das nicht mehr: in
+Lambdas steht `lv_color_hex((uint32_t) id(col_listening))`, die Substitution
+`${color_listening}` taucht nur noch als `initial_value` des Globals auf.
 
 ## Design-Referenz
 
@@ -177,8 +198,11 @@ LVGL-Widgets in `ui.yaml`; das Mockup selbst bleibt reine Vorlage, nicht Code.
   per `lv_obj_set_style_text_opa` und `lv_obj_align`. Zyklus 40 ms × 22 =
   880 ms, in der Größenordnung des Design-Mockups (`pulse-ring 1.6s
   ease-in-out`; die Kosinuswelle ist dessen `ease-in-out`). Die **Größe** wird
-  bewusst nicht animiert: LVGL 8 skaliert Labels nicht (`transform_zoom` wirkt
-  nur auf `lv_img`), und ein Fontwechsel wäre ein sichtbarer Sprung. Die
+  bewusst nicht animiert: ein Fontwechsel wäre ein sichtbarer Sprung, und der
+  Weg über `transform_scale` lässt LVGL 9 das Widget pro Frame in einen
+  eigenen Layer rendern — genau die Zeichenbandbreite, an der schon der Ring
+  gescheitert ist (ungetestet, aber der Grund, es gar nicht erst zu
+  versuchen). Die
   Deckkraft darf hier animieren, weil es ein einzelnes 240×240-Label ist und
   kein 466-px-Kranz. Der Endzustand muss beim Verlassen der Phase
   **zurückgesetzt** werden (`aktiv`-Merker: `text_opa` auf `LV_OPA_COVER`,
@@ -199,8 +223,9 @@ LVGL-Widgets in `ui.yaml`; das Mockup selbst bleibt reine Vorlage, nicht Code.
   (`\U0000F083`), `wifi_off` (`\U0000E648`); der Haken für „fertig“
   (`\U0000E668`) ist mit der Sprachausgabe-Animation entfallen.
   Die Farbcodierung von Error/Muted/Not Ready läuft seit dem Wegfall des Rings
-  über die **Icon-Farbe**: Error → `color_error`, Muted und Not Ready →
-  `color_text_dim`.
+  über die **Icon-Farbe**: Error → `col_error`, Muted und Not Ready →
+  `col_dim` (Globals aus `web.yaml`, vorbelegt mit `${color_error}` bzw.
+  `${color_text_dim}`).
   Die Fontgröße `font_icon: 216` gilt für alle vier Glyphen. Drei Maße hängen
   daran und müssen bei einer Änderung mitgezogen werden: die Box von `lbl_icon`
   (240×240), die Breite der Punktgruppe

@@ -22,7 +22,11 @@ Anforderungen aus dem Gespräch:
 6. Standby = Display praktisch aus / gedimmte Uhr; bei Zuhören & Ausführen eine
    animierte Statusanzeige in der Bildschirmmitte
 7. Wake-Word-Engine in HA umschaltbar (On device ↔ In Home Assistant)
-8. Display-Texte auf Deutsch, Touch weckt das Display, Lautstärke/Mute auf dem Touchscreen
+8. Display-Texte auf Deutsch, Touch weckt das Display,
+   ~~Lautstärke/Mute auf dem Touchscreen~~ — verworfen: auf dem Gerät gibt es
+   keine Bedienseite mehr (513bd50). Lautstärke und Mute bleiben
+   Home-Assistant-Entities; alles, was sich am Gerät einstellen lässt, liegt auf
+   der Web-Bedienseite unter seiner IP (Phase 5).
 
 **Entscheidende Randbedingung:** Kompilieren auf dem Raspberry Pi ist in der
 Vergangenheit an Voice-Assistant-Konfigurationen gescheitert (RAM/Zeit). Deshalb
@@ -285,16 +289,31 @@ bei der Verarbeitung, die fünf Balken schlagen bei der Sprachausgabe aus, und i
 den übrigen Phasen steht das passende Icon in der richtigen Farbe; deutsche
 Umlaute werden korrekt gerendert.
 
-### Phase 5 — Standby, Uhr, Touch-Bedienung
+### Phase 5 — Standby, Uhr, Web-Bedienseite ✅
 
 - Standby-Page mit Uhr, Pixel-Shift im Minutentakt (umgesetzt als
   `ha_time.on_time: seconds: 0` in `core.yaml`, nicht als `interval:` — nur
   wenn `page_standby` sichtbar ist)
-- Control-Page: Volume-`arc` (adjustable) gebunden an `media_player.volume_set`,
-  Mute-Button gebunden an den Mute-Switch, Auto-Rückkehr nach 8 s.
-  **`volume_set` gehört an `on_release`, nicht an `on_value`** — der
-  Speaker-Media-Player schreibt bei jedem Aufruf in den NVS-Flash, ein
-  einziger Ziehvorgang auf `on_value` erzeugt sonst hunderte Schreibzugriffe.
+- ~~Control-Page auf dem Gerät~~ (Volume-`arc`, Mute-Button, Auto-Rückkehr nach
+  8 s) — in 513bd50 entfernt und bewusst **nicht** zurückgeholt. Der damalige
+  Hinweis bleibt für den Fall gültig, dass doch je wieder ein Volume-Widget
+  entsteht: **`volume_set` gehört an `on_release`, nicht an `on_value`** — der
+  Speaker-Media-Player schreibt bei jedem Aufruf in den NVS-Flash, ein einziger
+  Ziehvorgang auf `on_value` erzeugt sonst hunderte Schreibzugriffe.
+- Stattdessen **Web-Bedienseite** unter `http://assist-satellit.local/`
+  (`packages/web.yaml`, `web_server: version: 3` mit `local: true`). ESPHome
+  rendert dort nur sein Standard-Entity-Dashboard — eigenes HTML gibt es nicht,
+  die Gestaltung besteht aus `sorting_groups`. Zwei Gruppen:
+  - **Anzeige**: `sel_rotation` (Ausrichtung in 90-Grad-Schritten; 45 Grad gibt
+    der Stack nicht her, `rotation_degrees` ist `cv.one_of(0, 90, 180, 270)`)
+    und `sel_standby_page` (vorerst nur „Uhr", Erweiterungspunkt für Phase 7)
+  - **Farben**: fünf Hex-Textfelder für die Symbolfarben. Einen Farbwähler kennt
+    das Dashboard nicht, Hex ohne Präfix ist der einzige Weg.
+- Die Farben sind damit nicht mehr rein compile-zeitlich: die Substitutions in
+  `assist-satellit.yaml` bleiben der Auslieferungszustand und dienen als
+  `initial_value` der Globals `col_*`, die per `restore_value` überleben.
+- Kein `auth:` — die Seite ist im LAN offen erreichbar. Bei Bedarf einen
+  `auth:`-Block mit Werten aus `secrets.yaml` ergänzen.
 - Optional: `number`-Entities in HA für Standby-Timeout und Standby-Helligkeit
 
 ### Phase 6 — Optional / später
@@ -324,33 +343,37 @@ prüfen).
   Sparkline-Chart via LVGL `chart`-Widget für einen Verlaufswert (z. B.
   Stromverbrauch, Temperaturkurve) — Datenversorgung über
   `sensor.on_value` in einen `chart`-Series-Puffer.
-- Auswahl der aktiven Standby-Page bzw. Reihenfolge als `select`-Entity in HA,
-  analog zum bestehenden `wake_word_engine_location`-Select.
+- Auswahl der aktiven Standby-Page: der Select `sel_standby_page` steht bereits
+  (Phase 5, `packages/web.yaml`), ebenso das Skript `show_standby_page` in
+  `ui.yaml` mit heute genau einem Zweig. Eine neue Seite braucht drei
+  Ergänzungen: eine Option im Select, einen Zweig im Skript und die
+  `is_showing`-Bedingung des Minutentakts in `core.yaml`.
 - Achtung: jede zusätzliche Standby-Page erhöht den LVGL-Speicherbedarf
   (`buffer_size`) — nach Einbau erneut auf Boot-Loops/Alloc-Fehler prüfen
   (siehe Verification Phase 4/5).
 
-### Phase 8 — Menü für Einstellungen und OTA
+### Phase 8 — ~~Menü für Einstellungen und OTA auf dem Gerät~~ (gestrichen)
 
-Eine über die Control-Page erreichbare Settings-Page (LVGL `page_settings`),
-damit Grundeinstellungen ohne HA-App am Gerät selbst änderbar sind:
+Ein Settings-Menü auf dem Touchscreen (`page_settings`, erreichbar über die
+Control-Page) ist mit der Entscheidung gegen jede Bedienseite auf dem Gerät
+hinfällig. Was davon bleibt, liegt auf der **Web-Bedienseite** (Phase 5) bzw. in
+Home Assistant:
 
-- Einträge: Standby-Helligkeit, Standby-Timeout, aktive Standby-Page(s),
-  Wake-Word-Engine-Standort (spiegelt den bestehenden HA-Select), Lautstärke.
-  Jeweils als LVGL-`arc`/`switch`/`dropdown`, rückgekoppelt an die
-  entsprechenden ESPHome-`number`/`select`-Entities, damit HA und Touch-UI
-  denselben Zustand zeigen.
-- **OTA-Status/-Anstoß im Menü**: aktuelle `project.version` (Substitution)
-  anzeigen, dazu ein Button, der einen manuellen `ota.trigger`-artigen Ablauf
-  simuliert — ESPHome hat keinen "Check for update"-Trigger im `ota:`-Kern,
-  daher realistisch nur: (a) Firmware-Version + WLAN-Signal/Uptime anzeigen,
-  (b) ein `button:`-Entity "Neustart in OTA-Bereitschaft", (c) tatsächliches
-  Einspielen bleibt der Mac-Workflow (`esphome run … --device
-  assist-satellit.local`) — das Menü zeigt Status, löst aber keinen
-  Remote-Fetch aus (das Gerät hat keinen Internetzugriff auf GitHub).
-- Erreichbarkeit: von der Control-Page ein zusätzlicher Button/Icon zum
-  Settings-Menü, mit demselben 8-s-Inaktivitäts-Timeout wie
-  `controls_timeout`.
+- Ausrichtung, Standby-Seite und Symbolfarben: Web-Bedienseite, Gruppen
+  „Anzeige" und „Farben"
+- Wake-Word-Engine-Standort, Lautstärke, Mute: bestehende ESPHome-Entities,
+  sichtbar in HA **und** auf derselben Web-Seite
+- Firmware-Version, WLAN-Signal, freier Heap/PSRAM, Neustart: die
+  Diagnose-Entities aus `core.yaml`, ebenfalls auf beiden Oberflächen
+- Standby-Helligkeit und -Timeout sind weiterhin Substitutions und damit
+  compile-zeitlich; falls sie zur Laufzeit einstellbar werden sollen, ist der
+  Weg derselbe wie bei den Farben (Global mit `restore_value`, `initial_value`
+  aus der Substitution, dazu ein `number:`-Entity in `web.yaml`)
+
+Nicht möglich bleibt der Anstoß eines Updates vom Gerät aus: ESPHome hat keinen
+„Check for update"-Trigger im `ota:`-Kern, und das Gerät erreicht GitHub nicht.
+Das Einspielen bleibt der Mac-Workflow (`esphome run … --device
+assist-satellit.local`).
 
 ### Phase 9 — Alternativer Media Player für die Sprachausgabe (HA-seitig)
 
@@ -443,6 +466,23 @@ cd /Users/moritzholzer/Claude/Assist && git pull && esphome run assist-satellit.
 - Display antippen → Main-Page, volle Helligkeit.
 - Speicher prüfen: `debug:`-Komponente aktivieren und Free-Heap/PSRAM im Log
   beobachten. Bei Boot-Loops oder LVGL-Allokationsfehlern `buffer_size` senken.
+
+**Phase 5 — Web-Bedienseite**
+
+- `http://assist-satellit.local/` öffnen — die Gruppen „Anzeige" und „Farben"
+  müssen da sein. Ohne `local: true` bliebe die Seite ohne Internetzugang leer.
+- Ausrichtung auf 90° stellen → das Bild dreht sofort, ein Tippen landet an der
+  richtigen Stelle (LVGL dreht die Touch-Koordinaten mit); nach einem Neustart
+  steht die Ausrichtung noch.
+- „Farbe Verarbeitung" auf `FF00FF` setzen → die Punkte färben sich beim
+  nächsten Sprachvorgang um; Unsinn wie `xyz` eingeben → keine Änderung, kein
+  Absturz. Nach einem Neustart zeigen die Felder wieder den gespeicherten Stand
+  (`sync_color_texts`).
+- Freien Heap gegen den Stand vor dem Webserver halten: Baseline v0.1 lag bei
+  172 732 B, mit Webserver und Konfig-Entities bei rund 161 700 B.
+- Die REST-Endpunkte (`GET /text/<object_id>`) antworten auf diesem Build mit
+  404 — geprüft wurde stattdessen über den Event-Stream `GET /events`, der alle
+  Entities mit Werten und Sortiergruppen ausgibt.
 
 ---
 

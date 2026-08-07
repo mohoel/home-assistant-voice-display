@@ -22,6 +22,8 @@ Statusanzeige statt eines LED-Rings.
   schwarzer AMOLED-Hintergrund heißt physisch abgeschaltete Pixel
 - Antippen weckt das Display aus dem Standby
 - Stummschaltung, Wake-Word-Empfindlichkeit und Displayhelligkeit als HA-Entities
+- Weboberfläche unter der Geräte-IP für Ausrichtung, Standby-Seite und die
+  Symbolfarben — ohne Home Assistant und ohne Neubau der Firmware
 
 ## Warum nicht das ESPHome-Add-on in Home Assistant?
 
@@ -112,6 +114,28 @@ Das Gerät meldet sich per mDNS. Unter *Einstellungen → Geräte & Dienste* tau
 Danach unter *Einstellungen → Sprachassistenten* eine Assist-Pipeline mit
 deutschem STT/TTS zuweisen.
 
+## Bedienung über die Weboberfläche
+
+Das Gerät hat eine eigene Seite unter **<http://assist-satellit.local/>** (oder
+direkt unter seiner IP). Sie funktioniert unabhängig von Home Assistant und
+braucht keinen Internetzugang — Oberfläche und Stylesheet liegen im Flash. Auf
+dem Touchscreen selbst gibt es bewusst keine Bedienelemente.
+
+| Gruppe | Einstellung | Wirkung |
+|---|---|---|
+| Anzeige | **Ausrichtung** | Dreht das Bild in 90-Grad-Schritten (0/90/180/270). Die Touch-Koordinaten dreht LVGL mit. 45 Grad gibt die Grafikbibliothek nicht her. |
+| Anzeige | **Standby-Seite** | Welche Seite im Standby erscheint. Zurzeit gibt es nur die Uhr; weitere Seiten kommen später. |
+| Farben | **Farbe Zuhören / Verarbeitung / Sprachausgabe / Fehler / gedimmt** | Farbe des jeweiligen Elements, als sechsstelliger Hex-Wert ohne Präfix (z. B. `03A9F4`). Ungültige Eingaben werden ignoriert. |
+
+Alle Einstellungen überstehen einen Neustart. Die Werte in
+`assist-satellit.yaml` sind nur die Voreinstellung ab Werk — was hier gesetzt
+wird, hat Vorrang. Darunter zeigt dieselbe Seite die üblichen Entities
+(Helligkeit, Stummschaltung, Wake-Word-Optionen, Diagnose, Neustart).
+
+Die Seite ist **ohne Passwort** im lokalen Netz erreichbar. Wer das nicht will,
+ergänzt in `packages/web.yaml` einen `auth:`-Block mit Zugangsdaten aus
+`secrets.yaml`.
+
 ## Updates
 
 ```bash
@@ -136,9 +160,12 @@ git checkout v0.1.0 && esphome run assist-satellit.yaml --device assist-satellit
 | `packages/hardware.yaml` | I2C, QSPI-Display, Touch, I2S-Audio, Codecs, Media Player |
 | `packages/voice.yaml` | Wake Word, Voice Assistant, Selects, Mute, Text-Sensoren |
 | `packages/ui.yaml` | Fonts, LVGL-Seiten, Phasen-Animationen, Standby-Uhr |
+| `packages/web.yaml` | Weboberfläche: Ausrichtung, Standby-Seite, Symbolfarben |
 
 Farben, Phasen-IDs und Standby-Zeiten stehen als Substitutions in
-`assist-satellit.yaml` — dort anpassen, nicht in den Packages.
+`assist-satellit.yaml` — dort anpassen, nicht in den Packages. Bei den Farben
+ist das allerdings nur die Voreinstellung: sobald eine Farbe über die
+Weboberfläche gesetzt wurde, gilt der gespeicherte Wert.
 
 ## Hardware-Referenz
 
@@ -184,3 +211,8 @@ die Select-Entity erhöhen.
 - **Timer-Anzeige.** Die HA-Sprachtimer laufen, werden aber noch nicht auf dem
   Display dargestellt.
 - **Deutsches Wake Word.** Bräuchte ein eigenes microWakeWord-Modell.
+- **Bedienung am Touchscreen.** Bewusst entfernt: Antippen weckt nur das
+  Display, alles Einstellbare liegt auf der Weboberfläche und in Home
+  Assistant. Lautstärke und Stummschaltung bleiben HA-Entities.
+- **Weitere Standby-Seiten.** Der Auswahlmechanismus steht, es gibt bisher nur
+  die Uhr.

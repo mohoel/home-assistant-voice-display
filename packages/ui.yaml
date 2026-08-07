@@ -485,8 +485,9 @@ interval:
   # Mitte. Es atmet nach demselben Muster wie die Punkte der Verarbeitung:
   # angehobene Kosinuswelle ueber Deckkraft und eine kleine Hebung, geschrieben
   # direkt ueber die LVGL-C-API (`lvgl.widget.update` kennt keine Zeitachse).
-  # Die Groesse bleibt fest - LVGL 8 kann Labels nicht skalieren
-  # (transform_zoom wirkt nur auf lv_img), und ein Fontwechsel waere ein Sprung.
+  # Die Groesse bleibt fest: ein Fontwechsel waere ein sichtbarer Sprung, und
+  # transform_scale liesse LVGL 9 das Label pro Frame in einen eigenen Layer
+  # rendern - genau die Bandbreite, an der schon der Ring gescheitert ist.
   #
   # Die Deckkraft zu animieren war am Ring die Ruckelursache (vier konzentrische
   # Arcs ueber den vollen 466-px-Kranz per Alpha gegen Schwarz gemischt). Hier
