@@ -15,6 +15,15 @@ esphome:
     # sonst erst in on_client_connected das erste Mal laeuft.
     - priority: -100
       then:
+        # Erst ab hier steht LVGL. boot_done gibt apply_rotation frei (der
+        # restaurierte Wert von sel_rotation hat sein on_value schon lange
+        # vorher gefeuert, siehe packages/web.yaml) und wird dann einmal
+        # bewusst angewendet - vor update_ui, damit die Oberflaeche gleich in
+        # der richtigen Ausrichtung gezeichnet wird.
+        - globals.set:
+            id: boot_done
+            value: "true"
+        - script.execute: apply_rotation
         - script.execute: update_ui
   # Hinweis: platformio_options (flash_mode, f_flash, f_cpu) aus der
   # Community-Config wirken beim nativen ESP-IDF-Toolchain nicht und wurden

@@ -24,3 +24,62 @@ web_server:
     - id: grp_colors
       name: "Farben"
       sorting_weight: 20
+
+globals:
+  # Merker, dass on_boot durch ist. Ein Template-Select veroeffentlicht seinen
+  # restore_value beim Setup - das feuert on_value, bevor LVGL steht.
+  # apply_rotation steigt deshalb aus, solange dieser Merker false ist; gesetzt
+  # wird er in core.yaml im on_boot mit priority -100, direkt gefolgt vom
+  # ersten bewussten apply_rotation.
+  #
+  # Nicht mit init_in_progress aus voice.yaml verwechseln: das haengt an der
+  # API-Verbindung, die Rotation muss lange davor sitzen.
+  - id: boot_done
+    type: bool
+    restore_value: false
+    initial_value: "false"
+
+select:
+  # Geraeteausrichtung. 45-Grad-Schritte gibt der Stack nicht her:
+  # rotation_degrees ist cv.one_of(0, 90, 180, 270), und
+  # LvglComponent::set_rotation(int) verlangt ein Vielfaches von 90.
+  # Die Touch-Koordinaten dreht LVGL selbst mit.
+  - platform: template
+    id: sel_rotation
+    name: "Ausrichtung"
+    icon: mdi:screen-rotation
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    options:
+      - "0°"
+      - "90°"
+      - "180°"
+      - "270°"
+    initial_option: "0°"
+    web_server:
+      sorting_group_id: grp_display
+    on_value:
+      - script.execute: apply_rotation
+
+script:
+  # Uebertraegt den Select-Wert an LVGL. lvgl.display.set_rotation nimmt einen
+  # Laufzeitwert an: der Parameter geht durch LValidator, der eine Lambda mit
+  # Rueckgabetyp int akzeptiert (lv_validation.py:344, defines.py:226).
+  # Damit entfaellt ein vierfacher if-Baum - aber auch die YAML-Pruefung auf
+  # 0/90/180/270, die das Lambda hier selbst garantiert (default: 0).
+  - id: apply_rotation
+    mode: restart
+    then:
+      - if:
+          condition:
+            lambda: return id(boot_done);
+          then:
+            - lvgl.display.set_rotation:
+                rotation: !lambda |-
+                  switch (id(sel_rotation).active_index().value_or(0)) {
+                    case 1: return 90;
+                    case 2: return 180;
+                    case 3: return 270;
+                    default: return 0;
+                  }
