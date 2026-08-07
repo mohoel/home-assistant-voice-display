@@ -1,0 +1,26 @@
+# Bedienseite ueber die IP des Geraets (http://assist-satellit.local/).
+#
+# ESPHome rendert hier ausschliesslich sein Standard-Entity-Dashboard - eigenes
+# HTML gibt es nicht. Die "Bedienseite" ist deshalb eine Gruppe von Entities,
+# geordnet ueber sorting_groups; die Gruppen und ihre Reihenfolge sind die
+# einzige Gestaltungsmoeglichkeit. sorting_groups setzt version: 3 voraus.
+#
+# Der Webserver teilt sich den HTTP-Server mit dem captive_portal aus
+# core.yaml - beides zusammen ist auf ESP-IDF vorgesehen und braucht keine
+# Sonderbehandlung.
+#
+# Keine auth: Die Seite ist im LAN offen erreichbar. Wenn das stoeren sollte:
+# hier einen auth-Block mit username/password aus secrets.yaml ergaenzen.
+
+web_server:
+  version: 3
+  # Legt JS und CSS ins Flash (16 MB, unkritisch). Ohne das laedt das Frontend
+  # von GitHub nach und die Seite bleibt ohne Internetzugang leer.
+  local: true
+  sorting_groups:
+    - id: grp_display
+      name: "Anzeige"
+      sorting_weight: 10
+    - id: grp_colors
+      name: "Farben"
+      sorting_weight: 20

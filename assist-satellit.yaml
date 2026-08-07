@@ -89,3 +89,4 @@ packages:
   hardware: !include packages/hardware.yaml
   voice: !include packages/voice.yaml
   ui: !include packages/ui.yaml
+  web: !include packages/web.yaml
