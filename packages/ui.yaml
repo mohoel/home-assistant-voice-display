@@ -1,7 +1,7 @@
 # Oberflaeche auf dem runden 466x466-AMOLED.
 #
 # Zwei Seiten:
-#   page_main      Ring + Statusicon waehrend eines Sprachvorgangs
+#   page_main      Statusicon, Punkte oder Balken - je nach Phase
 #   page_standby   gedimmte Uhr
 #
 # Lautstaerke und Stummschaltung gibt es bewusst nicht als Touch-Bedienseite
@@ -19,24 +19,28 @@ font:
     glyphsets: [GF_Latin_Core]
   - file: "gfonts://Figtree@600"
     id: font_date
-    size: 24
+    size: 31 # 130% der urspruenglichen 24 px
     glyphsets: [GF_Latin_Core]
   - file: "gfonts://Figtree@700"
     id: font_clock
-    size: 108
+    size: 140
     glyphsets: [GF_Latin_Core]
 
   # Statusicons aus "Voice Assistant UI.dc.html" (Design-Handoff). Ersetzen
   # auf page_main den frueheren Phasentext komplett - siehe update_ui.
   # Codepoints aus dem offiziellen Material-Symbols-Codepoint-Register:
   # https://github.com/google/material-design-icons/blob/master/variablefont/MaterialSymbolsOutlined%5BFILL%2CGRAD%2Copsz%2Cwght%5D.codepoints
+  #
+  # 216 px = 300% der urspruenglichen 72 px. Die Groesse gilt fuer alle vier
+  # Glyphen. Auf sie beziehen sich `lbl_icon` (Box 240x240), die Punktbreite
+  # der Verarbeitung (dot_gap/dot_size_max) und die Balkenbreite der
+  # Sprachausgabe (bar_gap/bar_width) - alle in assist-satellit.yaml.
   - file: "gfonts://Material+Symbols+Outlined"
     id: font_icon
-    size: 72
+    size: 216
     glyphs:
       - "\U0000E31D" # mic       - listening
       - "\U0000E02B" # mic_off   - muted
-      - "\U0000E668" # check     - replying
       - "\U0000F083" # warning   - error
       - "\U0000E648" # wifi_off  - not ready
 
@@ -79,11 +83,10 @@ lvgl:
     - id: page_main
       bg_color: 0x000000
       bg_opa: COVER
-      # Reihenfolge = Z-Ordnung: Spur unten, darueber je Glow und scharfer
-      # Ring, obenauf die Texte. Immer genau eine der drei Ringvarianten ist
-      # sichtbar, umgeschaltet in update_ui.
+      # Reihenfolge = Z-Ordnung. Es gibt keinen Ring mehr: jede Phase zeigt
+      # genau ein Widget in der Mitte, umgeschaltet in update_ui.
       widgets:
-        # KEIN expliziter `main:`-Block an Ring-Widgets, obwohl LVGL einen
+        # KEIN expliziter `main:`-Block an Widgets, obwohl LVGL einen
         # Main-Part hat. Das ist ein Workaround gegen einen Codegen-Bug in
         # ESPHome 2026.7.3 (components/lvgl/widgets/__init__.py, collect_parts):
         #
@@ -95,220 +98,31 @@ lvgl:
         # Ein `main:`-Block ersetzt den Top-Level-Bucket, statt ihn zu
         # ergaenzen - `align`, `width`, `height` und `hidden` fallen still weg.
         # Sichtbar nur im generierten Code (.esphome/build/*/src/main.cpp):
-        # bei den Ringen fehlten `lv_obj_set_style_align/width/height` und
-        # `lv_obj_add_flag(HIDDEN)` komplett, bei `lbl_icon`/`dot_1` (ohne
-        # `main:`) waren sie da. Ergebnis auf dem Geraet: alle Ringe in
+        # bei den frueheren Ring-Arcs fehlten `lv_obj_set_style_align/width/
+        # height` und `lv_obj_add_flag(HIDDEN)` komplett, bei `lbl_icon`/`dot_1`
+        # (ohne `main:`) waren sie da. Ergebnis auf dem Geraet: alle Ringe in
         # LVGL-Defaultgroesse auf Position (0,0) und alle gleichzeitig
-        # sichtbar - das war der eigentliche Ring-Bug.
+        # sichtbar - das war der damalige Ring-Bug.
         #
         # Top-Level *ist* der Main-Part im Default-State, deshalb stehen die
-        # Main-Styles hier direkt oben. `indicator:` und andere echte
-        # Sub-Parts sind vom Bug nicht betroffen und bleiben als Block.
-        #
-        # end_angle: 359 statt 360 ist ebenfalls Absicht, aber ein anderes
-        # Thema: LVGL zeichnet bei 0/360 keinen vollen Kreis, sondern einen
-        # degenerierten Bogen der Laenge 0 (die Naht faellt auf sich selbst
-        # zurueck). Bekannter Grenzfall, siehe
-        # https://forum.lvgl.io/t/how-to-how-to-draw-lv-arc-by-start-angle-0-with-end-angle-360/1456
-        # und https://github.com/esphome/esphome/pull/15860. Gilt fuer jeden
-        # 0/360-Vollkreis-Arc in dieser Datei.
+        # Main-Styles hier direkt oben. Echte Sub-Parts (`indicator:` &Co.)
+        # sind vom Bug nicht betroffen und bleiben als Block.
 
-        # Eine statische Spur (ring_track) gab es hier frueher. Sie war auf dem
-        # Geraet als grauer Kreis sichtbar, dem der umlaufende Arc folgte -
-        # genau der Effekt, den das Design nicht will. Ersatzlos entfernt: die
-        # Spinner zeichnen ihren eigenen Main-Part ohnehin mit
-        # `arc_opa: TRANSP`, es gibt also nichts mehr im Hintergrund.
-
-        # --- Voller, stehender Ring: Antwort, Fehler, stumm, nicht bereit ---
-        - arc:
-            id: ring_full_glow3
-            align: CENTER
-            width: ${ring_glow3_size}
-            height: ${ring_glow3_size}
-            start_angle: 0
-            end_angle: 359
-            adjustable: false
-            min_value: 0
-            max_value: 100
-            value: 100
-            arc_opa: TRANSP
-            indicator:
-              arc_color: ${color_not_ready}
-              arc_width: ${ring_glow3_width}
-              arc_opa: ${ring_glow3_opa}
-
-        - arc:
-            id: ring_full_glow2
-            align: CENTER
-            width: ${ring_glow2_size}
-            height: ${ring_glow2_size}
-            start_angle: 0
-            end_angle: 359
-            adjustable: false
-            min_value: 0
-            max_value: 100
-            value: 100
-            arc_opa: TRANSP
-            indicator:
-              arc_color: ${color_not_ready}
-              arc_width: ${ring_glow2_width}
-              arc_opa: ${ring_glow2_opa}
-
-        - arc:
-            id: ring_full_glow1
-            align: CENTER
-            width: ${ring_glow1_size}
-            height: ${ring_glow1_size}
-            start_angle: 0
-            end_angle: 359
-            adjustable: false
-            min_value: 0
-            max_value: 100
-            value: 100
-            arc_opa: TRANSP
-            indicator:
-              arc_color: ${color_not_ready}
-              arc_width: ${ring_glow1_width}
-              arc_opa: ${ring_glow1_opa}
-
-        - arc:
-            id: ring_full
-            align: CENTER
-            width: ${ring_size}
-            height: ${ring_size}
-            start_angle: 0
-            end_angle: 359
-            adjustable: false
-            min_value: 0
-            max_value: 100
-            value: 100
-            arc_opa: TRANSP
-            indicator:
-              arc_color: ${color_not_ready}
-              arc_width: ${ring_width}
-
-        # --- Langsamer Umlauf: Zuhoeren ---
-        # spin_time ist zur Laufzeit nicht aenderbar (Spinner hat kein
-        # Modify-Schema), deshalb zwei fertige Spinner statt einem.
-        - spinner:
-            id: ring_slow_glow3
-            align: CENTER
-            width: ${ring_glow3_size}
-            height: ${ring_glow3_size}
-            spin_time: ${spin_time_listening}
-            arc_length: 70
-            hidden: true
-            arc_opa: TRANSP
-            indicator:
-              arc_color: ${color_listening}
-              arc_width: ${ring_glow3_width}
-              arc_opa: ${ring_glow3_opa}
-
-        - spinner:
-            id: ring_slow_glow2
-            align: CENTER
-            width: ${ring_glow2_size}
-            height: ${ring_glow2_size}
-            spin_time: ${spin_time_listening}
-            arc_length: 70
-            hidden: true
-            arc_opa: TRANSP
-            indicator:
-              arc_color: ${color_listening}
-              arc_width: ${ring_glow2_width}
-              arc_opa: ${ring_glow2_opa}
-
-        - spinner:
-            id: ring_slow_glow1
-            align: CENTER
-            width: ${ring_glow1_size}
-            height: ${ring_glow1_size}
-            spin_time: ${spin_time_listening}
-            arc_length: 70
-            hidden: true
-            arc_opa: TRANSP
-            indicator:
-              arc_color: ${color_listening}
-              arc_width: ${ring_glow1_width}
-              arc_opa: ${ring_glow1_opa}
-
-        - spinner:
-            id: ring_slow
-            align: CENTER
-            width: ${ring_size}
-            height: ${ring_size}
-            spin_time: ${spin_time_listening}
-            arc_length: 70
-            hidden: true
-            arc_opa: TRANSP
-            indicator:
-              arc_color: ${color_listening}
-              arc_width: ${ring_width}
-
-        # --- Schneller Umlauf: Verarbeitung ---
-        - spinner:
-            id: ring_fast_glow3
-            align: CENTER
-            width: ${ring_glow3_size}
-            height: ${ring_glow3_size}
-            spin_time: ${spin_time_thinking}
-            arc_length: 70
-            hidden: true
-            arc_opa: TRANSP
-            indicator:
-              arc_color: ${color_thinking}
-              arc_width: ${ring_glow3_width}
-              arc_opa: ${ring_glow3_opa}
-
-        - spinner:
-            id: ring_fast_glow2
-            align: CENTER
-            width: ${ring_glow2_size}
-            height: ${ring_glow2_size}
-            spin_time: ${spin_time_thinking}
-            arc_length: 70
-            hidden: true
-            arc_opa: TRANSP
-            indicator:
-              arc_color: ${color_thinking}
-              arc_width: ${ring_glow2_width}
-              arc_opa: ${ring_glow2_opa}
-
-        - spinner:
-            id: ring_fast_glow1
-            align: CENTER
-            width: ${ring_glow1_size}
-            height: ${ring_glow1_size}
-            spin_time: ${spin_time_thinking}
-            arc_length: 70
-            hidden: true
-            arc_opa: TRANSP
-            indicator:
-              arc_color: ${color_thinking}
-              arc_width: ${ring_glow1_width}
-              arc_opa: ${ring_glow1_opa}
-
-        - spinner:
-            id: ring_fast
-            align: CENTER
-            width: ${ring_size}
-            height: ${ring_size}
-            spin_time: ${spin_time_thinking}
-            arc_length: 70
-            hidden: true
-            arc_opa: TRANSP
-            indicator:
-              arc_color: ${color_thinking}
-              arc_width: ${ring_width}
+        # Ringe gab es hier frueher fuer jede Phase - erst rotierende Spinner,
+        # dann ein stehender Vollring mit drei Glow-Schichten. Alles entfallen:
+        # jede Phase traegt sich jetzt ueber ein Widget in der Bildschirmmitte
+        # (Icon, Punkte oder Balken), damit die Zustaende einheitlich wirken.
 
         # --- Statusicon ---
         # Ersetzt seit dem Design-Handoff (design_handoff_voice_ui) den
         # Phasentext komplett - Glyph und Farbe setzt update_ui je Phase.
+        # Beim Zuhoeren animiert der interval:-Block am Dateiende zusaetzlich
+        # Deckkraft und Hoehe dieses Labels.
         - label:
             id: lbl_icon
             align: CENTER
-            width: 90
-            height: 90
+            width: 240
+            height: 240
             text: ""
             text_font: font_icon
             text_color: ${color_text}
@@ -316,15 +130,19 @@ lvgl:
             hidden: true
 
         # --- Drei Punkte: Verarbeitung ---
-        # Im Mockup blinken sie versetzt (flicker-ring); hier statisch, um
-        # keine eigene Endlos-Animation gegen den Spinner pflegen zu muessen.
+        # Einzige Anzeige waehrend der Verarbeitung, seit der Ring dafuer
+        # entfallen ist. Die Welle laeuft im `interval:` weiter unten; die
+        # Werte hier sind der Ruhezustand, den der erste Tick sofort ueber-
+        # schreibt. `radius` ist absichtlich groesser als die halbe maximale
+        # Kantenlaenge - LVGL klemmt auf die Haelfte, der Punkt bleibt also
+        # in jeder Groesse rund.
         - obj:
             id: dot_1
             align: CENTER
-            x: -30
-            width: 16
-            height: 16
-            radius: 8
+            x: -${dot_gap}
+            width: ${dot_size}
+            height: ${dot_size}
+            radius: 40
             bg_color: ${color_thinking}
             bg_opa: COVER
             border_width: 0
@@ -333,9 +151,9 @@ lvgl:
             id: dot_2
             align: CENTER
             x: 0
-            width: 16
-            height: 16
-            radius: 8
+            width: ${dot_size}
+            height: ${dot_size}
+            radius: 40
             bg_color: ${color_thinking}
             bg_opa: COVER
             border_width: 0
@@ -343,11 +161,73 @@ lvgl:
         - obj:
             id: dot_3
             align: CENTER
-            x: 30
-            width: 16
-            height: 16
-            radius: 8
+            x: ${dot_gap}
+            width: ${dot_size}
+            height: ${dot_size}
+            radius: 40
             bg_color: ${color_thinking}
+            bg_opa: COVER
+            border_width: 0
+            hidden: true
+
+        # --- Fuenf Balken: Sprachausgabe ---
+        # Einzige Anzeige waehrend der Antwort, seit auch der letzte Ring
+        # entfallen ist. Gleiches Prinzip wie bei den Punkten: die Welle laeuft
+        # im `interval:` weiter unten, die Werte hier sind nur der Ruhezustand.
+        # `radius` ist wieder absichtlich groesser als die halbe Balkenbreite,
+        # damit LVGL klemmt und die Enden in jeder Hoehe rund bleiben.
+        - obj:
+            id: bar_1
+            align: CENTER
+            x: -96 # -2 * bar_gap
+            width: ${bar_width}
+            height: ${bar_size_min}
+            radius: 20
+            bg_color: ${color_replying}
+            bg_opa: COVER
+            border_width: 0
+            hidden: true
+        - obj:
+            id: bar_2
+            align: CENTER
+            x: -48 # -1 * bar_gap
+            width: ${bar_width}
+            height: ${bar_size_min}
+            radius: 20
+            bg_color: ${color_replying}
+            bg_opa: COVER
+            border_width: 0
+            hidden: true
+        - obj:
+            id: bar_3
+            align: CENTER
+            x: 0
+            width: ${bar_width}
+            height: ${bar_size_min}
+            radius: 20
+            bg_color: ${color_replying}
+            bg_opa: COVER
+            border_width: 0
+            hidden: true
+        - obj:
+            id: bar_4
+            align: CENTER
+            x: 48 # 1 * bar_gap
+            width: ${bar_width}
+            height: ${bar_size_min}
+            radius: 20
+            bg_color: ${color_replying}
+            bg_opa: COVER
+            border_width: 0
+            hidden: true
+        - obj:
+            id: bar_5
+            align: CENTER
+            x: 96 # 2 * bar_gap
+            width: ${bar_width}
+            height: ${bar_size_min}
+            radius: 20
+            bg_color: ${color_replying}
             bg_opa: COVER
             border_width: 0
             hidden: true
@@ -368,7 +248,7 @@ lvgl:
         - label:
             id: lbl_date
             align: CENTER
-            y: 61
+            y: 82
             text: ""
             text_font: font_date
             text_color: ${color_text_dim}
@@ -379,14 +259,21 @@ script:
   - id: update_ui
     mode: restart
     then:
-      # Statusicon und Verarbeitungs-Punkte: erst alles aus, dann je Phase
-      # genau ein Icon oder die drei Punkte an. Text auf page_main gibt es
-      # seit dem Design-Handoff nicht mehr - Antworttext bleibt nur als
-      # text_sensor in HA verfuegbar, siehe design_handoff_voice_ui/README.md.
+      # Genau ein Widget in der Mitte je Phase: Verarbeitung -> drei Punkte,
+      # Sprachausgabe -> fuenf Balken, alles andere -> ein Statusicon. Erst
+      # alles aus, dann eins an; das laeuft synchron in einem Durchgang, also
+      # ohne Flackern. Text auf page_main gibt es seit dem Design-Handoff nicht
+      # mehr - Antworttext bleibt nur als text_sensor in HA verfuegbar, siehe
+      # design_handoff_voice_ui/README.md.
       - lvgl.widget.hide: lbl_icon
       - lvgl.widget.hide: dot_1
       - lvgl.widget.hide: dot_2
       - lvgl.widget.hide: dot_3
+      - lvgl.widget.hide: bar_1
+      - lvgl.widget.hide: bar_2
+      - lvgl.widget.hide: bar_3
+      - lvgl.widget.hide: bar_4
+      - lvgl.widget.hide: bar_5
       - if:
           condition:
             lambda: return id(voice_assistant_phase) == ${phase_thinking};
@@ -397,112 +284,45 @@ script:
           else:
             - if:
                 condition:
-                  lambda: |-
-                    return id(voice_assistant_phase) == ${phase_listening}
-                        || id(voice_assistant_phase) == ${phase_replying}
-                        || id(voice_assistant_phase) == ${phase_error}
-                        || id(voice_assistant_phase) == ${phase_muted}
-                        || id(voice_assistant_phase) == ${phase_not_ready};
+                  lambda: return id(voice_assistant_phase) == ${phase_replying};
                 then:
-                  - lvgl.label.update:
-                      id: lbl_icon
-                      text: !lambda |-
-                        switch (id(voice_assistant_phase)) {
-                          case ${phase_listening}: return std::string("\U0000E31D");
-                          case ${phase_replying}:  return std::string("\U0000E668");
-                          case ${phase_error}:     return std::string("\U0000F083");
-                          case ${phase_muted}:     return std::string("\U0000E02B");
-                          default:                 return std::string("\U0000E648");
-                        }
-                  - lvgl.widget.update:
-                      id: lbl_icon
-                      text_color: !lambda |-
-                        switch (id(voice_assistant_phase)) {
-                          case ${phase_muted}:
-                          case ${phase_not_ready}:
-                            return lv_color_hex(${color_text_dim});
-                          default:
-                            return lv_color_hex(${color_text});
-                        }
-                  - lvgl.widget.show: lbl_icon
-
-      # Ringvariante waehlen. Erst alles aus, dann genau eine Variante an -
-      # laeuft synchron innerhalb eines Durchgangs, also ohne Flackern.
-      - lvgl.widget.hide: ring_slow
-      - lvgl.widget.hide: ring_slow_glow1
-      - lvgl.widget.hide: ring_slow_glow2
-      - lvgl.widget.hide: ring_slow_glow3
-      - lvgl.widget.hide: ring_fast
-      - lvgl.widget.hide: ring_fast_glow1
-      - lvgl.widget.hide: ring_fast_glow2
-      - lvgl.widget.hide: ring_fast_glow3
-      - lvgl.widget.hide: ring_full
-      - lvgl.widget.hide: ring_full_glow1
-      - lvgl.widget.hide: ring_full_glow2
-      - lvgl.widget.hide: ring_full_glow3
-      - if:
-          condition:
-            lambda: return id(voice_assistant_phase) == ${phase_listening};
-          then:
-            - lvgl.widget.show: ring_slow_glow3
-            - lvgl.widget.show: ring_slow_glow2
-            - lvgl.widget.show: ring_slow_glow1
-            - lvgl.widget.show: ring_slow
-          else:
-            - if:
-                condition:
-                  lambda: return id(voice_assistant_phase) == ${phase_thinking};
-                then:
-                  - lvgl.widget.show: ring_fast_glow3
-                  - lvgl.widget.show: ring_fast_glow2
-                  - lvgl.widget.show: ring_fast_glow1
-                  - lvgl.widget.show: ring_fast
+                  - lvgl.widget.show: bar_1
+                  - lvgl.widget.show: bar_2
+                  - lvgl.widget.show: bar_3
+                  - lvgl.widget.show: bar_4
+                  - lvgl.widget.show: bar_5
                 else:
-                  # Antwort, Fehler, stumm, nicht bereit: stehender Vollring
-                  - lvgl.widget.update:
-                      id: ring_full
-                      indicator:
-                        arc_color: !lambda |-
-                          switch (id(voice_assistant_phase)) {
-                            case ${phase_replying}: return lv_color_hex(${color_replying});
-                            case ${phase_error}:    return lv_color_hex(${color_error});
-                            case ${phase_muted}:    return lv_color_hex(${color_muted});
-                            default:                return lv_color_hex(${color_not_ready});
-                          }
-                  - lvgl.widget.update:
-                      id: ring_full_glow1
-                      indicator:
-                        arc_color: !lambda |-
-                          switch (id(voice_assistant_phase)) {
-                            case ${phase_replying}: return lv_color_hex(${color_replying});
-                            case ${phase_error}:    return lv_color_hex(${color_error});
-                            case ${phase_muted}:    return lv_color_hex(${color_muted});
-                            default:                return lv_color_hex(${color_not_ready});
-                          }
-                  - lvgl.widget.update:
-                      id: ring_full_glow2
-                      indicator:
-                        arc_color: !lambda |-
-                          switch (id(voice_assistant_phase)) {
-                            case ${phase_replying}: return lv_color_hex(${color_replying});
-                            case ${phase_error}:    return lv_color_hex(${color_error});
-                            case ${phase_muted}:    return lv_color_hex(${color_muted});
-                            default:                return lv_color_hex(${color_not_ready});
-                          }
-                  - lvgl.widget.update:
-                      id: ring_full_glow3
-                      indicator:
-                        arc_color: !lambda |-
-                          switch (id(voice_assistant_phase)) {
-                            case ${phase_replying}: return lv_color_hex(${color_replying});
-                            case ${phase_error}:    return lv_color_hex(${color_error});
-                            case ${phase_muted}:    return lv_color_hex(${color_muted});
-                            default:                return lv_color_hex(${color_not_ready});
-                          }
-                  - lvgl.widget.show: ring_full_glow3
-                  - lvgl.widget.show: ring_full_glow2
-                  - lvgl.widget.show: ring_full_glow1
-                  - lvgl.widget.show: ring_full
+                  - if:
+                      condition:
+                        lambda: |-
+                          return id(voice_assistant_phase) == ${phase_listening}
+                              || id(voice_assistant_phase) == ${phase_error}
+                              || id(voice_assistant_phase) == ${phase_muted}
+                              || id(voice_assistant_phase) == ${phase_not_ready};
+                      then:
+                        - lvgl.label.update:
+                            id: lbl_icon
+                            text: !lambda |-
+                              switch (id(voice_assistant_phase)) {
+                                case ${phase_listening}: return std::string("\U0000E31D");
+                                case ${phase_error}:     return std::string("\U0000F083");
+                                case ${phase_muted}:     return std::string("\U0000E02B");
+                                default:                 return std::string("\U0000E648");
+                              }
+                        # Seit dem Wegfall des Rings traegt das Icon die
+                        # Farbcodierung: blau beim Zuhoeren (es atmet dabei,
+                        # siehe interval: am Dateiende), rot bei Fehlern,
+                        # gedimmt bei stumm und "nicht bereit".
+                        - lvgl.widget.update:
+                            id: lbl_icon
+                            text_color: !lambda |-
+                              switch (id(voice_assistant_phase)) {
+                                case ${phase_listening}: return lv_color_hex(${color_listening});
+                                case ${phase_error}:     return lv_color_hex(${color_error});
+                                default:                 return lv_color_hex(${color_text_dim});
+                              }
+                        - lvgl.widget.show: lbl_icon
+
       # Im Leerlauf gibt es nichts anzuzeigen -> Standby.
       # Alles andere weckt das Display.
       - if:
@@ -581,3 +401,124 @@ script:
   # Minuetlicher Takt fuer Uhr und Einbrennschutz haengt am Zeitgeber in
   # core.yaml (`time: ha_time` -> on_time), weil ESPHome Plattform-Listen
   # ueber Package-Grenzen hinweg nicht per id zusammenfuehrt.
+
+# --------------------------------------------- Animation der Verarbeitung
+# ESPHome-LVGL hat kein Animations-Primitive fuer eigene Widget-Eigenschaften
+# (`lvgl.widget.update` kennt keine Zeitachse), also laeuft die Welle als
+# eigener Takt. Ein Schritt schreibt Groesse, Position und Deckkraft aller
+# drei Punkte direkt ueber die LVGL-API - ein Lambda statt einer
+# YAML-Fallunterscheidung pro Punkt und Schritt.
+#
+# Die Amplitude ist eine angehobene Kosinuswelle (0..1, Maximum bei p == 0),
+# jeder Punkt liegt ein Drittel Zyklus hinter dem vorherigen. Dadurch wandert
+# der Buckel von links nach rechts, statt dass die Punkte gemeinsam blinken.
+#
+# Der Takt laeuft immer, macht aber ausserhalb der Verarbeitung nichts - die
+# Punkte sind dann ohnehin versteckt (update_ui).
+interval:
+  - interval: ${dot_step_time}
+    then:
+      - lambda: |-
+          if (id(voice_assistant_phase) != ${phase_thinking})
+            return;
+          static uint8_t step = 0;
+          static const int16_t X[3] = {-${dot_gap}, 0, ${dot_gap}};
+          lv_obj_t *const dots[3] = {id(dot_1), id(dot_2), id(dot_3)};
+          const uint8_t versatz = ${dot_cycle_steps} / 3;
+          for (uint8_t i = 0; i < 3; i++) {
+            uint8_t p = (step + ${dot_cycle_steps} - versatz * i) % ${dot_cycle_steps};
+            float a = 0.5f * (1.0f + cosf(6.2831853f * p / ${dot_cycle_steps}));
+            int16_t groesse = ${dot_size} + (int16_t) (a * (${dot_size_max} - ${dot_size}));
+            lv_obj_set_size(dots[i], groesse, groesse);
+            // Nach jeder Groessenaenderung neu ausrichten, sonst waechst der
+            // Punkt nach rechts unten statt aus seiner Mitte heraus.
+            lv_obj_align(dots[i], LV_ALIGN_CENTER, X[i], -(int16_t) (a * ${dot_lift}));
+            lv_obj_set_style_bg_opa(
+                dots[i], (lv_opa_t) (${dot_opa_min} + a * (255 - ${dot_opa_min})),
+                LV_PART_MAIN);
+          }
+          step = (step + 1) % ${dot_cycle_steps};
+
+  # -------------------------------------------------- Animation des Zuhoerens
+  # Zuhoeren hat keinen Ring mehr, sondern nur das blaue Mikrofon-Icon in der
+  # Mitte. Es atmet nach demselben Muster wie die Punkte der Verarbeitung:
+  # angehobene Kosinuswelle ueber Deckkraft und eine kleine Hebung, geschrieben
+  # direkt ueber die LVGL-C-API (`lvgl.widget.update` kennt keine Zeitachse).
+  # Die Groesse bleibt fest - LVGL 8 kann Labels nicht skalieren
+  # (transform_zoom wirkt nur auf lv_img), und ein Fontwechsel waere ein Sprung.
+  #
+  # Die Deckkraft zu animieren war am Ring die Ruckelursache (vier konzentrische
+  # Arcs ueber den vollen 466-px-Kranz per Alpha gegen Schwarz gemischt). Hier
+  # ist es ein einzelnes 240x240-Label, also unkritisch.
+  #
+  # Anders als beim Ring muss der Endzustand hier zurueckgesetzt werden:
+  # update_ui setzt zwar text_color, aber nicht text_opa und nicht die
+  # Ausrichtung. Das erledigt der `aktiv`-Merker beim Verlassen der Phase.
+  - interval: ${mic_step_time}
+    then:
+      - lambda: |-
+          static bool aktiv = false;
+          static uint8_t step = 0;
+          if (id(voice_assistant_phase) != ${phase_listening}) {
+            if (aktiv) {
+              aktiv = false;
+              lv_obj_set_style_text_opa(id(lbl_icon), LV_OPA_COVER, LV_PART_MAIN);
+              lv_obj_align(id(lbl_icon), LV_ALIGN_CENTER, 0, 0);
+            }
+            return;
+          }
+          if (!aktiv) {
+            aktiv = true;
+            step = 0;
+          }
+          float a = 0.5f * (1.0f - cosf(6.2831853f * step / ${mic_cycle_steps}));
+          lv_obj_set_style_text_opa(
+              id(lbl_icon), (lv_opa_t) (${mic_opa_min} + a * (255 - ${mic_opa_min})),
+              LV_PART_MAIN);
+          lv_obj_align(id(lbl_icon), LV_ALIGN_CENTER, 0,
+                       -(int16_t) (a * ${mic_lift}));
+          step = (step + 1) % ${mic_cycle_steps};
+
+  # ------------------------------------------- Animation der Sprachausgabe
+  # Sprachausgabe hat keinen Ring mehr, sondern fuenf Balken als Aequalizer.
+  # Gleiches Muster wie bei den Punkten: angehobene Kosinuswelle, jeder Balken
+  # ein Fuenftel Zyklus versetzt, geschrieben ueber die LVGL-C-API. Die
+  # Amplitude ist pro Balken skaliert (aussen flacher als innen), damit die
+  # Gruppe rund in das runde Display passt.
+  #
+  # `lv_obj_align` muss auch hier nach jedem `lv_obj_set_size` folgen, sonst
+  # waechst der Balken nach unten statt aus seiner Mitte. Ein Ruecksetzen wie
+  # beim Mikrofon braucht es nicht: die Balken sind ausserhalb der Phase
+  # versteckt (update_ui) und der erste Takt schreibt alle Werte neu.
+  - interval: ${bar_step_time}
+    then:
+      - lambda: |-
+          static bool aktiv = false;
+          static uint8_t step = 0;
+          if (id(voice_assistant_phase) != ${phase_replying}) {
+            aktiv = false;
+            return;
+          }
+          if (!aktiv) {
+            aktiv = true;
+            step = 0;
+          }
+          static const int16_t X[5] = {-2 * ${bar_gap}, -${bar_gap}, 0,
+                                       ${bar_gap}, 2 * ${bar_gap}};
+          static const float SKALA[5] = {0.45f, 0.75f, 1.0f, 0.75f, 0.45f};
+          lv_obj_t *const bars[5] = {id(bar_1), id(bar_2), id(bar_3),
+                                     id(bar_4), id(bar_5)};
+          const uint8_t versatz = ${bar_cycle_steps} / 5;
+          for (uint8_t i = 0; i < 5; i++) {
+            uint8_t p = (step + ${bar_cycle_steps} - versatz * i) % ${bar_cycle_steps};
+            float a = 0.5f * (1.0f + cosf(6.2831853f * p / ${bar_cycle_steps}));
+            a *= SKALA[i];
+            int16_t hoehe = ${bar_size_min}
+                          + (int16_t) (a * (${bar_size_max} - ${bar_size_min}));
+            lv_obj_set_size(bars[i], ${bar_width}, hoehe);
+            lv_obj_align(bars[i], LV_ALIGN_CENTER, X[i], 0);
+            lv_obj_set_style_bg_opa(
+                bars[i], (lv_opa_t) (${bar_opa_min} + a * (255 - ${bar_opa_min})),
+                LV_PART_MAIN);
+          }
+          step = (step + 1) % ${bar_cycle_steps};

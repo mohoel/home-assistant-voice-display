@@ -19,40 +19,65 @@ substitutions:
   phase_error: "11"
   phase_muted: "12"
 
-  # Ring-Farben je Phase (0xRRGGBB)
+  # Phasenfarben (0xRRGGBB). Es gibt keinen Ring mehr - jede Phase traegt sich
+  # ueber ein Widget in der Bildschirmmitte: color_listening faerbt das
+  # atmende Mikrofon-Icon, color_thinking die drei Punkte, color_replying die
+  # fuenf Balken der Sprachausgabe, color_error das Warnicon.
   color_listening: "0x03A9F4"
   color_thinking: "0xFFC107"
   color_replying: "0x4CAF50"
   color_error: "0xF44336"
-  color_muted: "0x4A4A4A"
-  color_not_ready: "0x78909C"
 
   # Texte
   color_text: "0xFFFFFF"
   color_text_dim: "0x707070"
 
-  # Ring-Geometrie und -Tempo. Der Glow besteht aus drei immer breiteren,
-  # immer transparenteren Kopien hinter dem scharfen Ring (aussen nach innen
-  # gestapelt). Eine einzige Schicht ergab eine sichtbare Kante; die drei
-  # Schichten addieren sich per Alpha zu ~11% / 32% / 63% / 100% und lesen
-  # sich dadurch als weicher Verlauf.
+  # Zuhoeren: kein Ring, sondern nur das blaue Mikrofon-Icon in der Mitte, das
+  # atmet - dieselbe angehobene Kosinuswelle wie bei den Punkten der
+  # Verarbeitung, nur mit einem einzigen Widget und ohne Versatz. Es wandert
+  # zwischen mic_opa_min und voller Deckkraft und hebt sich dabei um mic_lift.
+  # Ein Zyklus dauert mic_step_time * mic_cycle_steps = 40ms * 22 = 880ms.
   #
-  # Damit alle Ringe konzentrisch liegen, gilt fuer jede Schicht
-  # size = ring_size + (width - ring_width). Aussenkante der breitesten
-  # Schicht: 460 px, also 3 px Rand zum 466-px-Display.
-  ring_size: "430"
-  ring_width: "14"
-  ring_glow1_size: "438"
-  ring_glow1_width: "22"
-  ring_glow1_opa: "45%"
-  ring_glow2_size: "448"
-  ring_glow2_width: "32"
-  ring_glow2_opa: "24%"
-  ring_glow3_size: "460"
-  ring_glow3_width: "44"
-  ring_glow3_opa: "11%"
-  spin_time_listening: 1400ms
-  spin_time_thinking: 800ms
+  # Die Deckkraft darf hier animiert werden, obwohl genau das am Ring geruckelt
+  # hat: dort mussten vier konzentrische Arcs ueber den kompletten 466-px-Kranz
+  # per Alpha gegen Schwarz gemischt werden, hier ist es ein 240x240-Label.
+  mic_opa_min: "60" # 0..255
+  mic_lift: "18"
+  mic_step_time: 40ms
+  mic_cycle_steps: "22"
+
+  # Verarbeitung: drei Punkte statt Ring. Eine Welle laeuft von links nach
+  # rechts durch, jeder Punkt schwillt dabei von dot_size auf dot_size_max an,
+  # hebt sich um dot_lift und geht von dot_opa_min auf volle Deckkraft.
+  # Der Takt ist dot_step_time * dot_cycle_steps = ein kompletter Durchlauf.
+  #
+  # Die Gruppe ist genau so breit wie das Mikrofon-Icon hoch ist (216 px, siehe
+  # font_icon in packages/ui.yaml): 2 * dot_gap + dot_size_max = 158 + 58 = 216.
+  # Wer font_icon aendert, muss dot_gap mitziehen.
+  dot_size: "42"
+  dot_size_max: "58"
+  dot_gap: "79"
+  dot_lift: "18"
+  dot_opa_min: "70" # 0..255
+  dot_step_time: 60ms
+  dot_cycle_steps: "12"
+
+  # Sprachausgabe: fuenf Balken als Aequalizer statt Ring. Jeder Balken ist
+  # bar_width breit, die Gruppe ist wieder genau so breit wie das Mikrofon-Icon
+  # hoch ist (216 px): 4 * bar_gap + bar_width = 192 + 24 = 216.
+  #
+  # Die Hoehe laeuft als angehobene Kosinuswelle zwischen bar_size_min und
+  # bar_size_max, jeder Balken ein Fuenftel Zyklus versetzt; die Amplitude ist
+  # zur Mitte hin am groessten (Skala im Lambda in packages/ui.yaml), damit die
+  # Gruppe rund im Display sitzt. Ein Zyklus dauert
+  # bar_step_time * bar_cycle_steps = 40ms * 20 = 800ms.
+  bar_width: "24"
+  bar_gap: "48"
+  bar_size_min: "28"
+  bar_size_max: "216"
+  bar_opa_min: "90" # 0..255
+  bar_step_time: 40ms
+  bar_cycle_steps: "20"
 
   # Standby
   standby_timeout: 30s

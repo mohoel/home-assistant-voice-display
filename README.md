@@ -12,9 +12,12 @@ Statusanzeige statt eines LED-Rings.
 - Wake Word lokal auf dem Gerät (`micro_wake_word`) **oder** in Home Assistant —
   umschaltbar über eine Select-Entity, ohne Neustart
 - Gesprochener Text und Antwort erscheinen als Text-Sensoren in Home Assistant
-  (auf dem Display selbst zeigt der Ring nur ein Statusicon)
-- Ring als Statusanzeige, farbcodiert nach Phase: blau rotierend beim Zuhören,
-  amber und schneller beim Verarbeiten, grün und stehend bei der Antwort
+  (auf dem Display selbst steht nur die Statusanimation)
+- Jede Phase trägt sich über ein einziges Element in der Bildschirmmitte,
+  farbcodiert: beim Zuhören atmet ein blaues Mikrofon-Icon, beim Verarbeiten
+  laufen drei amberfarbene Punkte als Welle, bei der Sprachausgabe schlägt ein
+  grüner Äqualizer aus fünf Balken; Fehler, Stumm und „nicht bereit" zeigen ein
+  Icon
 - Standby zeigt eine stark gedimmte Uhr mit Datum („Dienstag, 4. August");
   schwarzer AMOLED-Hintergrund heißt physisch abgeschaltete Pixel
 - Antippen weckt das Display aus dem Standby
@@ -132,7 +135,7 @@ git checkout v0.1.0 && esphome run assist-satellit.yaml --device assist-satellit
 | `packages/core.yaml` | SoC, PSRAM, WLAN, API, OTA, Zeit, Diagnose |
 | `packages/hardware.yaml` | I2C, QSPI-Display, Touch, I2S-Audio, Codecs, Media Player |
 | `packages/voice.yaml` | Wake Word, Voice Assistant, Selects, Mute, Text-Sensoren |
-| `packages/ui.yaml` | Fonts, LVGL-Seiten, Ring-Animation, Standby-Uhr |
+| `packages/ui.yaml` | Fonts, LVGL-Seiten, Phasen-Animationen, Standby-Uhr |
 
 Farben, Phasen-IDs und Standby-Zeiten stehen als Substitutions in
 `assist-satellit.yaml` — dort anpassen, nicht in den Packages.

@@ -67,7 +67,7 @@ Geräte-YAML + Packages. **Farben, Phasen-IDs und Timings stehen als Substitutio
 | `packages/core.yaml` | SoC, PSRAM, WLAN, API, OTA, Zeit, Diagnose |
 | `packages/hardware.yaml` | I2C, QSPI-Display, Touch, I2S, ES7210/ES8311, Media Player |
 | `packages/voice.yaml` | Wake Word, Voice Assistant, Engine-Umschaltung, Mute |
-| `packages/ui.yaml` | Fonts, LVGL-Seiten, Ring, Standby-Uhr |
+| `packages/ui.yaml` | Fonts, LVGL-Seiten, Phasen-Animationen, Standby-Uhr |
 
 Die Voice-Assistant-Logik folgt `esphome/wake-word-voice-assistants`
 (esp32-s3-box-3) und `esphome/home-assistant-voice-pe`. Bei neuen Features zuerst
@@ -97,7 +97,7 @@ und schlägt fehl.
 
 Zentraler Zustand ist das Global **`voice_assistant_phase`** (`voice.yaml`).
 Regel: **nie die Phase setzen, ohne danach `script.execute: update_ui`
-aufzurufen** — `update_ui` malt nicht nur Ring und Texte, es entscheidet auch
+aufzurufen** — `update_ui` schaltet nicht nur die Widgets der Mitte, es entscheidet auch
 über Standby (`phase_idle` → `sleep_display`, alles andere → `wake_display`).
 
 Die Skripte sind die Bedienoberfläche der Logik, nicht die Handler selbst:
@@ -135,8 +135,9 @@ YAML-Parsing) — daher `switch/case` über Phasen statt Enums.
 
 `design_handoff_voice_ui/voice-ui-mockup.html` ist das erste HTML/CSS-Mockup der
 vier Kernzustände (Standby, Listening, Thinking, Replying) — reine Vorlage, kein
-Code fürs Gerät. Der Glow um den Ring im Mockup ist ein CSS-`drop-shadow` und hat
-in LVGL keine Entsprechung; Optionen dazu stehen im README des Ordners.
+Code fürs Gerät. Es zeigt noch den Ring, den es auf dem Gerät nicht mehr gibt
+(siehe *Bekannte Einschränkungen*); sein Glow ist ein CSS-`drop-shadow` und hat in
+LVGL ohnehin keine Entsprechung.
 
 Ein zweites, umfangreicheres Mockup (`Voice Assistant UI.dc.html` im
 Claude-Design-Projekt "Voice Assistant UI Design") erweitert das um die drei
@@ -146,39 +147,45 @@ LVGL-Widgets in `ui.yaml`; das Mockup selbst bleibt reine Vorlage, nicht Code.
 
 ## Bekannte Einschränkungen
 
-- **LVGL-Spinner hat kein Modify-Schema.** `spin_time` und `arc_length` sind zur
-  Laufzeit nicht änderbar; `lvgl.widget.update` nimmt nur generische
-  Objekt-Eigenschaften. Deshalb liegen in `ui.yaml` drei fertige Ringvarianten
-  übereinander (`ring_slow` 1400 ms, `ring_fast` 800 ms, `ring_full` stehend),
-  und `update_ui` blendet die passende ein. Neue Ringtempi heißen: neuer
-  Spinner, nicht neuer Parameter.
-- **LVGL kennt keinen Blur.** Der Glow aus dem Design-Mockup ist als **drei**
-  immer breitere, immer transparentere Kopien hinter dem scharfen Ring
-  angenähert (`*_glow1`–`*_glow3`, Maße und Deckkraft als `ring_glow{1,2,3}_*`
-  in `assist-satellit.yaml`). Eine einzelne Glow-Schicht ergab auf dem Gerät
-  eine sichtbare Kante; die drei Schichten addieren sich per Alpha zu
-  ~11 % / 32 % / 63 % / 100 % von außen nach innen und lesen sich als Verlauf.
-  Reihenfolge ist Pflicht: breiteste Schicht zuerst anlegen und zuerst zeigen,
-  scharfer Ring zuletzt — LVGL stapelt in Deklarationsreihenfolge.
-  Die vier Spinner je Phase laufen synchron, weil sie dieselbe `spin_time`
-  haben und beim Seitenaufbau gemeinsam starten — driftet das auf dem Gerät
-  sichtbar auseinander, sind die Glow-Spinner das Erste, was rausfliegt
-  (`glow3` zuerst).
-- **Keine statische Ringspur.** Ein früherer `ring_track` (dunkelgrauer
-  Vollkreis unter dem Ring) war auf dem AMOLED als grauer Pfad sichtbar, dem
-  der umlaufende Arc folgte. Ersatzlos entfernt, samt `color_track`. Nicht
-  wieder einführen — der Arc soll im Schwarz laufen.
-- **LVGL-Arc kennt keine Strichelung.** Das zweite Design-Mockup zeigt Muted als
-  gestrichelten und Not Ready als gepunkteten Ring — bewusste Design-Entscheidung
-  war, das **nicht** über viele kleine Arc-Segmente nachzubauen, sondern nur die
-  Ringfarbe zu ändern (`color_muted`, `color_not_ready` in
-  `assist-satellit.yaml`). Beide bleiben technisch der gleiche `ring_full` wie
-  Replying/Error.
-- **Kein Pulse-Animation-Primitive in ESPHome-LVGL.** Das Mockup lässt den
-  Listening-Ring als Vollring in Skalierung und Helligkeit pulsieren; das gibt es
-  in ESPHome-LVGL nicht ohne eigene Endlos-Animationslogik über `interval:`.
-  Angenähert mit dem bereits vorhandenen rotierenden `ring_slow`-Spinner statt
-  einer neuen Animation.
+- **Es gibt keinen Ring mehr.** Alle Arc-Widgets (`ring_full`, `ring_slow`,
+  `ring_fast` und ihre je drei Glow-Schichten) sind ersatzlos entfernt, samt
+  aller `ring_*`- und `spin_time_*`-Substitutions, `color_track`,
+  `color_muted` und `color_not_ready`. Jede Phase trägt sich jetzt über **ein
+  Widget in der Bildschirmmitte**: Zuhören das atmende Mikrofon-Icon,
+  Verarbeitung die drei Punkte, Sprachausgabe die fünf Balken, Error/Muted/Not
+  Ready ein eingefärbtes Icon. `update_ui` versteckt zuerst alle neun Widgets
+  (`lbl_icon`, `dot_1`–`dot_3`, `bar_1`–`bar_5`) und zeigt danach in einer
+  dreistufigen Kaskade genau eine Gruppe.
+  Der Ring war über mehrere Anläufe an der Zeichenbandbreite gescheitert: Die
+  rotierenden Spinner ruckelten, weil vier konzentrische Arcs dieser Größe pro
+  Frame den kompletten Ringkranz neu zeichnen; eine atmende **Deckkraft**
+  ruckelte ebenso, sobald der Zyklus kurz genug war, um zu leben (zuletzt
+  32 ms × 22 = 704 ms) — jede Deckkraftänderung zwingt LVGL, vier Arcs über den
+  vollen 466-px-Kranz per Alpha gegen Schwarz zu mischen, fast die halbe
+  Displayfläche pro Tick. Eine reine **Farbinterpolation** des stehenden Rings
+  lief flüssig, wurde aber gestalterisch verworfen; danach fiel der Ring ganz.
+  Wer ihn wieder einführen will, muss die Bandbreitengrenze mitplanen — und
+  wissen, dass LVGL keinen Blur kennt (Glow nur als gestapelte Kopien), der
+  LVGL-Arc keine Strichelung kann und der LVGL-Spinner kein Modify-Schema hat
+  (`spin_time`/`arc_length` zur Laufzeit nicht änderbar).
+- **Zuhören atmet das Mikrofon-Icon.**
+  `update_ui` färbt das zentrale `lbl_icon` blau (`color_listening`,
+  `0x03A9F4`) und ein eigener `interval: ${mic_step_time}` am Ende von `ui.yaml`
+  lässt es atmen — dieselbe angehobene Kosinuswelle wie bei den Punkten der
+  Verarbeitung, nur mit einem einzigen Widget und ohne Versatz: Deckkraft von
+  `mic_opa_min` (60) auf 255 und eine Hebung um `mic_lift` (18 px), geschrieben
+  per `lv_obj_set_style_text_opa` und `lv_obj_align`. Zyklus 40 ms × 22 =
+  880 ms, in der Größenordnung des Design-Mockups (`pulse-ring 1.6s
+  ease-in-out`; die Kosinuswelle ist dessen `ease-in-out`). Die **Größe** wird
+  bewusst nicht animiert: LVGL 8 skaliert Labels nicht (`transform_zoom` wirkt
+  nur auf `lv_img`), und ein Fontwechsel wäre ein sichtbarer Sprung. Die
+  Deckkraft darf hier animieren, weil es ein einzelnes 240×240-Label ist und
+  kein 466-px-Kranz. Der Endzustand muss beim Verlassen der Phase
+  **zurückgesetzt** werden (`aktiv`-Merker: `text_opa` auf `LV_OPA_COVER`,
+  Alignment auf Mitte) — `update_ui` setzt zwar `text_color`, aber weder
+  `text_opa` noch die Ausrichtung. Bei Punkten und Balken entfällt das, weil
+  die außerhalb ihrer Phase versteckt sind und der erste Takt alles neu
+  schreibt.
 - **Statusicons statt Phasentext.** `page_main` zeigt seit dem zweiten
   Design-Mockup keinen Text mehr (`lbl_phase`/`lbl_request`/`lbl_response`
   wurden entfernt), sondern ein Icon aus dem Font `font_icon`
@@ -186,9 +193,42 @@ LVGL-Widgets in `ui.yaml`; das Mockup selbst bleibt reine Vorlage, nicht Code.
   [Material-Symbols-Codepoint-Register](https://github.com/google/material-design-icons/blob/master/variablefont/MaterialSymbolsOutlined%5BFILL%2CGRAD%2Copsz%2Cwght%5D.codepoints)).
   Das war eine bewusste Design-Entscheidung: Antworttext ist damit nur noch als
   `text_sensor` in HA sichtbar, nicht mehr auf dem Display. Verarbeitung zeigt
-  stattdessen drei statische Punkte (`dot_1`–`dot_3`) statt des im Mockup
-  blinkenden Trios — aus demselben Grund wie beim Pulse: keine neue
-  Endlos-Animation für einen rein kosmetischen Effekt.
+  stattdessen drei Punkte (`dot_1`–`dot_3`), Sprachausgabe fünf Balken
+  (`bar_1`–`bar_5`) — beide Phasen zeigen **kein** Icon. Übrig sind damit
+  **vier** Glyphen: `mic` (`\U0000E31D`), `mic_off` (`\U0000E02B`), `warning`
+  (`\U0000F083`), `wifi_off` (`\U0000E648`); der Haken für „fertig“
+  (`\U0000E668`) ist mit der Sprachausgabe-Animation entfallen.
+  Die Farbcodierung von Error/Muted/Not Ready läuft seit dem Wegfall des Rings
+  über die **Icon-Farbe**: Error → `color_error`, Muted und Not Ready →
+  `color_text_dim`.
+  Die Fontgröße `font_icon: 216` gilt für alle vier Glyphen. Drei Maße hängen
+  daran und müssen bei einer Änderung mitgezogen werden: die Box von `lbl_icon`
+  (240×240), die Breite der Punktgruppe
+  (`2 * dot_gap + dot_size_max = 2*79 + 58 = 216`) und die der Balkengruppe
+  (`4 * bar_gap + bar_width = 4*48 + 24 = 216`).
+- **Die Sprachausgabe ist ein Äqualizer aus fünf Balken.** `bar_1`–`bar_5` sind
+  schlichte `obj:`-Widgets (`bg_color: ${color_replying}`, `radius: 20`,
+  `border_width: 0`) mit eigenem `interval: ${bar_step_time}`-Takt nach demselben
+  Muster wie die Punkte: angehobene Kosinuswelle, Versatz
+  `bar_cycle_steps / 5 = 4`, Höhe zwischen `bar_size_min` und `bar_size_max`,
+  Deckkraft ab `bar_opa_min`. Die Amplitude ist zusätzlich mit
+  `{0.45, 0.75, 1.0, 0.75, 0.45}` skaliert — außen flacher, damit die Gruppe in
+  den runden Bildschirm passt und nicht an den Rand stößt. Zyklus 40 ms × 20 =
+  800 ms.
+- **Die Punkt-Animation läuft als eigener Takt.** ESPHome-LVGL hat kein
+  Animations-Primitive für Widget-Eigenschaften (`lvgl.widget.update` kennt
+  keine Zeitachse). Ein `interval:`-Block am Ende von `ui.yaml` schreibt daher
+  alle `dot_step_time` Größe, Position und Deckkraft der drei Punkte direkt über
+  die LVGL-C-API (`lv_obj_set_size`, `lv_obj_align`, `lv_obj_set_style_bg_opa`).
+  Die Amplitude ist eine angehobene Kosinuswelle, jeder Punkt ein Drittel Zyklus
+  versetzt — der Buckel wandert von links nach rechts. Zwei Fallstricke: nach
+  jedem `lv_obj_set_size` muss `lv_obj_align` folgen, sonst wächst der Punkt
+  nach rechts unten statt aus seiner Mitte; und `radius` der Punkte ist bewusst
+  größer als die halbe maximale Kantenlänge, damit LVGL auf die Hälfte klemmt
+  und der Punkt in jeder Größe rund bleibt. Der Takt läuft immer, steigt aber
+  außerhalb von `${phase_thinking}` sofort aus. Parameter: `dot_size`,
+  `dot_size_max`, `dot_gap`, `dot_lift`, `dot_opa_min`, `dot_step_time`,
+  `dot_cycle_steps` in `assist-satellit.yaml`.
 - **Mikrofon (16 kHz) und Lautsprecher (48 kHz) teilen sich den I2S-Bus.** Falls Ton
   verzerrt: beide in `packages/hardware.yaml` auf 16000 setzen.
 - **micro_wake_word-Modelle sind englisch.** STT/TTS laufen unabhängig davon auf

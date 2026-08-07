@@ -16,11 +16,11 @@ Anforderungen aus dem Gespräch:
 4. OTA-Updates für spätere Features, versioniert über ein **privates GitHub-Repo, lokal geklont**
 5. ~~Antworttext zusätzlich auf dem Display anzeigen~~ — mit dem zweiten
    Design-Handoff (Statusicons statt Phasentext, siehe Phase 4) bewusst
-   verworfen: `page_main` zeigt seither nur noch Ring + Icon, der Antworttext
+   verworfen: `page_main` zeigt seither nur noch die Statusanimation, der Antworttext
    bleibt als `text_sensor` in HA verfügbar, erscheint aber nicht mehr auf dem
    Display selbst.
-6. Standby = Display praktisch aus / gedimmte Uhr; bei Zuhören & Ausführen ein
-   animierter Ring
+6. Standby = Display praktisch aus / gedimmte Uhr; bei Zuhören & Ausführen eine
+   animierte Statusanzeige in der Bildschirmmitte
 7. Wake-Word-Engine in HA umschaltbar (On device ↔ In Home Assistant)
 8. Display-Texte auf Deutsch, Touch weckt das Display, Lautstärke/Mute auf dem Touchscreen
 
@@ -112,15 +112,15 @@ zweites Gerät später nur eine weitere dünne Datei braucht.
 
 ### Voice-Assistant-Phasenmodell (übernommen von Box-3)
 
-| ID | Phase | Ring-Farbe | Icon |
+| ID | Phase | Farbe | Anzeige in der Mitte |
 |---|---|---|---|
-| 1 | idle | aus | (Standby-Page) |
-| 2 | listening | `#03A9F4` blau, Spinner | Mikrofon |
-| 3 | thinking | `#FFC107` amber, Spinner schneller | drei Punkte |
-| 4 | replying | `#4CAF50` grün, Vollring | Haken |
-| 10 | not ready | `#78909C` blaugrau, Vollring | WLAN aus |
-| 11 | error | `#F44336` rot, Vollring | Warndreieck |
-| 12 | muted | `#4A4A4A` grau, Vollring | Mikrofon aus |
+| 1 | idle | — | (Standby-Page) |
+| 2 | listening | `#03A9F4` blau | Mikrofon-Icon, atmend |
+| 3 | thinking | `#FFC107` amber | drei animierte Punkte |
+| 4 | replying | `#4CAF50` grün | fünf Balken als Äqualizer |
+| 10 | not ready | `#707070` grau | WLAN aus |
+| 11 | error | `#F44336` rot | Warndreieck |
+| 12 | muted | `#707070` grau | Mikrofon aus |
 | 20 | timer finished | `#FF9800` orange, blinkend | — (Phase 6, noch offen) |
 
 Farben stehen als Substitutions in `assist-satellit.yaml`. Icons sind Glyphen aus
@@ -130,19 +130,25 @@ Farben stehen als Substitutions in `assist-satellit.yaml`. Icons sind Glyphen au
 ### Display-Design
 
 **Main-Page** (schwarzer Hintergrund = AMOLED-Pixel aus):
-- Ring: LVGL-`spinner`, 430×430 zentriert (≈18 px Rand), `arc_width: 14`.
-  Die Track-Arc (Hauptteil) bleibt dunkelgrau `#1A1A1A`, die Indikator-Arc bekommt
-  die Phasenfarbe. `arc_length: 70°`, `spin_time` phasenabhängig
-  (listening 1400 ms, thinking 800 ms).
-- Für `replying`, `error`, `muted` und `not ready` statt Spinner ein statischer
-  `arc` über den vollen Kreis in Phasenfarbe (kein Drehen während des Sprechens).
-  Muted/Not-Ready sind im Design-Mockup gestrichelt/gepunktet — LVGL-Arc kann das
-  nicht, umgesetzt ist nur der Farbunterschied (siehe „Bekannte Einschränkungen"
-  in CLAUDE.md).
-- Zentrum: ein Statusicon (`lbl_icon`, Font `font_icon`) statt Text — Mikrofon,
-  Haken, Warndreieck, Mikrofon-aus oder WLAN-aus je nach Phase; bei `thinking`
-  stattdessen drei Punkte (`dot_1`–`dot_3`). Frühere Textlabels (`lbl_phase`,
-  `lbl_request`, `lbl_response`) sind entfallen, siehe Anforderung 5 oben.
+- **Keinen Ring.** Alle Arc-Widgets samt Glow-Schichten sind entfernt; sie sind
+  auf dem Gerät an der Zeichenbandbreite gescheitert (Details und Historie unter
+  „Bekannte Einschränkungen" in CLAUDE.md). Jede Phase trägt sich über genau
+  **ein** Element in der Bildschirmmitte, alle drei Gruppen sind 216 px breit
+  bzw. hoch.
+- `listening`: das Statusicon `lbl_icon` (Font `font_icon`, Mikrofon) in
+  `color_listening` blau, dessen Deckkraft atmet und das sich dabei um
+  `mic_lift` hebt (`interval: ${mic_step_time}` in `ui.yaml`, Parameter `mic_*`).
+- `thinking`: drei Punkte (`dot_1`–`dot_3`), die als Welle von links nach rechts
+  anschwellen, sich heben und aufhellen (`interval: ${dot_step_time}`,
+  Parameter `dot_*`).
+- `replying`: fünf Balken (`bar_1`–`bar_5`) als Äqualizer, Höhe als versetzte
+  Kosinuswelle, Amplitude zur Mitte hin am größten
+  (`interval: ${bar_step_time}`, Parameter `bar_*`).
+- `error`, `muted` und `not ready`: stehendes Statusicon (Warndreieck,
+  Mikrofon-aus, WLAN-aus) in `color_error` bzw. `color_text_dim`. Die im
+  Design-Mockup gestrichelten/gepunkteten Ringe entfallen ersatzlos.
+- Frühere Textlabels (`lbl_phase`, `lbl_request`, `lbl_response`) sind entfallen,
+  siehe Anforderung 5 oben.
 - Textquellen bleiben bestehen, nur ohne Display-Ausgabe:
   `voice_assistant.on_stt_end` (Variable `x` = Transkript) und
   `voice_assistant.on_tts_start` (Variable `x` = Antworttext) werden weiterhin in
@@ -256,7 +262,7 @@ Erfolgskriterium: TTS aus HA ans `media_player`-Entity kommt hörbar raus,
 Erfolgskriterium: „Okay Nabu, schalte das Licht im Wohnzimmer ein" funktioniert
 end-to-end; Umschalten des Selects wechselt die Engine ohne Reboot.
 
-### Phase 4 — LVGL-UI: Ring und Text
+### Phase 4 — LVGL-UI: Statusanimationen
 
 `packages/ui.yaml` + `packages/ui_scripts.yaml`:
 
@@ -267,14 +273,17 @@ end-to-end; Umschalten des Selects wechselt die Engine ohne Reboot.
   bei Bedarf hochdrehen), `displays: [disp]`, `touchscreens: [ts]`,
   `theme` mit schwarzem Hintergrund
 - Pages `page_main`, `page_standby`, `page_controls`
-- Skript `update_ui`: liest `voice_assistant_phase`, setzt Spinner-Sichtbarkeit,
-  Indikator-Farbe, `spin_time` und die drei Label-Texte
+- Skript `update_ui`: liest `voice_assistant_phase`, versteckt zuerst alle neun
+  Widgets der Mitte (`lbl_icon`, `dot_1`–`dot_3`, `bar_1`–`bar_5`) und zeigt
+  danach genau eine Gruppe in der Phasenfarbe
 - Skript `wake_display` / `sleep_display`: Page-Wechsel + Helligkeit
 - `lvgl: on_idle: timeout: 30s` → `sleep_display`
 - `touchscreen: on_touch:` → `wake_display`
 
-Erfolgskriterium: Ring dreht sich beim Zuhören, Transkript und Antworttext
-erscheinen lesbar, deutsche Umlaute werden korrekt gerendert.
+Erfolgskriterium: Das blaue Mikrofon-Icon atmet beim Zuhören, die Punkte laufen
+bei der Verarbeitung, die fünf Balken schlagen bei der Sprachausgabe aus, und in
+den übrigen Phasen steht das passende Icon in der richtigen Farbe; deutsche
+Umlaute werden korrekt gerendert.
 
 ### Phase 5 — Standby, Uhr, Touch-Bedienung
 
@@ -426,8 +435,8 @@ cd /Users/moritzholzer/Claude/Assist && git pull && esphome run assist-satellit.
 
 **Phase 4/5 — UI**
 
-- Live am Gerät beobachten: Ring dreht bei „Ich höre …", Farbwechsel bei
-  „Einen Moment …", Antworttext erscheint.
+- Live am Gerät beobachten: Mikrofon-Icon atmet blau beim Zuhören, die Punkte
+  laufen bei der Verarbeitung, die Balken schlagen bei der Sprachausgabe aus.
 - Deutschen Satz mit Umlauten testen („Schalte die Küchenbeleuchtung ein") und
   prüfen, dass ä/ö/ü/ß gerendert werden — sonst fehlt das Glyphset im Font.
 - 30 s nichts tun → Standby mit Uhr, Display sichtbar gedimmt.
