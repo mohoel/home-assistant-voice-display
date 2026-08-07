@@ -92,6 +92,25 @@ select:
     on_value:
       - script.execute: apply_rotation
 
+  # Standby-Seite. Vorerst gibt es nur die Uhr - der Select existiert schon,
+  # damit der Mechanismus steht (show_standby_page in ui.yaml wertet ihn aus)
+  # und spaetere Seiten nur noch eine Option und einen Zweig brauchen.
+  # Kein Guard noetig: show_standby_page laeuft nur aus sleep_display heraus,
+  # also lange nach dem Setup; on_value schaltet deshalb nichts um, sondern
+  # traegt sich erst beim naechsten Standby aus.
+  - platform: template
+    id: sel_standby_page
+    name: "Standby-Seite"
+    icon: mdi:monitor-dashboard
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    options:
+      - "Uhr"
+    initial_option: "Uhr"
+    web_server:
+      sorting_group_id: grp_display
+
 text:
   # Farbeingabe als sechsstelliges Hex ohne Praefix (z. B. 03A9F4). Einen
   # Farbwaehler kennt das ESPHome-Dashboard nicht - Text ist der einzige Weg.

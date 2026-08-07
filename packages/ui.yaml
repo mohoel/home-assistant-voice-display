@@ -394,11 +394,22 @@ script:
   - id: sleep_display
     mode: restart
     then:
-      - script.execute: update_clock
-      - lvgl.page.show: page_standby
+      - script.execute: show_standby_page
       - light.turn_on:
           id: display_brightness
           brightness: ${standby_brightness}
+
+  # Welche Standby-Seite gezeigt wird, entscheidet sel_standby_page aus
+  # packages/web.yaml. Heute gibt es nur die Uhr, also genau einen Zweig - der
+  # Erweiterungspunkt fuer weitere Seiten (Phase 7) ist hier. Wer eine
+  # hinzufuegt, muss drei Stellen anfassen: eine Option in sel_standby_page,
+  # einen Zweig hier und die is_showing-Bedingung des Minutentakts in
+  # packages/core.yaml.
+  - id: show_standby_page
+    mode: restart
+    then:
+      - script.execute: update_clock
+      - lvgl.page.show: page_standby
 
   # ---------------------------------------------------------------- Uhrzeit
   - id: update_clock

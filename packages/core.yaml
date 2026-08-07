@@ -86,6 +86,11 @@ time:
       # Standby gar nicht sichtbar ist; beim Betreten frischt sleep_display
       # die Uhr ohnehin auf.
       # Die Widgets selbst stehen in ui.yaml.
+      #
+      # Achtung: Die Seitenpruefung kennt nur page_standby. Sobald
+      # show_standby_page (ui.yaml) weitere Seiten schaltet, muss die
+      # Bedingung mitwachsen - sonst laeuft der Minutentakt auf einer neuen
+      # Standby-Seite gar nicht.
       - seconds: 0
         then:
           - if:
