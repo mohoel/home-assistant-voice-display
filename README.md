@@ -20,7 +20,8 @@ Statusanzeige statt eines LED-Rings.
   Icon
 - Standby zeigt eine stark gedimmte Uhr mit Datum („Dienstag, 4. August");
   schwarzer AMOLED-Hintergrund heißt physisch abgeschaltete Pixel
-- Antippen weckt das Display aus dem Standby
+- Antippen weckt das Display aus dem Standby — und bricht einen laufenden
+  Sprachvorgang ab (Zuhören, Verarbeitung oder Sprachausgabe)
 - Stummschaltung, Wake-Word-Empfindlichkeit und Displayhelligkeit als HA-Entities
 - Weboberfläche unter der Geräte-IP für Ausrichtung, Standby-Seite und die
   Symbolfarben — ohne Home Assistant und ohne Neubau der Firmware
@@ -211,8 +212,9 @@ die Select-Entity erhöhen.
 - **Timer-Anzeige.** Die HA-Sprachtimer laufen, werden aber noch nicht auf dem
   Display dargestellt.
 - **Deutsches Wake Word.** Bräuchte ein eigenes microWakeWord-Modell.
-- **Bedienung am Touchscreen.** Bewusst entfernt: Antippen weckt nur das
-  Display, alles Einstellbare liegt auf der Weboberfläche und in Home
+- **Bedienelemente am Touchscreen.** Bewusst entfernt: Antippen weckt das
+  Display und bricht einen laufenden Sprachvorgang ab, mehr kann der
+  Touchscreen nicht. Alles Einstellbare liegt auf der Weboberfläche und in Home
   Assistant. Lautstärke und Stummschaltung bleiben HA-Entities.
 - **Weitere Standby-Seiten.** Der Auswahlmechanismus steht, es gibt bisher nur
   die Uhr.

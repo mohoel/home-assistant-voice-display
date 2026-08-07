@@ -99,6 +99,7 @@ Querverbindungen:
 | `web.yaml` → jede Farbeingabe | `script: apply_colors` | `ui.yaml` |
 | `ui.yaml` → `update_ui`, `apply_colors` | `globals: col_*` | `web.yaml` |
 | `ui.yaml` → `show_standby_page` | `select: sel_standby_page` | `web.yaml` |
+| `ui.yaml` → `on_screen_touch` | `script: abort_session` | `voice.yaml` |
 
 Der Minutentakt für Uhr und Einbrennschutz liegt bewusst in `core.yaml` am
 `time:`-Block und nicht bei den Widgets: ESPHome führt **Plattform-Listen wie
@@ -114,7 +115,7 @@ aufzurufen** — `update_ui` schaltet nicht nur die Widgets der Mitte, es entsch
 Die Skripte sind die Bedienoberfläche der Logik, nicht die Handler selbst:
 
 - `voice.yaml`: `start_wake_word`, `stop_wake_word`, `set_idle_or_muted`,
-  `end_session`, `clear_error`
+  `end_session`, `clear_error`, `abort_session`
 - `ui.yaml`: `update_ui`, `wake_display`, `sleep_display`, `show_standby_page`,
   `update_clock`, `apply_colors`
 - `web.yaml`: `apply_rotation`, `sync_color_texts`
@@ -129,7 +130,7 @@ damit ihr verzögertes `set_idle_or_muted` nicht in einen neuen Vorgang
 hineinschreibt. Jedes `wait_until` braucht zusätzlich ein `timeout:`, sonst hängt
 das Gerät bei einem verschluckten Zustandswechsel dauerhaft in der Phase fest.
 
-Zwei Punkte, die man beim Ändern leicht übersieht:
+Punkte, die man beim Ändern leicht übersieht:
 
 - **Lokales Wake Word und HA-Wake-Word schließen sich aus.** `start_wake_word`
   schaltet je nach Select `wake_word_engine_location` entweder
@@ -145,6 +146,19 @@ Zwei Punkte, die man beim Ändern leicht übersieht:
   solange `boot_done` false ist; gesetzt wird es in `core.yaml` im `on_boot`
   mit priority `-100`. Nicht mit `init_in_progress` verwechseln — das hängt an
   der API-Verbindung und käme für die Ausrichtung viel zu spät.
+- **Ein Tippen bricht den laufenden Sprachvorgang ab.** `on_screen_touch`
+  verzweigt nach Phase: Zuhören/Verarbeitung/Sprachausgabe → `abort_session`,
+  sonst wie bisher Display wecken bzw. nur aufhellen. `abort_session` ruft
+  `voice_assistant.stop` (`request_stop()` beendet die Pipeline aus jedem
+  Zustand und stoppt in der Sprachausgabe das Announcement selbst — ein
+  eigenes `media_player.stop` wäre doppelt), setzt die Phase über
+  `set_idle_or_muted` und stellt das Wake Word über `end_session` wieder
+  scharf, statt `start_wake_word` direkt zu rufen: nur `end_session` wartet,
+  bis der Lautsprecher den I2S-Bus freigegeben hat. Ein danach doch noch
+  eintreffendes `on_end` startet dasselbe Skript neu — `mode: restart`, also
+  läuft nichts doppelt. Wichtig ist das `start_wake_word` am Ende, weil
+  `request_stop()` `continuous_` löscht und das Gerät in der HA-Engine sonst
+  taub bliebe.
 
 Substitutions aus `assist-satellit.yaml` werden auch **innerhalb von Lambdas**
 als `${phase_listening}` eingesetzt (Textersetzung vor dem YAML-Parsing) — daher

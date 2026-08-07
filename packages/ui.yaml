@@ -363,24 +363,42 @@ script:
           else:
             - script.execute: wake_display
 
-  # Antippen weckt das Display. Im Leerlauf/stumm bleibt die Standby-Uhr
-  # sichtbar, nur heller - dafuer braucht es keinen eigenen Ruecksprung-Timer,
-  # das erledigt lvgl.on_idle oben schon (faellt nach ${standby_timeout}
-  # von selbst zurueck in sleep_display).
+  # Antippen hat je nach Phase zwei Bedeutungen:
+  #
+  # - Waehrend Zuhoeren, Verarbeitung oder Sprachausgabe bricht es den Vorgang
+  #   ab (abort_session in packages/voice.yaml). Das Display ist in diesen
+  #   Phasen ohnehin schon wach, ein wake_display waere ueberfluessig -
+  #   abort_session endet selbst mit update_ui und damit im Standby-Zweig.
+  # - Sonst weckt es nur das Display. Im Leerlauf/stumm bleibt die Standby-Uhr
+  #   sichtbar, nur heller - dafuer braucht es keinen eigenen Ruecksprung-Timer,
+  #   das erledigt lvgl.on_idle oben schon (faellt nach ${standby_timeout}
+  #   von selbst zurueck in sleep_display).
+  #
+  # Fehler und "nicht bereit" sind bewusst nicht abbrechbar: da laeuft nichts,
+  # was man abbrechen koennte, und clear_error raeumt von selbst auf.
   - id: on_screen_touch
     mode: restart
     then:
       - if:
           condition:
             lambda: |-
-              return id(voice_assistant_phase) == ${phase_idle}
-                  || id(voice_assistant_phase) == ${phase_muted};
+              return id(voice_assistant_phase) == ${phase_listening}
+                  || id(voice_assistant_phase) == ${phase_thinking}
+                  || id(voice_assistant_phase) == ${phase_replying};
           then:
-            - light.turn_on:
-                id: display_brightness
-                brightness: ${active_brightness}
+            - script.execute: abort_session
           else:
-            - script.execute: wake_display
+            - if:
+                condition:
+                  lambda: |-
+                    return id(voice_assistant_phase) == ${phase_idle}
+                        || id(voice_assistant_phase) == ${phase_muted};
+                then:
+                  - light.turn_on:
+                      id: display_brightness
+                      brightness: ${active_brightness}
+                else:
+                  - script.execute: wake_display
 
   # ------------------------------------------------------- Display aufwecken
   - id: wake_display

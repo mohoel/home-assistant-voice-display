@@ -285,6 +285,36 @@ script:
           state: ""
       - script.execute: update_ui
 
+  # Laufenden Sprachvorgang abbrechen. Aufgerufen aus on_screen_touch
+  # (packages/ui.yaml), und zwar nur aus den drei aktiven Phasen heraus.
+  - id: abort_session
+    mode: restart
+    then:
+      # Ein noch laufender Fehler-Timer wuerde spaeter set_idle_or_muted
+      # aufrufen und in die frisch aufgeraeumte Anzeige hineinschreiben.
+      - script.stop: clear_error
+      # request_stop() beendet die Pipeline aus jedem Zustand heraus: beim
+      # Zuhoeren/Verarbeiten geht ein Stop-Signal an Home Assistant, in der
+      # Sprachausgabe stoppt die Komponente das Announcement des Media Players
+      # selbst (voice_assistant.cpp:690). Ein extra media_player.stop braucht
+      # es deshalb nicht. Wichtig: dabei faellt continuous_ weg - ohne
+      # anschliessendes start_wake_word bliebe das Geraet in der HA-Engine taub.
+      - voice_assistant.stop:
+      - text_sensor.template.publish:
+          id: text_request
+          state: ""
+      - text_sensor.template.publish:
+          id: text_response
+          state: ""
+      - script.execute: set_idle_or_muted
+      - script.execute: update_ui
+      # Wake Word wieder scharfstellen - ueber end_session, damit gewartet wird,
+      # bis der Lautsprecher den I2S-Bus tatsaechlich freigegeben hat. Ein
+      # danach doch noch eintreffendes on_end startet dasselbe Skript neu
+      # (mode: restart), es kann also nichts doppelt laufen. Dessen zweiter
+      # Aufraeum-Durchgang nach 8 s schreibt genau dieselben Werte.
+      - script.execute: end_session
+
   - id: clear_error
     mode: restart
     then:
