@@ -122,10 +122,16 @@ zweites Gerät später nur eine weitere dünne Datei braucht.
 | 2 | listening | `#03A9F4` blau | Mikrofon-Icon, atmend |
 | 3 | thinking | `#FFC107` amber | drei animierte Punkte |
 | 4 | replying | `#4CAF50` grün | fünf Balken als Äqualizer |
+| 5 | result | `#FFFFFF` / `#4CAF50` grün | Messwert als Zahl mit Einheit **oder** Haken |
 | 10 | not ready | `#707070` grau | WLAN aus |
-| 11 | error | `#F44336` rot | Warndreieck |
+| 11 | error | `#F44336` rot / `#FFC107` amber / `#707070` grau | Warndreieck, Fragezeichen („nicht verstanden") oder WLAN aus („HA nicht erreichbar") |
 | 12 | muted | `#707070` grau | Mikrofon aus |
-| 20 | timer finished | `#FF9800` orange, blinkend | — (Phase 6, noch offen) |
+| 20 | timer ringing | `#FF9800` orange | Glocke, dazu der Klingelton |
+
+Phase 2 zeigt statt des Mikrofons ein Fragezeichen, wenn Home Assistant eine
+Rückfrage gestellt hat (`is_followup`); Phase 11 unterscheidet drei Fälle über
+`error_kind`. Beides bleibt dieselbe Phase, weil sich nur Glyph und Farbe
+ändern.
 
 Farben stehen als Substitutions in `assist-satellit.yaml`. Icons sind Glyphen aus
 `font_icon` (`gfonts://Material+Symbols+Outlined`) — siehe „Design-Referenz" in
@@ -316,10 +322,39 @@ Umlaute werden korrekt gerendert.
   `auth:`-Block mit Werten aus `secrets.yaml` ergänzen.
 - Optional: `number`-Entities in HA für Standby-Timeout und Standby-Helligkeit
 
-### Phase 6 — Optional / später
+### Phase 6 — Ergebnisanzeige, Timer, Fehlerklassen ✅
 
-- Timer-Support (Box-3-Muster: `on_timer_*`-Trigger, `timer_ringing`-Switch,
-  Timer-Ring auf dem Display als Fortschritts-Arc)
+Umgesetzt. Leitplanke war: **keine Automation in Home Assistant.** Die Firmware
+soll weitergebbar sein, ohne dass Fremde erst in HA etwas anlegen müssen.
+
+- **Timer** — nativ über `on_timer_started/updated/cancelled/finished/tick`.
+  Allein die Anwesenheit dieser Trigger schaltet den Timer-Support scharf
+  (`set_has_timers` im Codegen); HA schickt die Ereignisse von sich aus.
+  Ring (`ring_timer`) im LVGL-`top_layer`, deshalb auf jeder Seite sichtbar;
+  Countdown auf der Standby-Seite an Stelle der Uhr; Klingelton als
+  eingebettete FLAC, Abbruch per Tippen rein lokal — die Komponente löscht den
+  Timer schon beim Auslösen von `on_timer_finished`
+  (`voice_assistant.cpp:1030`), für HA ist er damit erledigt.
+- **Ergebnisanzeige** (`phase_result`) — Klassifikation des Antworttexts in
+  `on_tts_start`: Zahl mit Einheit → große Zahl, kurzer Bestätigungssatz →
+  Haken, sonst wie bisher die Balken. Bewusst eine Heuristik: `on_intent_end`
+  hat eine leere Parameterliste (`voice_assistant/__init__.py:311`), es gibt
+  also weder Domain noch Entität noch Wert.
+- **Akustische Bestätigung in jedem Fall** — normalerweise die TTS-Antwort;
+  führt HA stumm aus (kein `on_tts_start`), spielt `on_end` einen kurzen Ton.
+- **Fehlerklassen** (`error_kind`) — „nicht verstanden", „HA nicht erreichbar",
+  echter Fehler. `stt-no-text-recognized` wird dabei nicht mehr verschluckt.
+- **Rückfrage sichtbar** (`is_followup`) — Heuristik über ein fehlendes Wake
+  Word, weil `continue_conversation_` privat ist und keinen Getter hat.
+- **Optionaler HA-Haken** `api: actions: zeige_hinweis` — für Domain-Icons oder
+  Push-Hinweise, wird im Normalbetrieb nicht gebraucht.
+
+**Ausdrücklich nicht umgesetzt: Symbole je nach Domain** (Glühbirne, Rollo,
+Saugroboter). Ohne Push aus HA technisch unmöglich, siehe oben. Der Haken
+`zeige_hinweis` ist der Weg für alle, die es trotzdem wollen.
+
+### Phase 6b — Optional / später
+
 - AXP2101-Akku-Telemetrie über eine der Community-External-Components
   (`stefanthoss/esphome-axp2101` o. Ä.) — nur wenn Akkubetrieb gewünscht
 - QMI8658-IMU als Wake-on-Motion statt/zusätzlich zum Touch

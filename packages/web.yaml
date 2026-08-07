@@ -68,6 +68,16 @@ globals:
     type: int
     restore_value: true
     initial_value: "${color_text_dim}"
+  # Timer-Ring am Bildschirmrand und Glocke beim Klingeln.
+  - id: col_timer
+    type: int
+    restore_value: true
+    initial_value: "${color_timer}"
+  # Haken nach einem ausgefuehrten Befehl.
+  - id: col_result
+    type: int
+    restore_value: true
+    initial_value: "${color_result}"
 
 select:
   # Geraeteausrichtung. 45-Grad-Schritte gibt der Stack nicht her:
@@ -219,6 +229,46 @@ text:
           id(col_dim) = (int) v;
           id(apply_colors).execute();
 
+  - platform: template
+    id: txt_col_timer
+    name: "Farbe Timer"
+    icon: mdi:palette
+    entity_category: config
+    mode: text
+    optimistic: true
+    min_length: 6
+    max_length: 6
+    web_server:
+      sorting_group_id: grp_colors
+    on_value:
+      - lambda: |-
+          if (x.length() != 6) return;
+          char *end = nullptr;
+          unsigned long v = strtoul(x.c_str(), &end, 16);
+          if (end == nullptr || *end != '\0') return;
+          id(col_timer) = (int) v;
+          id(apply_colors).execute();
+
+  - platform: template
+    id: txt_col_result
+    name: "Farbe Bestaetigung"
+    icon: mdi:palette
+    entity_category: config
+    mode: text
+    optimistic: true
+    min_length: 6
+    max_length: 6
+    web_server:
+      sorting_group_id: grp_colors
+    on_value:
+      - lambda: |-
+          if (x.length() != 6) return;
+          char *end = nullptr;
+          unsigned long v = strtoul(x.c_str(), &end, 16);
+          if (end == nullptr || *end != '\0') return;
+          id(col_result) = (int) v;
+          id(apply_colors).execute();
+
 script:
   # Schreibt die aktuellen Farbwerte in die Eingabefelder der Weboberflaeche.
   # Laeuft einmal im on_boot; das dabei ausgeloeste on_value schreibt denselben
@@ -233,6 +283,8 @@ script:
           id(txt_col_replying).publish_state(str_sprintf("%06X", id(col_replying) & 0xFFFFFF));
           id(txt_col_error).publish_state(str_sprintf("%06X", id(col_error) & 0xFFFFFF));
           id(txt_col_dim).publish_state(str_sprintf("%06X", id(col_dim) & 0xFFFFFF));
+          id(txt_col_timer).publish_state(str_sprintf("%06X", id(col_timer) & 0xFFFFFF));
+          id(txt_col_result).publish_state(str_sprintf("%06X", id(col_result) & 0xFFFFFF));
 
   # Uebertraegt den Select-Wert an LVGL. lvgl.display.set_rotation nimmt einen
   # Laufzeitwert an: der Parameter geht durch LValidator, der eine Lambda mit

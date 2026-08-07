@@ -26,10 +26,22 @@ font:
     id: font_date
     size: 31 # 130% der urspruenglichen 24 px
     glyphsets: [GF_Latin_Core]
+    # Traegt auch die Einheit unter einem Messwert. Das Gradzeichen liegt
+    # ausserhalb von GF_Latin_Core; glyphs und glyphsets werden vereinigt
+    # (font/__init__.py:563), die Angabe ergaenzt den Satz also nur.
+    glyphs: ["°"]
   - file: "gfonts://Figtree@700"
     id: font_clock
     size: 140
     glyphsets: [GF_Latin_Core]
+
+  # Countdown eines laufenden Timers und Zahl eines Messwerts. Kleiner als
+  # font_clock, damit auch sieben Zeichen ("1:23:45") in den runden Bildschirm
+  # passen; nur die tatsaechlich vorkommenden Zeichen, das spart Flash.
+  - file: "gfonts://Figtree@700"
+    id: font_timer
+    size: ${timer_font_size}
+    glyphs: ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", ":", ",", ".", "-"]
 
   # Statusicons aus "Voice Assistant UI.dc.html" (Design-Handoff). Ersetzen
   # auf page_main den frueheren Phasentext komplett - siehe update_ui.
@@ -44,10 +56,13 @@ font:
     id: font_icon
     size: 216
     glyphs:
-      - "\U0000E31D" # mic       - listening
-      - "\U0000E02B" # mic_off   - muted
-      - "\U0000F083" # warning   - error
-      - "\U0000E648" # wifi_off  - not ready
+      - "\U0000E31D" # mic                   - listening
+      - "\U0000E02B" # mic_off               - muted
+      - "\U0000F083" # warning               - error (allgemein)
+      - "\U0000E648" # wifi_off              - not ready / HA nicht erreichbar
+      - "\U0000EB8B" # question_mark         - nicht verstanden, Rueckfrage
+      - "\U0000E668" # check                 - Befehl ausgefuehrt
+      - "\U0000E7F7" # notifications_active   - Timer klingelt
 
 lvgl:
   displays: [disp]
@@ -79,9 +94,49 @@ lvgl:
             lambda: |-
               return id(voice_assistant_phase) != ${phase_listening}
                   && id(voice_assistant_phase) != ${phase_thinking}
-                  && id(voice_assistant_phase) != ${phase_replying};
+                  && id(voice_assistant_phase) != ${phase_replying}
+                  && id(voice_assistant_phase) != ${phase_timer_ringing};
           then:
             - script.execute: sleep_display
+
+  # ------------------------------------------------------------ Timer-Ring
+  # Der top_layer liegt ueber allen Seiten - der Ring ist damit auf der
+  # Hauptseite, im Standby und auf der Konfigurationsseite gleichermassen
+  # sichtbar, ohne ihn dreimal anlegen und dreifach nachfuehren zu muessen.
+  #
+  # Er frisst keine Beruehrungen: der Arc-Codegen entfernt LV_OBJ_FLAG_CLICKABLE,
+  # sobald adjustable false ist (lvgl/widgets/arc.py:88) - und das ist der
+  # Default. Sonst laege hier ein 462 px grosser Fangkorb ueber der ganzen
+  # Oberflaeche.
+  #
+  # start 270 / end 269 ist der uebliche LVGL-Weg zu einem Vollkreis ab zwoelf
+  # Uhr: start == end waere entartet und ergaebe gar keinen Bogen. Bleibt eine
+  # Luecke von einem Grad (rund 4 px) am oberen Punkt.
+  #
+  # Der Hintergrundbogen ist unsichtbar (arc_opa: TRANSP) - schwarz ist auf
+  # AMOLED echtes "Pixel aus", eine gedimmte Spur waere der einzige dauerhaft
+  # leuchtende Kranz im ganzen Entwurf.
+  top_layer:
+    widgets:
+      - arc:
+          id: ring_timer
+          align: CENTER
+          width: ${timer_ring_size}
+          height: ${timer_ring_size}
+          min_value: 0
+          max_value: 1000
+          value: 1000
+          start_angle: 270
+          end_angle: 269
+          arc_width: ${timer_ring_width}
+          arc_opa: TRANSP
+          bg_opa: TRANSP
+          pad_all: 0
+          hidden: true
+          indicator:
+            arc_width: ${timer_ring_width}
+            arc_color: ${color_timer}
+            arc_opa: COVER
 
   pages:
     # ------------------------------------------------------------ Hauptseite
@@ -237,6 +292,57 @@ lvgl:
             border_width: 0
             hidden: true
 
+        # --- Messwert: Zahl und Einheit ---
+        # Gefuellt aus dem Antworttext (result_value/result_unit, gesetzt in
+        # on_tts_start in packages/voice.yaml). Ersetzt in phase_result die
+        # fuenf Balken, wenn die Antwort eine Zahl mit bekannter Einheit war.
+        - label:
+            id: lbl_value
+            align: CENTER
+            y: -15
+            text: ""
+            text_font: font_timer
+            text_color: ${color_text}
+            text_align: CENTER
+            hidden: true
+        - label:
+            id: lbl_unit
+            align: CENTER
+            y: 70
+            text: ""
+            text_font: font_date
+            text_color: ${color_text_dim}
+            text_align: CENTER
+            hidden: true
+
+        # --- Hinweis von aussen ---
+        # Nur fuer die optionale API-Aktion zeige_hinweis (packages/core.yaml).
+        # Eigene Widgets statt einer Zweitverwendung von lbl_icon, damit der
+        # Hinweis nichts mit der Phasenanzeige zu tun hat: das Icon sitzt
+        # hoeher, weil darunter eine Textzeile steht.
+        - label:
+            id: lbl_hint_icon
+            align: CENTER
+            y: -60
+            width: 240
+            height: 240
+            text: ""
+            text_font: font_icon
+            text_color: ${color_text}
+            text_align: CENTER
+            hidden: true
+        - label:
+            id: lbl_hint_text
+            align: CENTER
+            y: 120
+            width: 360
+            text: ""
+            text_font: font_date
+            text_color: ${color_text}
+            text_align: CENTER
+            long_mode: WRAP
+            hidden: true
+
     # --------------------------------------------------------------- Standby
     - id: page_standby
       bg_color: 0x000000
@@ -250,6 +356,22 @@ lvgl:
             text_font: font_clock
             text_color: ${color_text}
             text_align: CENTER
+        # Tritt an die Stelle der Uhr, solange ein Timer laeuft. Der Countdown
+        # ist dann die Information, die man im Vorbeigehen sehen will - die
+        # Uhrzeit steht bis dahin auf jedem anderen Geraet im Raum.
+        # Geschrieben von update_timer_ui, das der Sekundentakt aufruft.
+        - label:
+            id: lbl_timer
+            align: CENTER
+            y: -15
+            text: ""
+            text_font: font_timer
+            text_color: ${color_text}
+            text_align: CENTER
+            hidden: true
+
+        # Zweitzeile fuer beide Faelle: im Normalfall das Datum, waehrend eines
+        # Timers dessen Name.
         - label:
             id: lbl_date
             align: CENTER
@@ -304,7 +426,44 @@ lvgl:
             text_align: CENTER
             long_mode: WRAP
 
+globals:
+  # Ein Hinweis von aussen steht an (API-Aktion zeige_hinweis in
+  # packages/core.yaml). Nur update_ui und show_hint fassen ihn an.
+  - id: hint_active
+    type: bool
+    restore_value: false
+    initial_value: "false"
+
 script:
+  # ---------------------------------------------------------- Hinweis zeigen
+  # Gegenstueck zur optionalen API-Aktion zeige_hinweis. Fuer den normalen
+  # Betrieb spielt das Skript keine Rolle - ohne einen Aufruf aus Home
+  # Assistant laeuft es nie.
+  #
+  # Die eigentliche Anzeige macht update_ui; hier stehen nur Text, Merker und
+  # Standzeit. Dadurch gewinnt ein Sprachvorgang automatisch: er setzt die
+  # Phase und ruft update_ui, das den Hinweis dann zurueckstellt.
+  - id: show_hint
+    mode: restart
+    parameters:
+      icon: string
+      nachricht: string
+      sekunden: int
+    then:
+      - lambda: |-
+          lv_label_set_text(id(lbl_hint_icon), icon.c_str());
+          lv_label_set_text(id(lbl_hint_text), nachricht.c_str());
+          id(hint_active) = true;
+      - script.execute: update_ui
+      # Ohne sinnvolle Angabe zehn Sekunden - lange genug zum Lesen, kurz genug,
+      # dass ein vergessener Aufruf das Display nicht dauerhaft belegt.
+      # Als Block, weil das " : " des Fragezeichenoperators in einer YAML-Zeile
+      # als Zuordnung gelesen wuerde.
+      - delay: !lambda |-
+          return (sekunden > 0 ? sekunden : 10) * 1000;
+      - lambda: id(hint_active) = false;
+      - script.execute: update_ui
+
   # ------------------------------------------------------ Symbolfarben setzen
   # Traegt die Farb-Globals aus packages/web.yaml in die Widgets ein. Die
   # bg_color-Angaben oben sind damit nur noch der Zustand bis zum ersten Lauf
@@ -329,85 +488,157 @@ script:
           for (uint8_t i = 0; i < 5; i++)
             lv_obj_set_style_bg_color(
                 bars[i], lv_color_hex((uint32_t) id(col_replying)), LV_PART_MAIN);
+          // Der Timer-Ring bekommt seine Farbe nur hier und nicht im
+          // Sekundentakt von update_timer_ui - sie aendert sich ja nur, wenn
+          // jemand auf der Bedienseite daran dreht, und das ruft apply_colors.
+          lv_obj_set_style_arc_color(
+              id(ring_timer), lv_color_hex((uint32_t) id(col_timer)),
+              LV_PART_INDICATOR);
       - script.execute: update_ui
 
   # --------------------------------------------------- Statusanzeige updaten
   - id: update_ui
     mode: restart
     then:
-      # Genau ein Widget in der Mitte je Phase: Verarbeitung -> drei Punkte,
-      # Sprachausgabe -> fuenf Balken, alles andere -> ein Statusicon. Erst
-      # alles aus, dann eins an; das laeuft synchron in einem Durchgang, also
-      # ohne Flackern. Text auf page_main gibt es seit dem Design-Handoff nicht
-      # mehr - Antworttext bleibt nur als text_sensor in HA verfuegbar, siehe
-      # design_handoff_voice_ui/README.md.
-      - lvgl.widget.hide: lbl_icon
-      - lvgl.widget.hide: dot_1
-      - lvgl.widget.hide: dot_2
-      - lvgl.widget.hide: dot_3
-      - lvgl.widget.hide: bar_1
-      - lvgl.widget.hide: bar_2
-      - lvgl.widget.hide: bar_3
-      - lvgl.widget.hide: bar_4
-      - lvgl.widget.hide: bar_5
-      - if:
-          condition:
-            lambda: return id(voice_assistant_phase) == ${phase_thinking};
-          then:
-            - lvgl.widget.show: dot_1
-            - lvgl.widget.show: dot_2
-            - lvgl.widget.show: dot_3
-          else:
-            - if:
-                condition:
-                  lambda: return id(voice_assistant_phase) == ${phase_replying};
-                then:
-                  - lvgl.widget.show: bar_1
-                  - lvgl.widget.show: bar_2
-                  - lvgl.widget.show: bar_3
-                  - lvgl.widget.show: bar_4
-                  - lvgl.widget.show: bar_5
-                else:
-                  - if:
-                      condition:
-                        lambda: |-
-                          return id(voice_assistant_phase) == ${phase_listening}
-                              || id(voice_assistant_phase) == ${phase_error}
-                              || id(voice_assistant_phase) == ${phase_muted}
-                              || id(voice_assistant_phase) == ${phase_not_ready};
-                      then:
-                        - lvgl.label.update:
-                            id: lbl_icon
-                            text: !lambda |-
-                              switch (id(voice_assistant_phase)) {
-                                case ${phase_listening}: return std::string("\U0000E31D");
-                                case ${phase_error}:     return std::string("\U0000F083");
-                                case ${phase_muted}:     return std::string("\U0000E02B");
-                                default:                 return std::string("\U0000E648");
-                              }
-                        # Seit dem Wegfall des Rings traegt das Icon die
-                        # Farbcodierung: blau beim Zuhoeren (es atmet dabei,
-                        # siehe interval: am Dateiende), rot bei Fehlern,
-                        # gedimmt bei stumm und "nicht bereit".
-                        #
-                        # Die Farben kommen aus den Globals in
-                        # packages/web.yaml (zur Laufzeit einstellbar), die
-                        # Phasen bleiben Substitutions.
-                        - lvgl.widget.update:
-                            id: lbl_icon
-                            text_color: !lambda |-
-                              switch (id(voice_assistant_phase)) {
-                                case ${phase_listening}: return lv_color_hex((uint32_t) id(col_listening));
-                                case ${phase_error}:     return lv_color_hex((uint32_t) id(col_error));
-                                default:                 return lv_color_hex((uint32_t) id(col_dim));
-                              }
-                        - lvgl.widget.show: lbl_icon
+      # Genau eine Gruppe in der Mitte je Phase: Verarbeitung -> drei Punkte,
+      # Sprachausgabe -> fuenf Balken, Messwert -> Zahl und Einheit, alles
+      # andere -> ein Statusicon. Erst alles aus, dann eine Gruppe an; das
+      # laeuft synchron in einem Durchgang, also ohne Flackern.
+      #
+      # Das steht als ein Lambda statt als Kaskade aus lvgl.widget.show/hide:
+      # mit sechs Faellen waere die YAML-Verschachtelung sechs Ebenen tief
+      # gewesen. lv_obj_add_flag/lv_obj_remove_flag ist genau das, was der
+      # Codegen aus lvgl.widget.hide/show ohnehin erzeugt
+      # (lvgl/widgets/__init__.py:317).
+      #
+      # Text auf page_main gibt es seit dem Design-Handoff nicht mehr - der
+      # Antworttext bleibt nur als text_sensor in HA verfuegbar. Zahl und
+      # Einheit eines Messwerts sind die eine bewusste Ausnahme davon.
+      - lambda: |-
+          lv_obj_t *const alle[] = {
+              id(lbl_icon), id(dot_1), id(dot_2), id(dot_3),
+              id(bar_1), id(bar_2), id(bar_3), id(bar_4), id(bar_5),
+              id(lbl_value), id(lbl_unit),
+              id(lbl_hint_icon), id(lbl_hint_text)};
+          for (lv_obj_t *w : alle)
+            lv_obj_add_flag(w, LV_OBJ_FLAG_HIDDEN);
+
+          // Ein Hinweis von aussen (API-Aktion zeige_hinweis) belegt die
+          // Anzeige nur, solange nichts Wichtigeres los ist. Faengt ein
+          // Sprachvorgang an, tritt er zurueck und kommt danach von selbst
+          // wieder - sein Skript laeuft im Hintergrund weiter und raeumt am
+          // Ende auf.
+          if (id(hint_active) &&
+              (id(voice_assistant_phase) == ${phase_idle} ||
+               id(voice_assistant_phase) == ${phase_muted})) {
+            lv_obj_remove_flag(id(lbl_hint_icon), LV_OBJ_FLAG_HIDDEN);
+            lv_obj_remove_flag(id(lbl_hint_text), LV_OBJ_FLAG_HIDDEN);
+            return;
+          }
+
+          // Glyph und Farbe des Statusicons. Seit dem Wegfall des Rings traegt
+          // das Icon die Farbcodierung; die Farben kommen als Globals aus
+          // packages/web.yaml und sind damit zur Laufzeit einstellbar, die
+          // Phasen bleiben Substitutions.
+          const char *glyph = nullptr;
+          int farbe = id(col_dim);
+
+          switch (id(voice_assistant_phase)) {
+            case ${phase_thinking}:
+              lv_obj_remove_flag(id(dot_1), LV_OBJ_FLAG_HIDDEN);
+              lv_obj_remove_flag(id(dot_2), LV_OBJ_FLAG_HIDDEN);
+              lv_obj_remove_flag(id(dot_3), LV_OBJ_FLAG_HIDDEN);
+              break;
+
+            case ${phase_replying}:
+              lv_obj_remove_flag(id(bar_1), LV_OBJ_FLAG_HIDDEN);
+              lv_obj_remove_flag(id(bar_2), LV_OBJ_FLAG_HIDDEN);
+              lv_obj_remove_flag(id(bar_3), LV_OBJ_FLAG_HIDDEN);
+              lv_obj_remove_flag(id(bar_4), LV_OBJ_FLAG_HIDDEN);
+              lv_obj_remove_flag(id(bar_5), LV_OBJ_FLAG_HIDDEN);
+              break;
+
+            case ${phase_result}:
+              if (id(result_kind) == 1) {
+                lv_label_set_text(id(lbl_value), id(result_value).c_str());
+                lv_label_set_text(id(lbl_unit), id(result_unit).c_str());
+                lv_obj_remove_flag(id(lbl_value), LV_OBJ_FLAG_HIDDEN);
+                lv_obj_remove_flag(id(lbl_unit), LV_OBJ_FLAG_HIDDEN);
+              } else {
+                glyph = "\U0000E668";  // check
+                farbe = id(col_result);
+              }
+              break;
+
+            case ${phase_timer_ringing}:
+              glyph = "\U0000E7F7";  // notifications_active
+              farbe = id(col_timer);
+              break;
+
+            case ${phase_listening}:
+              // Ohne vorangegangenes Wake Word ist das die Antwort auf eine
+              // Rueckfrage von Home Assistant - das Fragezeichen macht
+              // sichtbar, dass das Geraet auf eine Antwort wartet und nicht
+              // auf einen neuen Befehl. Beide Glyphen atmen (interval: am
+              // Dateiende).
+              glyph = id(is_followup) ? "\U0000EB8B" : "\U0000E31D";
+              farbe = id(col_listening);
+              break;
+
+            case ${phase_error}:
+              // Drei sehr verschiedene Lagen, die frueher alle gleich rot
+              // aussahen: nicht verstanden, Home Assistant nicht erreichbar,
+              // echter Fehler.
+              if (id(error_kind) == 1) {
+                glyph = "\U0000EB8B";  // question_mark
+                farbe = id(col_thinking);
+              } else if (id(error_kind) == 2) {
+                glyph = "\U0000E648";  // wifi_off
+                farbe = id(col_dim);
+              } else {
+                glyph = "\U0000F083";  // warning
+                farbe = id(col_error);
+              }
+              break;
+
+            case ${phase_muted}:
+              glyph = "\U0000E02B";  // mic_off
+              break;
+
+            case ${phase_not_ready}:
+              glyph = "\U0000E648";  // wifi_off
+              break;
+
+            default:
+              // phase_idle: nichts in der Mitte, es geht ohnehin in den Standby
+              break;
+          }
+
+          if (glyph != nullptr) {
+            lv_label_set_text(id(lbl_icon), glyph);
+            lv_obj_set_style_text_color(
+                id(lbl_icon), lv_color_hex((uint32_t) farbe), LV_PART_MAIN);
+            lv_obj_remove_flag(id(lbl_icon), LV_OBJ_FLAG_HIDDEN);
+          }
+
+          // Gegenstueck zur Logzeile in on_tts_start (packages/voice.yaml):
+          // dort steht, was erkannt wurde, hier, was daraus auf dem Schirm
+          // wurde. Erst beides zusammen trennt "falsch erkannt" von "nicht
+          // angezeigt" - ohne das kostet die Unterscheidung eine Runde aus
+          // Compile und OTA.
+          ESP_LOGI("anzeige", "phase=%d art=%d wert_sichtbar=%d icon_sichtbar=%d",
+                   id(voice_assistant_phase), id(result_kind),
+                   !lv_obj_has_flag(id(lbl_value), LV_OBJ_FLAG_HIDDEN),
+                   !lv_obj_has_flag(id(lbl_icon), LV_OBJ_FLAG_HIDDEN));
 
       # Im Leerlauf gibt es nichts anzuzeigen -> Standby.
-      # Alles andere weckt das Display.
+      # Alles andere weckt das Display, ein anstehender Hinweis eingeschlossen -
+      # sonst schoebe sleep_display die Standby-Seite darueber.
       - if:
           condition:
-            lambda: return id(voice_assistant_phase) == ${phase_idle};
+            lambda: |-
+              return id(voice_assistant_phase) == ${phase_idle}
+                  && !id(hint_active);
           then:
             - script.execute: sleep_display
           else:
@@ -434,30 +665,45 @@ script:
     mode: restart
     then:
       - if:
+          # Ein klingelnder Timer hat Vorrang vor allem anderen: wer den
+          # Bildschirm anfasst, waehrend es klingelt, will genau eins. Das
+          # Skript raeumt Ton, Phase und Anzeige selbst auf, deshalb endet der
+          # Zweig hier.
+          #
+          # Home Assistant muss dafuer nichts tun - die Komponente loescht den
+          # abgelaufenen Timer schon beim Ausloesen von on_timer_finished
+          # (voice_assistant.cpp:1030), fuer HA ist er also erledigt. Es bleibt
+          # nur der lokale Ton.
           condition:
-            lvgl.page.is_showing: page_config
+            lambda: return id(timer_ringing);
           then:
-            - script.execute: update_ui
-      - if:
-          condition:
-            lambda: |-
-              return id(voice_assistant_phase) == ${phase_listening}
-                  || id(voice_assistant_phase) == ${phase_thinking}
-                  || id(voice_assistant_phase) == ${phase_replying};
-          then:
-            - script.execute: abort_session
+            - script.execute: timer_stop_ringing
           else:
             - if:
                 condition:
-                  lambda: |-
-                    return id(voice_assistant_phase) == ${phase_idle}
-                        || id(voice_assistant_phase) == ${phase_muted};
+                  lvgl.page.is_showing: page_config
                 then:
-                  - light.turn_on:
-                      id: display_brightness
-                      brightness: ${active_brightness}
+                  - script.execute: update_ui
+            - if:
+                condition:
+                  lambda: |-
+                    return id(voice_assistant_phase) == ${phase_listening}
+                        || id(voice_assistant_phase) == ${phase_thinking}
+                        || id(voice_assistant_phase) == ${phase_replying};
+                then:
+                  - script.execute: abort_session
                 else:
-                  - script.execute: wake_display
+                  - if:
+                      condition:
+                        lambda: |-
+                          return id(voice_assistant_phase) == ${phase_idle}
+                              || id(voice_assistant_phase) == ${phase_muted};
+                      then:
+                        - light.turn_on:
+                            id: display_brightness
+                            brightness: ${active_brightness}
+                      else:
+                        - script.execute: wake_display
 
   # --------------------------------------------------- Gedrueckthalten (3 s)
   # Gestartet vom on_touch des Touchscreens, gestoppt vom on_release
@@ -535,34 +781,113 @@ script:
     then:
       - script.execute: update_clock
       - lvgl.page.show: page_standby
+      # Erst nach dem Seitenwechsel: update_timer_ui schreibt den Countdown nur,
+      # wenn die Standby-Seite auch wirklich vorne liegt. Der Aufruf raeumt
+      # ausserdem auf, wenn der letzte Timer ablief, waehrend eine andere Seite
+      # sichtbar war - dann steht lbl_clock noch auf versteckt.
+      - script.execute: update_timer_ui
+
+  # ------------------------------------------------------------- Timer-Anzeige
+  # Aufgerufen aus allen fuenf on_timer_*-Triggern (packages/voice.yaml), im
+  # laufenden Betrieb also einmal pro Sekunde. Zwei Dinge haengen daran:
+  #
+  #   - der Ring im top_layer, sichtbar auf jeder Seite
+  #   - der Countdown auf der Standby-Seite, der dort die Uhr ersetzt
+  #
+  # Bewusst *keine* Farbzuweisung und keine Deckkraftrechnung pro Durchlauf -
+  # der Ring soll genau eine Sache pro Sekunde tun: seinen Wert aendern. Die
+  # frueheren Ringe sind daran gescheitert, pro Frame den ganzen Kranz neu zu
+  # mischen; hier ist es ein Bruchteil eines Grades pro Sekunde.
+  - id: update_timer_ui
+    mode: restart
+    then:
+      - lambda: |-
+          const bool aktiv = id(timer_active) && id(timer_total) > 0;
+
+          if (aktiv) {
+            int32_t wert = (int32_t) (1000.0f * (float) id(timer_left) /
+                                      (float) id(timer_total));
+            if (wert < 0) wert = 0;
+            if (wert > 1000) wert = 1000;
+            lv_arc_set_value(id(ring_timer), wert);
+            lv_obj_remove_flag(id(ring_timer), LV_OBJ_FLAG_HIDDEN);
+          } else {
+            lv_obj_add_flag(id(ring_timer), LV_OBJ_FLAG_HIDDEN);
+          }
+
+      # Der Countdown steht nur auf der Standby-Seite. Auf der Hauptseite
+      # gehoert die Mitte der laufenden Phase, auf der Konfigurationsseite dem
+      # QR-Code - dort waere er nur im Weg. Die Pruefung laeuft ueber die
+      # LVGL-Bedingung statt ueber ein Lambda, weil Seiten hier echte Screens
+      # sind (lv_screen_load_anim) und nicht ueber ein Hidden-Flag geschaltet
+      # werden.
+      - if:
+          condition:
+            lvgl.page.is_showing: page_standby
+          then:
+            - lambda: |-
+                if (id(timer_active)) {
+                  const int rest = id(timer_left);
+                  const int stunden = rest / 3600;
+                  const int minuten = (rest % 3600) / 60;
+                  const int sekunden = rest % 60;
+                  const std::string text =
+                      stunden > 0
+                          ? esphome::str_sprintf("%d:%02d:%02d", stunden, minuten, sekunden)
+                          : esphome::str_sprintf("%02d:%02d", minuten, sekunden);
+                  lv_label_set_text(id(lbl_timer), text.c_str());
+                  lv_label_set_text(id(lbl_date), id(timer_name).empty()
+                                                      ? "Timer"
+                                                      : id(timer_name).c_str());
+                  lv_obj_add_flag(id(lbl_clock), LV_OBJ_FLAG_HIDDEN);
+                  lv_obj_remove_flag(id(lbl_timer), LV_OBJ_FLAG_HIDDEN);
+                } else {
+                  lv_obj_add_flag(id(lbl_timer), LV_OBJ_FLAG_HIDDEN);
+                  lv_obj_remove_flag(id(lbl_clock), LV_OBJ_FLAG_HIDDEN);
+                }
+      # Faellt der letzte Timer weg, brauchen Uhr und Datum wieder ihren
+      # eigenen Text - lbl_date trug bis eben den Namen des Timers.
+      - if:
+          condition:
+            lambda: return !id(timer_active);
+          then:
+            - script.execute: update_clock
 
   # ---------------------------------------------------------------- Uhrzeit
+  # Steigt aus, solange ein Timer laeuft: dann gehoeren beide Labels dem
+  # Countdown (lbl_date traegt dessen Namen), und der Minutentakt aus
+  # packages/core.yaml wuerde sie sonst jede Minute kurz mit Uhrzeit und Datum
+  # ueberschreiben, bis update_timer_ui eine Sekunde spaeter zurueckschreibt.
   - id: update_clock
     then:
-      - lvgl.label.update:
-          id: lbl_clock
-          text: !lambda |-
-            return id(ha_time).now().is_valid()
-                 ? id(ha_time).now().strftime("%H:%M")
-                 : std::string("--:--");
-      # "Dienstag, 4. August" - strftime kennt nur die C-Locale, also
-      # englische Namen. Deshalb von Hand.
-      - lvgl.label.update:
-          id: lbl_date
-          text: !lambda |-
-            static const char *const WOCHENTAG[] = {
-              "Sonntag", "Montag", "Dienstag", "Mittwoch",
-              "Donnerstag", "Freitag", "Samstag"};
-            static const char *const MONAT[] = {
-              "Januar", "Februar", "März", "April", "Mai", "Juni", "Juli",
-              "August", "September", "Oktober", "November", "Dezember"};
-            auto t = id(ha_time).now();
-            if (!t.is_valid())
-              return std::string("");
-            return esphome::str_sprintf("%s, %d. %s",
-                                        WOCHENTAG[t.day_of_week - 1],
-                                        t.day_of_month,
-                                        MONAT[t.month - 1]);
+      - if:
+          condition:
+            lambda: return !id(timer_active);
+          then:
+            - lvgl.label.update:
+                id: lbl_clock
+                text: !lambda |-
+                  return id(ha_time).now().is_valid()
+                       ? id(ha_time).now().strftime("%H:%M")
+                       : std::string("--:--");
+            # "Dienstag, 4. August" - strftime kennt nur die C-Locale, also
+            # englische Namen. Deshalb von Hand.
+            - lvgl.label.update:
+                id: lbl_date
+                text: !lambda |-
+                  static const char *const WOCHENTAG[] = {
+                    "Sonntag", "Montag", "Dienstag", "Mittwoch",
+                    "Donnerstag", "Freitag", "Samstag"};
+                  static const char *const MONAT[] = {
+                    "Januar", "Februar", "März", "April", "Mai", "Juni", "Juli",
+                    "August", "September", "Oktober", "November", "Dezember"};
+                  auto t = id(ha_time).now();
+                  if (!t.is_valid())
+                    return std::string("");
+                  return esphome::str_sprintf("%s, %d. %s",
+                                              WOCHENTAG[t.day_of_week - 1],
+                                              t.day_of_month,
+                                              MONAT[t.month - 1]);
 
   # Minuetlicher Takt fuer Uhr und Einbrennschutz haengt am Zeitgeber in
   # core.yaml (`time: ha_time` -> on_time), weil ESPHome Plattform-Listen

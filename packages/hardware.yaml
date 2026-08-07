@@ -159,6 +159,25 @@ media_player:
       format: FLAC
       sample_rate: 48000
       num_channels: 1
+    # Eingebettete Toene fuer Timer und Bestaetigung. Sie liegen als Datei im
+    # Repo (sounds/, Herkunft und Lizenz stehen dort im README) statt als URL,
+    # damit der Build ohne Internetzugang funktioniert.
+    #
+    # Beide sind 48 kHz mono 16 Bit - identisch zur announcement_pipeline
+    # darueber, es wird also nichts resampelt. Gespielt werden sie ueber
+    # media_player.speaker.play_on_device_media_file mit announcement: true,
+    # damit sie denselben Weg nehmen wie die TTS-Antwort und sich nicht mit ihr
+    # um den I2S-Bus streiten. Die Skripte dazu stehen in packages/voice.yaml.
+    #
+    # Die Pfade sind relativ zum Verzeichnis von assist-satellit.yaml, nicht zu
+    # dieser Datei: cv.file_ loest ueber CORE.relative_config_path auf, und das
+    # ist immer das Konfigurationsverzeichnis - Packages verschieben den Bezug
+    # nicht.
+    files:
+      - id: snd_timer
+        file: sounds/timer_finished.flac
+      - id: snd_confirm
+        file: sounds/center_button_press.flac
 
 switch:
   # Verstaerker-Enable. GPIO46 ist ein Strapping-Pin des ESP32-S3.

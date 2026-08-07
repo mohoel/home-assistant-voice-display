@@ -15,9 +15,15 @@ substitutions:
   phase_listening: "2"
   phase_thinking: "3"
   phase_replying: "4"
+  # Ergebnisanzeige statt Balken: ein Messwert oder ein Haken. Welches von
+  # beidem, entscheidet result_kind (packages/voice.yaml) aus dem Antworttext.
+  phase_result: "5"
   phase_not_ready: "10"
   phase_error: "11"
   phase_muted: "12"
+  # Ein abgelaufener Timer klingelt. Die 20 stammt aus der Phasentabelle in
+  # docs/plan.md und laesst Platz fuer weitere Zwischenzustaende.
+  phase_timer_ringing: "20"
 
   # Phasenfarben (0xRRGGBB). Es gibt keinen Ring mehr - jede Phase traegt sich
   # ueber ein Widget in der Bildschirmmitte: color_listening faerbt das
@@ -27,6 +33,10 @@ substitutions:
   color_thinking: "0xFFC107"
   color_replying: "0x4CAF50"
   color_error: "0xF44336"
+  # Timer-Ring am Bildschirmrand und die Glocke beim Klingeln.
+  color_timer: "0xFF9800"
+  # Haken nach einem Befehl ohne Rueckmeldung ("Eingeschaltet").
+  color_result: "0x4CAF50"
 
   # Texte
   color_text: "0xFFFFFF"
@@ -78,6 +88,32 @@ substitutions:
   bar_opa_min: "90" # 0..255
   bar_step_time: 40ms
   bar_cycle_steps: "20"
+
+  # Timer. Home Assistant schickt Timer-Ereignisse von sich aus an den
+  # Satelliten (on_timer_* in packages/voice.yaml) - dafuer braucht es keine
+  # Automation in HA. Waehrend ein Timer laeuft, liegt ein Ring am
+  # Bildschirmrand, der sich im Sekundentakt leert; er haengt im top_layer von
+  # LVGL und ist deshalb auf jeder Seite sichtbar, auch im Standby.
+  #
+  # Der Ring ist bewusst genau eine Schicht ohne Glow und ohne
+  # Deckkraftanimation. Die frueheren Ringe sind an der Zeichenbandbreite
+  # gescheitert, weil vier konzentrische Arcs 25-mal je Sekunde ueber den
+  # vollen Kranz gemischt wurden; dieser hier aendert sich einmal pro Sekunde
+  # um einen Bruchteil eines Grades.
+  #
+  # 462 statt 466: aussen bleiben zwei Pixel Rand. Die Luecke von einem Grad am
+  # Zwoelf-Uhr-Punkt (start 270, end 269) ist der uebliche LVGL-Weg zu einem
+  # Vollkreis - start == end waere entartet und ergaebe gar keinen Bogen.
+  timer_ring_size: "462"
+  timer_ring_width: "12"
+  # Groesse der Countdown-Ziffern in der Bildschirmmitte. 110 px statt der
+  # 140 px der Standby-Uhr, damit auch "1:23:45" (sieben Zeichen) in den runden
+  # Bildschirm passt.
+  timer_font_size: "110"
+  # Klingeln: Laenge der Tondatei (2,73 s) plus eine kurze Pause. Nach
+  # timer_ring_timeout gibt das Geraet von selbst Ruhe, falls niemand da ist.
+  timer_sound_repeat: 3.2s
+  timer_ring_timeout: 2min
 
   # Standby
   standby_timeout: 30s

@@ -72,8 +72,9 @@ wirkt daher nur auf einem Gerät, das diese Farbe noch nie gesetzt bekommen hat.
 | `packages/core.yaml` | SoC, PSRAM, WLAN, API, OTA, Zeit, Diagnose |
 | `packages/hardware.yaml` | I2C, QSPI-Display, Touch, I2S, ES7210/ES8311, Media Player |
 | `packages/voice.yaml` | Wake Word, Voice Assistant, Engine-Umschaltung, Mute |
-| `packages/ui.yaml` | Fonts, LVGL-Seiten, Phasen-Animationen, Standby-Uhr |
+| `packages/ui.yaml` | Fonts, LVGL-Seiten, Phasen-Animationen, Standby-Uhr, Timer-Ring |
 | `packages/web.yaml` | Web-Bedienseite: Webserver, Ausrichtung, Standby-Seite, Symbolfarben |
+| `sounds/` | Klingel- und Bestätigungston als FLAC, eingebettet über `files:` am Media Player |
 
 Die Voice-Assistant-Logik folgt `esphome/wake-word-voice-assistants`
 (esp32-s3-box-3) und `esphome/home-assistant-voice-pe`. Bei neuen Features zuerst
@@ -102,6 +103,13 @@ Querverbindungen:
 | `ui.yaml` → `on_screen_touch` | `script: abort_session` | `voice.yaml` |
 | `hardware.yaml` → `touchscreen.on_touch/on_release` | `script: detect_long_press` | `ui.yaml` |
 | `ui.yaml` → `show_config_page` | `text_sensor: device_ip` | `core.yaml` |
+| `voice.yaml` → jedes `on_timer_*` | `script: update_timer_ui` | `ui.yaml` |
+| `voice.yaml` → Klingel- und Bestätigungston | `media_player: media_out`, `files: snd_timer/snd_confirm` | `hardware.yaml` |
+| `ui.yaml` → `on_screen_touch`, `update_timer_ui`, `update_clock` | `globals: timer_*` | `voice.yaml` |
+| `ui.yaml` → `update_ui` | `globals: result_*`, `error_kind`, `is_followup` | `voice.yaml` |
+| `ui.yaml` → `update_ui`, `apply_colors` | `globals: col_timer`, `col_result` | `web.yaml` |
+| `core.yaml` → `api.actions.zeige_hinweis` | `script: show_hint` | `ui.yaml` |
+| `core.yaml` → `ha_time.on_time` | `lbl_timer` | `ui.yaml` |
 
 Der Minutentakt für Uhr und Einbrennschutz liegt bewusst in `core.yaml` am
 `time:`-Block und nicht bei den Widgets: ESPHome führt **Plattform-Listen wie
@@ -117,9 +125,11 @@ aufzurufen** — `update_ui` schaltet nicht nur die Widgets der Mitte, es entsch
 Die Skripte sind die Bedienoberfläche der Logik, nicht die Handler selbst:
 
 - `voice.yaml`: `start_wake_word`, `stop_wake_word`, `set_idle_or_muted`,
-  `end_session`, `clear_error`, `abort_session`
+  `end_session`, `clear_error`, `abort_session`, `timer_start_ringing`,
+  `timer_ring_sound`, `timer_ring_guard`, `timer_stop_ringing`
 - `ui.yaml`: `update_ui`, `wake_display`, `sleep_display`, `show_standby_page`,
-  `show_config_page`, `detect_long_press`, `update_clock`, `apply_colors`
+  `show_config_page`, `detect_long_press`, `update_clock`, `apply_colors`,
+  `update_timer_ui`, `show_hint`
 - `web.yaml`: `apply_rotation`, `sync_color_texts`
 
 **Alles mit `delay:` oder `wait_until:` gehört in ein Skript mit `mode: restart`,
@@ -173,6 +183,85 @@ Punkte, die man beim Ändern leicht übersieht:
   QR-Codes muss dabei explizit an (`lv_qrcode_set_quiet_zone`), LVGL hat sie
   per Default aus und die Module stünden bis an den Kachelrand.
 
+- **Eigene Töne dürfen nur spielen, wenn das Wake Word nicht lauscht.** Das
+  Board hat genau einen I2S-Controller für Mikrofon und Lautsprecher. Läuft die
+  Wake-Word-Erkennung, hält sie ihn mit 16 kHz; ein Lautsprecherstart mit
+  48 kHz scheitert dann an `Parent bus is busy`
+  (`i2s_audio.speaker.std:401`) und die Komponente versucht es im Sekundentakt
+  weiter. Genau das passierte, als der Bestätigungston noch direkt im `on_end`
+  lag. Er steht deshalb in `end_session` **zwischen** dem Warten auf das Ende
+  der Sprachausgabe und `start_wake_word` — das einzige Fenster, in dem der Bus
+  sicher frei ist — und wird über `confirm_pending` dorthin vorgemerkt. Wer
+  weitere Töne einbaut, braucht dasselbe Fenster oder muss das Wake Word
+  ringsum stoppen. Der Timer-Klingelton ist davon nicht betroffen: er läuft
+  zwar bei aktivem Wake Word, aber `micro_wake_word` ist zu dem Zeitpunkt über
+  `stop_after_detection` bereits gestoppt — falls dort doch `Parent bus is
+  busy` auftaucht, ist das dieselbe Ursache.
+- **Eine Zeile pro Antwort geht als `ESP_LOGI("ergebnis", …)` ins Log.** Sie
+  zeigt Antworttext, erkannte Art, Wert und Einheit. Das ist Absicht und darf
+  nicht wegoptimiert werden: ohne sie lässt sich nicht unterscheiden, ob die
+  Klassifikation danebenlag oder die Anzeige — und diese Frage kostet sonst
+  eine komplette Runde aus Compile und OTA.
+- **Der Timer klingelt lokal, aber HA weiß nichts davon.** `on_timer_finished`
+  feuert, und die Komponente löscht den Timer **unmittelbar danach**
+  (`voice_assistant.cpp:1030`) — für Home Assistant ist er in dem Moment
+  erledigt. Das Gerät muss ihn also nicht abräumen, und genau deshalb kommt
+  das Stoppen per Tippen ohne eine HA-Automation aus: `timer_stop_ringing`
+  beendet nur den lokalen Ton. Wer hier eine Rückmeldung an HA einbaut, löst
+  ein Problem, das es nicht gibt.
+- **Quelle der Wahrheit für den Ring ist `on_timer_tick`.** Der Takt liefert
+  jede Sekunde die vollständige Liste; `started`/`updated` schreiben zusätzlich
+  sofort, damit der Ring nicht bis zu einer Sekunde hinterherhinkt. Der Takt
+  läuft nur, solange die Liste nicht leer ist (`voice_assistant.cpp:1035`) —
+  nach dem letzten Timer kommt also keine Korrektur mehr, weshalb
+  `on_timer_cancelled` und `on_timer_finished` `timer_active` selbst auf
+  `false` setzen müssen. Laufen noch weitere Timer, korrigiert der nächste Tick
+  das innerhalb einer Sekunde zurück; der Ring kann dabei kurz blinken.
+- **`update_clock` steigt bei laufendem Timer aus.** Uhr und Datum teilen sich
+  ihre Labels mit dem Countdown (`lbl_date` trägt dann den Timernamen). Ohne
+  den Guard schriebe der Minutentakt aus `core.yaml` jede Minute Uhrzeit und
+  Datum hinein, bis `update_timer_ui` eine Sekunde später zurückschreibt.
+
+## Was Home Assistant dem Gerät schickt — und was nicht
+
+Der wichtigste Punkt beim Erweitern der Ergebnisanzeige: **Das Gerät erfährt
+nie, was ein Befehl bewirkt hat.** Strukturiert kommen nur drei Dinge an:
+
+| Trigger | Nutzlast |
+|---|---|
+| `on_stt_end` | erkannter Text |
+| `on_tts_start` | Antworttext |
+| `on_timer_*` | `Timer{id, name, total_seconds, seconds_left, is_active}` |
+
+`on_intent_end` existiert, hat aber eine **leere Parameterliste**
+(`voice_assistant/__init__.py:311`) — keine Domain, keine Entität, kein Wert.
+Ein Symbol je nach geschaltetem Gerät (Glühbirne, Rollo, Saugroboter) ist damit
+**ohne HA-Automation nicht möglich**, und „Eingeschaltet" verrät nicht, was
+eingeschaltet wurde. Diese Grenze bitte nicht durch immer feineres Parsen des
+Antwortsatzes umgehen wollen.
+
+Was daraus folgt: Die Klassifikation in `on_tts_start` ist bewusst eine
+**Heuristik über den Antwortsatz** mit genau drei Ausgängen — Messwert
+(`result_kind == 1`), Bestätigung (`== 2`) und alles Übrige (`phase_replying`,
+also die fünf Balken wie bisher). Sie greift nur bei Antworten bis 60 Zeichen,
+erkennt eine Zahl nur mit Einheit aus einer festen Liste und eine Bestätigung
+nur als Satzanfang aus einer festen Wortliste. Erkennt sie nichts, bleibt alles
+beim Alten — das ist der Rückfallpfad, nicht ein Fehlerfall.
+
+**Ein LLM-Agent als Konversationsagent hebelt die Heuristik aus.** Läuft in
+Home Assistant statt der eingebauten Intent-Erkennung ein Sprachmodell, sind die
+Antworten Fließtext („Das klingt unangenehm. Soll ich die aktuelle Temperatur
+im Schlafzimmer überprüfen …") statt „Eingeschaltet" oder „21,5 Grad". Die
+Klassifikation greift dann nie und alles landet im Balken-Zweig — technisch
+richtig, aber die Ergebnisanzeige bleibt in dem Fall ungenutzt. Das ist keine
+Fehlfunktion und sollte nicht durch aufwendigeres Parsen „repariert" werden.
+
+Wer echte Domain-Icons will, hat den Haken `api: actions: zeige_hinweis`
+(`core.yaml` → `show_hint` in `ui.yaml`). Der ist **optional**: ohne einen
+Aufruf aus HA passiert nichts, und der Normalbetrieb kommt ohne jede Automation
+aus. Das ist eine Produktentscheidung — die Firmware soll weitergebbar sein,
+ohne dass Fremde erst Automationen anlegen müssen.
+
 Substitutions aus `assist-satellit.yaml` werden auch **innerhalb von Lambdas**
 als `${phase_listening}` eingesetzt (Textersetzung vor dem YAML-Parsing) — daher
 `switch/case` über Phasen statt Enums. Für Farben gilt das nicht mehr: in
@@ -195,15 +284,39 @@ LVGL-Widgets in `ui.yaml`; das Mockup selbst bleibt reine Vorlage, nicht Code.
 
 ## Bekannte Einschränkungen
 
-- **Es gibt keinen Ring mehr.** Alle Arc-Widgets (`ring_full`, `ring_slow`,
-  `ring_fast` und ihre je drei Glow-Schichten) sind ersatzlos entfernt, samt
+- **Es gibt keinen Phasen-Ring mehr — der Timer-Ring ist die eine Ausnahme.**
+  `ring_timer` liegt im `top_layer` von LVGL und ist damit auf jeder Seite
+  sichtbar, ohne ihn dreimal anzulegen. Er darf existieren, weil er eine
+  völlig andere Last erzeugt als die gescheiterten Phasen-Ringe: **eine**
+  Schicht statt vier, **kein** Glow, **keine** Deckkraftanimation, und eine
+  Wertänderung **einmal pro Sekunde** statt 25-mal. Wer ihn anfasst, muss
+  diese vier Punkte halten — insbesondere darf `update_timer_ui` pro Durchlauf
+  nicht auch noch Farben setzen (das macht `apply_colors`, und nur wenn sich
+  wirklich eine Farbe geändert hat).
+  Zwei LVGL-Eigenheiten stecken darin: `start_angle: 270` / `end_angle: 269`
+  ist der übliche Weg zu einem Vollkreis ab zwölf Uhr (`start == end` wäre
+  entartet und ergäbe gar keinen Bogen, und Werte über 360 normalisiert LVGL
+  weg), und der Arc frisst keine Berührungen, weil der Codegen
+  `LV_OBJ_FLAG_CLICKABLE` entfernt, sobald `adjustable` false ist
+  (`lvgl/widgets/arc.py:88`) — sonst läge ein 462 px großer Fangkorb über der
+  ganzen Oberfläche.
+- **Für die Phasen gibt es keinen Ring.** Alle früheren Arc-Widgets
+  (`ring_full`, `ring_slow`, `ring_fast` und ihre je drei Glow-Schichten) sind
+  ersatzlos entfernt, samt
   aller `ring_*`- und `spin_time_*`-Substitutions, `color_track`,
   `color_muted` und `color_not_ready`. Jede Phase trägt sich jetzt über **ein
   Widget in der Bildschirmmitte**: Zuhören das atmende Mikrofon-Icon,
   Verarbeitung die drei Punkte, Sprachausgabe die fünf Balken, Error/Muted/Not
-  Ready ein eingefärbtes Icon. `update_ui` versteckt zuerst alle neun Widgets
-  (`lbl_icon`, `dot_1`–`dot_3`, `bar_1`–`bar_5`) und zeigt danach in einer
-  dreistufigen Kaskade genau eine Gruppe.
+  Ready ein eingefärbtes Icon. `update_ui` versteckt zuerst alle dreizehn
+  Widgets (`lbl_icon`, `dot_1`–`dot_3`, `bar_1`–`bar_5`, `lbl_value`,
+  `lbl_unit`, `lbl_hint_icon`, `lbl_hint_text`) und zeigt danach genau eine
+  Gruppe. Das steht seit der Ergebnisanzeige als **ein Lambda mit `switch`**
+  statt als Kaskade aus `lvgl.widget.show/hide`: mit sechs Fällen wäre die
+  YAML-Verschachtelung sechs Ebenen tief geworden.
+  `lv_obj_add_flag`/`lv_obj_remove_flag` ist genau das, was der Codegen aus
+  `lvgl.widget.hide/show` ohnehin erzeugt
+  (`lvgl/widgets/__init__.py:317`) — Achtung, in LVGL 9.5 heißt es
+  `remove_flag`, nicht mehr `clear_flag`.
   Der Ring war über mehrere Anläufe an der Zeichenbandbreite gescheitert: Die
   rotierenden Spinner ruckelten, weil vier konzentrische Arcs dieser Größe pro
   Frame den kompletten Ringkranz neu zeichnen; eine atmende **Deckkraft**
@@ -245,15 +358,22 @@ LVGL-Widgets in `ui.yaml`; das Mockup selbst bleibt reine Vorlage, nicht Code.
   Das war eine bewusste Design-Entscheidung: Antworttext ist damit nur noch als
   `text_sensor` in HA sichtbar, nicht mehr auf dem Display. Verarbeitung zeigt
   stattdessen drei Punkte (`dot_1`–`dot_3`), Sprachausgabe fünf Balken
-  (`bar_1`–`bar_5`) — beide Phasen zeigen **kein** Icon. Übrig sind damit
-  **vier** Glyphen: `mic` (`\U0000E31D`), `mic_off` (`\U0000E02B`), `warning`
-  (`\U0000F083`), `wifi_off` (`\U0000E648`); der Haken für „fertig“
-  (`\U0000E668`) ist mit der Sprachausgabe-Animation entfallen.
-  Die Farbcodierung von Error/Muted/Not Ready läuft seit dem Wegfall des Rings
-  über die **Icon-Farbe**: Error → `col_error`, Muted und Not Ready →
-  `col_dim` (Globals aus `web.yaml`, vorbelegt mit `${color_error}` bzw.
-  `${color_text_dim}`).
-  Die Fontgröße `font_icon: 216` gilt für alle vier Glyphen. Drei Maße hängen
+  (`bar_1`–`bar_5`) — beide Phasen zeigen **kein** Icon. Es sind **sieben**
+  Glyphen: `mic` (`\U0000E31D`), `mic_off` (`\U0000E02B`), `warning`
+  (`\U0000F083`), `wifi_off` (`\U0000E648`), `question_mark` (`\U0000EB8B`),
+  `check` (`\U0000E668`) und `notifications_active` (`\U0000E7F7`). Der Haken
+  war mit der Sprachausgabe-Animation einmal entfallen und ist mit der
+  Bestätigungsanzeige zurückgekommen.
+  Die Farbcodierung läuft seit dem Wegfall des Phasen-Rings über die
+  **Icon-Farbe**: Error → `col_error`, „nicht verstanden“ → `col_thinking`,
+  Muted / Not Ready / „HA nicht erreichbar“ → `col_dim`, Bestätigung →
+  `col_result`, Timer → `col_timer` (Globals aus `web.yaml`, vorbelegt aus den
+  gleichnamigen Substitutions).
+  Dass ein Glyph mehrfach vorkommt, ist Absicht: `question_mark` steht für
+  „nicht verstanden“ (`error_kind == 1`, amber) **und** für die Rückfrage
+  (`is_followup` beim Zuhören, blau und atmend), `wifi_off` für „not ready“
+  **und** für `error_kind == 2`.
+  Die Fontgröße `font_icon: 216` gilt für alle Glyphen. Drei Maße hängen
   daran und müssen bei einer Änderung mitgezogen werden: die Box von `lbl_icon`
   (240×240), die Breite der Punktgruppe
   (`2 * dot_gap + dot_size_max = 2*79 + 58 = 216`) und die der Balkengruppe

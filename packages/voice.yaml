@@ -12,6 +12,84 @@ globals:
     restore_value: false
     initial_value: ${phase_not_ready}
 
+  # ------------------------------------------------------------------ Timer
+  # Home Assistant schickt Timer-Ereignisse von sich aus an den Satelliten,
+  # sobald die voice_assistant-Komponente mindestens einen on_timer_*-Trigger
+  # hat (set_has_timers im Codegen). Es braucht dafuer keine Automation in HA.
+  #
+  # Quelle der Wahrheit ist on_timer_tick: der Takt liefert jede Sekunde *alle*
+  # laufenden Timer, daraus wird der naechstfaellige gesucht. started/updated
+  # schreiben zusaetzlich sofort, damit der Ring nicht bis zu einer Sekunde auf
+  # sich warten laesst.
+  - id: timer_active
+    type: bool
+    restore_value: false
+    initial_value: "false"
+  - id: timer_total
+    type: int
+    restore_value: false
+    initial_value: "0"
+  - id: timer_left
+    type: int
+    restore_value: false
+    initial_value: "0"
+  - id: timer_name
+    type: std::string
+    restore_value: false
+  - id: timer_ringing
+    type: bool
+    restore_value: false
+    initial_value: "false"
+
+  # ------------------------------------------------- Ergebnis eines Befehls
+  # 1 = Messwert (result_value/result_unit), 2 = Bestaetigung (Haken).
+  # Gesetzt in on_tts_start aus dem Antworttext, ausgewertet in update_ui.
+  - id: result_kind
+    type: int
+    restore_value: false
+    initial_value: "0"
+  - id: result_value
+    type: std::string
+    restore_value: false
+  - id: result_unit
+    type: std::string
+    restore_value: false
+  # Merker, ob in diesem Durchgang ueberhaupt eine Sprachausgabe kam. Bleibt er
+  # false, hat Home Assistant den Befehl stumm ausgefuehrt - dann uebernimmt der
+  # lokale Bestaetigungston die Rueckmeldung (siehe on_end).
+  - id: had_tts
+    type: bool
+    restore_value: false
+    initial_value: "false"
+  # Der Bestaetigungston ist faellig. Gespielt wird er nicht sofort, sondern in
+  # end_session - siehe dort, es geht um den I2S-Bus.
+  - id: confirm_pending
+    type: bool
+    restore_value: false
+    initial_value: "false"
+
+  # --------------------------------------------------------- Fehlerklassen
+  # 0 = allgemeiner Fehler, 1 = nicht verstanden, 2 = Home Assistant nicht
+  # erreichbar. Gesetzt in on_error, ausgewertet in update_ui.
+  - id: error_kind
+    type: int
+    restore_value: false
+    initial_value: "0"
+
+  # -------------------------------------------------------- Rueckfrage-Merker
+  # continue_conversation_ ist in der voice_assistant-Komponente privat und hat
+  # keinen Getter - eine Rueckfrage laesst sich also nicht direkt abfragen.
+  # Ersatz: wurde vor diesem Zuhoeren ein Wake Word erkannt? Wenn nicht, hat
+  # Home Assistant die Sitzung offen gelassen und wartet auf eine Antwort.
+  - id: wake_word_seen
+    type: bool
+    restore_value: false
+    initial_value: "false"
+  - id: is_followup
+    type: bool
+    restore_value: false
+    initial_value: "false"
+
 micro_wake_word:
   id: mww
   microphone:
@@ -37,6 +115,10 @@ micro_wake_word:
         condition:
           switch.is_off: mute
         then:
+          # Merker fuer die Rueckfrage-Erkennung: das naechste on_listening hat
+          # damit ein Wake Word vor sich und ist keine Antwort auf eine
+          # Rueckfrage von Home Assistant.
+          - lambda: id(wake_word_seen) = true;
           - voice_assistant.start:
               wake_word: !lambda return wake_word;
 
@@ -50,11 +132,36 @@ voice_assistant:
   auto_gain: 31dBFS
   volume_multiplier: 2.0
 
+  # Feuert auch, wenn das Wake Word in Home Assistant erkannt wurde
+  # (VOICE_ASSISTANT_WAKE_WORD_END, voice_assistant.cpp:779) - der Merker gilt
+  # damit fuer beide Engines.
+  on_wake_word_detected:
+    - lambda: id(wake_word_seen) = true;
+
   on_listening:
     # Aufraeum-Timer eines vorherigen Durchgangs abbrechen. Sonst setzt deren
     # verzoegertes set_idle_or_muted mitten in den neuen Vorgang hinein.
     - script.stop: end_session
     - script.stop: clear_error
+    # Ein klingelnder Timer soll verstummen, sobald gesprochen wird - sonst
+    # redet der Nutzer gegen die Glocke an. Das Skript laeuft ohne delay durch,
+    # setzt also synchron auf Idle; die Phase unten ueberschreibt das gleich
+    # wieder.
+    - if:
+        condition:
+          lambda: return id(timer_ringing);
+        then:
+          - script.execute: timer_stop_ringing
+    # Kam kein Wake Word, ist das hier die Antwort auf eine Rueckfrage von Home
+    # Assistant. Der Merker wird dabei verbraucht.
+    - lambda: |-
+        id(is_followup) = !id(wake_word_seen);
+        id(wake_word_seen) = false;
+        id(had_tts) = false;
+        id(result_kind) = 0;
+        // Ein vorgemerkter Ton aus einem abgebrochenen Durchgang gehoert nicht
+        // in den neuen hinein.
+        id(confirm_pending) = false;
     - lambda: id(voice_assistant_phase) = ${phase_listening};
     - text_sensor.template.publish:
         id: text_request
@@ -76,8 +183,124 @@ voice_assistant:
     - script.execute: update_ui
 
   # x = Antworttext des Assistenten
+  #
+  # Der Antworttext ist die einzige inhaltliche Rueckmeldung, die das Geraet
+  # bekommt: on_intent_end hat im Codegen eine leere Parameterliste
+  # (voice_assistant/__init__.py:311), es gibt also weder Domain noch Entitaet
+  # noch Ergebniswert. Was hier passiert, ist deshalb bewusst eine Heuristik
+  # ueber den Satz - mehr ist ohne eine Automation in Home Assistant nicht
+  # moeglich. Erkennt sie nichts, bleibt alles wie bisher bei den fuenf Balken.
   on_tts_start:
-    - lambda: id(voice_assistant_phase) = ${phase_replying};
+    - lambda: |-
+        id(had_tts) = true;
+        id(result_kind) = 0;
+        id(result_value).clear();
+        id(result_unit).clear();
+
+        // Alles ohne cctype/cstring, damit die Bytes von Umlauten unangetastet
+        // bleiben: tolower auf einem UTF-8-Folgebyte waere je nach Locale
+        // undefiniert. Grossbuchstaben sind hier ohnehin nur ASCII.
+        auto ist_ziffer = [](char c) { return c >= '0' && c <= '9'; };
+
+        const std::string &t = x;
+        // Laengere Antworten sind Fliesstext und kein Ergebnis. 80 Zeichen
+        // lassen Raum fuer lange Entitaetsnamen ("Der Ladestand der Batterie
+        // deines Autos betraegt 72 Prozent."), schliessen aber die
+        // ausformulierten Antworten eines Sprachmodells weiter aus.
+        if (!t.empty() && t.size() <= 80) {
+          // --- Messwert: Zahl mit bekannter Einheit ---
+          //
+          // *Jede* Ziffernfolge wird geprueft, nicht nur die erste. Sonst
+          // reicht eine Zahl im Geraetenamen ("ID.3", "Model 3", "Sensor 2"),
+          // um die Erkennung zu verlieren: die erste Ziffernfolge haette dann
+          // keine Einheit hinter sich, und der Messwert weiter hinten im Satz
+          // waere nie angesehen worden.
+          static const char *const EINHEITEN[] = {
+              "°C", "°F", "°", "%", "Prozent", "Grad", "Uhr", "km/h",
+              "hPa", "lx", "ppm", "kWh", "kW", "Wh", "W", "V", "A", "dB",
+              "km", "cm", "mm", "m"};
+
+          for (size_t i = 0; i < t.size() && id(result_kind) == 0; i++) {
+            if (!ist_ziffer(t[i])) continue;
+
+            const size_t start = (i > 0 && t[i - 1] == '-') ? i - 1 : i;
+            size_t j = i;
+            // ':' gehoert dazu, damit "17:45 Uhr" als eine Zahl durchgeht.
+            while (j < t.size() &&
+                   (ist_ziffer(t[j]) || t[j] == ',' || t[j] == '.' || t[j] == ':'))
+              j++;
+            // Ein Satzzeichen direkt hinter der Zahl gehoert nicht mehr dazu.
+            size_t ende = j;
+            while (ende > i &&
+                   (t[ende - 1] == ',' || t[ende - 1] == '.' || t[ende - 1] == ':'))
+              ende--;
+            const std::string zahl = t.substr(start, ende - start);
+
+            // Einheit steht direkt dahinter oder nach genau einem Leerzeichen.
+            // Home Assistant setzt dort teils ein geschuetztes Leerzeichen
+            // (U+00A0, in UTF-8 zwei Bytes).
+            size_t k = ende;
+            if (k < t.size() && t[k] == ' ')
+              k += 1;
+            else if (k + 1 < t.size() && t.compare(k, 2, "\xc2\xa0") == 0)
+              k += 2;
+            std::string rest = t.substr(k);
+            while (!rest.empty() &&
+                   (rest.back() == '.' || rest.back() == '!' || rest.back() == ','))
+              rest.pop_back();
+
+            // Laengere Einheiten stehen vor ihren Praefixen; die Pruefung auf
+            // das Zeichen hinter der Einheit faengt den Rest ab, damit "kWh"
+            // nicht als "kW" und "mm" nicht als "m" durchgeht.
+            for (const char *e : EINHEITEN) {
+              const std::string einheit(e);
+              if (rest.compare(0, einheit.size(), einheit) == 0 &&
+                  (rest.size() == einheit.size() || rest[einheit.size()] == ' ')) {
+                id(result_value) = zahl;
+                id(result_unit) = einheit;
+                id(result_kind) = 1;
+                break;
+              }
+            }
+            // Hinter die gerade gepruefte Zahl springen; t[j] ist keine Ziffer.
+            i = j;
+          }
+
+          // --- Bestaetigung: kurzer, formelhafter Satz ---
+          if (id(result_kind) == 0) {
+            std::string k = t;
+            while (!k.empty() &&
+                   (k.back() == '.' || k.back() == '!' || k.back() == ' '))
+              k.pop_back();
+            for (char &c : k)
+              if (c >= 'A' && c <= 'Z') c += 32;
+            static const char *const BESTAETIGUNG[] = {
+                "eingeschaltet", "ausgeschaltet", "angeschaltet", "abgeschaltet",
+                "eingestellt", "gesetzt", "erledigt", "fertig", "ok", "okay",
+                "gestartet", "gestoppt", "angehalten", "fortgesetzt",
+                "geöffnet", "geschlossen", "aktiviert", "deaktiviert", "gedimmt"};
+            if (k.size() <= 25) {
+              for (const char *b : BESTAETIGUNG) {
+                const std::string wort(b);
+                if (k.compare(0, wort.size(), wort) == 0) {
+                  id(result_kind) = 2;
+                  break;
+                }
+              }
+            }
+          }
+        }
+
+        id(voice_assistant_phase) =
+            (id(result_kind) != 0) ? ${phase_result} : ${phase_replying};
+
+        // Bleibt dauerhaft drin und laeuft auf INFO: eine Zeile je Antwort ist
+        // billig, und ohne sie ist nicht zu unterscheiden, ob die Erkennung
+        // danebenlag oder die Anzeige. Genau diese Frage kostete beim ersten
+        // Fehlerbild eine komplette Runde aus Compile und OTA.
+        ESP_LOGI("ergebnis", "Antwort='%s' -> art=%d wert='%s' einheit='%s'",
+                 t.c_str(), id(result_kind), id(result_value).c_str(),
+                 id(result_unit).c_str());
     - text_sensor.template.publish:
         id: text_response
         state: !lambda return x;
@@ -88,23 +311,120 @@ voice_assistant:
   # direkt hier, wuerde ein zweiter on_end-Aufruf in die noch laufende
   # Aktionsliste hineinlaufen. Das Skript ist mode: restart und damit sauber.
   on_end:
+    # Kam keine Sprachausgabe, hat Home Assistant den Befehl stumm ausgefuehrt
+    # (leerer Antworttext oder abgeschaltete TTS). Dann traegt der lokale
+    # Bestaetigungston die Rueckmeldung, damit es in *jedem* Fall eine
+    # akustische Bestaetigung gibt.
+    #
+    # Die Pruefung auf phase_thinking ist der Filter: nur ein Durchgang, der
+    # bis zur Verarbeitung gekommen und dort stehen geblieben ist, war ein
+    # ausgefuehrter Befehl. Ein Fehler hat die Phase laengst auf phase_error
+    # gesetzt, ein Abbruch per Tippen auf Idle - beide fallen hier heraus.
+    - if:
+        condition:
+          lambda: |-
+            return !id(had_tts)
+                && id(voice_assistant_phase) == ${phase_thinking};
+        then:
+          - lambda: |-
+              id(result_kind) = 2;
+              id(voice_assistant_phase) = ${phase_result};
+              // Nur vormerken. Der Ton laeuft in end_session, sobald der
+              // I2S-Bus sicher frei ist.
+              id(confirm_pending) = true;
+          - script.execute: update_ui
     - script.execute: end_session
 
   on_error:
-    # duplicate_wake_up_detected und stt-no-text-recognized sind Rauschen
+    # duplicate_wake_up_detected ist Rauschen des lokalen Wake Words und wird
+    # weiterhin verschluckt. stt-no-text-recognized dagegen nicht mehr: es
+    # bedeutet "nichts verstanden" und wird jetzt als Fragezeichen angezeigt -
+    # ohne das wirkt ein Fehlausloeser wie ein haengendes Geraet.
     - if:
         condition:
           and:
             - lambda: return !id(init_in_progress);
             - lambda: return code != "duplicate_wake_up_detected";
-            - lambda: return code != "stt-no-text-recognized";
         then:
-          - lambda: id(voice_assistant_phase) = ${phase_error};
+          # Fehlerklassen. Die Codes stammen teils aus der Pipeline in Home
+          # Assistant, teils aus der ESPHome-Komponente selbst
+          # (voice_assistant.cpp: mic-channel-stalled, not-connected,
+          # failed-to-start, wake-provider-missing).
+          - lambda: |-
+              if (code == "stt-no-text-recognized" ||
+                  code == "intent-not-recognized") {
+                id(error_kind) = 1;
+              } else if (code == "not-connected" || code == "failed-to-start" ||
+                         code == "wake-provider-missing" ||
+                         code == "wake-engine-missing" ||
+                         code == "pipeline-not-found") {
+                id(error_kind) = 2;
+              } else {
+                id(error_kind) = 0;
+              }
+              id(voice_assistant_phase) = ${phase_error};
           - text_sensor.template.publish:
               id: text_response
               state: !lambda return message;
           - script.execute: update_ui
           - script.execute: clear_error
+
+  # ------------------------------------------------------------------ Timer
+  # Der Ring am Bildschirmrand und der Countdown in der Mitte haengen an diesen
+  # fuenf Triggern. Allein ihre Anwesenheit schaltet den Timer-Support scharf
+  # (set_has_timers im Codegen) - in Home Assistant ist dafuer nichts zu tun.
+  on_timer_started:
+    - lambda: |-
+        id(timer_active) = true;
+        id(timer_total) = timer.total_seconds;
+        id(timer_left) = timer.seconds_left;
+        id(timer_name) = timer.name;
+    - script.execute: update_timer_ui
+
+  on_timer_updated:
+    - lambda: |-
+        id(timer_active) = timer.is_active;
+        id(timer_total) = timer.total_seconds;
+        id(timer_left) = timer.seconds_left;
+        id(timer_name) = timer.name;
+    - script.execute: update_timer_ui
+
+  # Der Takt korrigiert das gleich wieder, falls noch weitere Timer laufen -
+  # er feuert weiter, solange die Liste in der Komponente nicht leer ist
+  # (voice_assistant.cpp:1035). Der Ring kann dabei bis zu eine Sekunde lang
+  # verschwinden; das ist der Preis dafuer, hier keine Liste mitzufuehren.
+  on_timer_cancelled:
+    - lambda: id(timer_active) = false;
+    - script.execute: update_timer_ui
+
+  on_timer_finished:
+    - lambda: id(timer_active) = false;
+    - script.execute: update_timer_ui
+    - script.execute: timer_start_ringing
+
+  # Quelle der Wahrheit: jede Sekunde kommt die vollstaendige Liste. Angezeigt
+  # wird der naechstfaellige Timer.
+  on_timer_tick:
+    # Ueber den Index statt ueber einen Zeiger, damit der Typ Timer hier nicht
+    # benannt werden muss - er liegt im Namensraum voice_assistant, der in der
+    # generierten main.cpp nicht offen ist.
+    - lambda: |-
+        int naechster = -1;
+        for (size_t i = 0; i < timers.size(); i++) {
+          if (!timers[i].is_active) continue;
+          if (naechster < 0 ||
+              timers[i].seconds_left < timers[naechster].seconds_left)
+            naechster = (int) i;
+        }
+        if (naechster < 0) {
+          id(timer_active) = false;
+        } else {
+          id(timer_active) = true;
+          id(timer_total) = timers[naechster].total_seconds;
+          id(timer_left) = timers[naechster].seconds_left;
+          id(timer_name) = timers[naechster].name;
+        }
+    - script.execute: update_timer_ui
 
   on_client_connected:
     - lambda: id(init_in_progress) = false;
@@ -270,6 +590,32 @@ script:
               - not:
                   speaker.is_playing:
           timeout: 30s
+      # Bestaetigungston, falls Home Assistant den Befehl stumm ausgefuehrt hat.
+      # Er muss *hier* liegen, zwischen dem Ende der Sprachausgabe und dem
+      # Scharfstellen des Wake Words - das ist das einzige Fenster, in dem der
+      # I2S-Bus frei ist.
+      #
+      # Das Board hat genau einen I2S-Controller fuer Mikrofon und Lautsprecher.
+      # Laeuft die Wake-Word-Erkennung, haelt sie ihn mit 16 kHz; der
+      # Lautsprecher will 48 kHz und scheitert mit "Parent bus is busy"
+      # (i2s_audio.speaker.std:401), gefolgt von einer Wiederholschleife im
+      # Sekundentakt. Genau das passierte, solange der Ton direkt im on_end lag.
+      - if:
+          condition:
+            lambda: return id(confirm_pending);
+          then:
+            - lambda: id(confirm_pending) = false;
+            - media_player.speaker.play_on_device_media_file:
+                id: media_out
+                media_file: snd_confirm
+                announcement: true
+            # Ohne dieses Warten kaeme start_wake_word dem Ton zuvor und
+            # belegte den Bus, den er gerade erst bekommen hat.
+            - wait_until:
+                condition:
+                  not:
+                    speaker.is_playing:
+                timeout: 5s
       # Ueber das Skript statt direkt micro_wake_word.start: das beruecksichtigt
       # die gewaehlte Engine und respektiert eine waehrend des Vorgangs
       # gesetzte Stummschaltung.
@@ -314,6 +660,55 @@ script:
       # (mode: restart), es kann also nichts doppelt laufen. Dessen zweiter
       # Aufraeum-Durchgang nach 8 s schreibt genau dieselben Werte.
       - script.execute: end_session
+
+  # ------------------------------------------------------- Timer klingelt
+  # Wichtig: Das Geraet muss den Timer in Home Assistant *nicht* abraeumen.
+  # voice_assistant.cpp:1030 loescht ihn unmittelbar nachdem on_timer_finished
+  # gefeuert hat, fuer HA ist er damit erledigt. Hier bleibt also nur der
+  # lokale Ton - und deshalb braucht das Stoppen per Tippen keine Automation.
+  - id: timer_start_ringing
+    mode: restart
+    then:
+      - lambda: |-
+          id(timer_ringing) = true;
+          id(voice_assistant_phase) = ${phase_timer_ringing};
+      - script.execute: update_ui
+      - script.execute: timer_ring_sound
+      - script.execute: timer_ring_guard
+
+  - id: timer_ring_sound
+    mode: restart
+    then:
+      - while:
+          condition:
+            lambda: return id(timer_ringing);
+          then:
+            - media_player.speaker.play_on_device_media_file:
+                id: media_out
+                media_file: snd_timer
+                announcement: true
+            - delay: ${timer_sound_repeat}
+
+  # Nach ${timer_ring_timeout} von selbst Ruhe geben, falls niemand da ist.
+  - id: timer_ring_guard
+    mode: restart
+    then:
+      - delay: ${timer_ring_timeout}
+      - script.execute: timer_stop_ringing
+
+  # Aufgerufen vom Tippen (on_screen_touch in packages/ui.yaml), vom
+  # on_listening (wer spricht, will die Glocke los) und vom Wachhund oben.
+  # Laeuft ohne delay durch, ist also aus einem anderen Skript heraus synchron.
+  - id: timer_stop_ringing
+    mode: restart
+    then:
+      - script.stop: timer_ring_sound
+      - script.stop: timer_ring_guard
+      - lambda: id(timer_ringing) = false;
+      - media_player.stop:
+          id: media_out
+      - script.execute: set_idle_or_muted
+      - script.execute: update_ui
 
   - id: clear_error
     mode: restart

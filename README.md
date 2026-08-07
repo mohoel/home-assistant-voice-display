@@ -18,6 +18,24 @@ Statusanzeige statt eines LED-Rings.
   laufen drei amberfarbene Punkte als Welle, bei der Sprachausgabe schlägt ein
   grüner Äqualizer aus fünf Balken; Fehler, Stumm und „nicht bereit" zeigen ein
   Icon
+- **Timer** mit Ring am Bildschirmrand, der sich leert und auf jeder Seite
+  sichtbar bleibt — auch im Standby, wo der Countdown an die Stelle der Uhr
+  tritt. Am Ende klingelt es und eine Glocke erscheint; Antippen beendet beides
+- **Messwerte** („Wie warm ist es im Bad?") erscheinen als große Zahl mit
+  Einheit statt als Balken, kurze Bestätigungen („Eingeschaltet") als Haken.
+  Das setzt die eingebaute Intent-Erkennung von Home Assistant voraus — wer ein
+  Sprachmodell als Konversationsagenten nutzt, bekommt ausformulierte Antworten
+  und damit weiterhin die Balken
+- **Akustische Bestätigung in jedem Fall**: normalerweise die gesprochene
+  Antwort, und wenn Home Assistant stumm ausführt, ein kurzer Ton vom Gerät
+- Fehler sind unterscheidbar: „nicht verstanden" (Fragezeichen), „Home
+  Assistant nicht erreichbar" (durchgestrichenes WLAN) und echte Fehler
+  (Warndreieck) sehen verschieden aus
+- Stellt Home Assistant eine **Rückfrage** („Welches Licht?"), zeigt das Gerät
+  ein Fragezeichen statt des Mikrofons — man sieht, dass es auf eine Antwort
+  wartet und nicht auf ein neues Wake Word
+- **Keine Automation in Home Assistant nötig.** Alles oben läuft allein aus der
+  Firmware; HA braucht nur die ESPHome-Integration
 - Standby zeigt eine stark gedimmte Uhr mit Datum („Dienstag, 4. August");
   schwarzer AMOLED-Hintergrund heißt physisch abgeschaltete Pixel
 - Antippen weckt das Display aus dem Standby — und bricht einen laufenden
@@ -133,7 +151,7 @@ nach der Standby-Zeit verschwindet die Seite von selbst.
 |---|---|---|
 | Anzeige | **Ausrichtung** | Dreht das Bild in 90-Grad-Schritten (0/90/180/270). Die Touch-Koordinaten dreht LVGL mit. 45 Grad gibt die Grafikbibliothek nicht her. |
 | Anzeige | **Standby-Seite** | Welche Seite im Standby erscheint. Zurzeit gibt es nur die Uhr; weitere Seiten kommen später. |
-| Farben | **Farbe Zuhören / Verarbeitung / Sprachausgabe / Fehler / gedimmt** | Farbe des jeweiligen Elements, als sechsstelliger Hex-Wert ohne Präfix (z. B. `03A9F4`). Ungültige Eingaben werden ignoriert. |
+| Farben | **Farbe Zuhören / Verarbeitung / Sprachausgabe / Fehler / gedimmt / Timer / Bestätigung** | Farbe des jeweiligen Elements, als sechsstelliger Hex-Wert ohne Präfix (z. B. `03A9F4`). „Timer" färbt Ring und Glocke, „Bestätigung" den Haken. Ungültige Eingaben werden ignoriert. |
 
 Alle Einstellungen überstehen einen Neustart. Die Werte in
 `assist-satellit.yaml` sind nur die Voreinstellung ab Werk — was hier gesetzt
@@ -169,6 +187,7 @@ git checkout v0.1.0 && esphome run assist-satellit.yaml --device assist-satellit
 | `packages/voice.yaml` | Wake Word, Voice Assistant, Selects, Mute, Text-Sensoren |
 | `packages/ui.yaml` | Fonts, LVGL-Seiten, Phasen-Animationen, Standby-Uhr |
 | `packages/web.yaml` | Weboberfläche: Ausrichtung, Standby-Seite, Symbolfarben |
+| `sounds/` | Klingel- und Bestätigungston, direkt in die Firmware eingebettet (Herkunft und Lizenz stehen dort) |
 
 Farben, Phasen-IDs und Standby-Zeiten stehen als Substitutions in
 `assist-satellit.yaml` — dort anpassen, nicht in den Packages. Bei den Farben
@@ -216,8 +235,15 @@ die Select-Entity erhöhen.
 
 - **Akku-Telemetrie.** Das AXP2101-PMIC ist nicht im ESPHome-Core; für Netzbetrieb
   irrelevant.
-- **Timer-Anzeige.** Die HA-Sprachtimer laufen, werden aber noch nicht auf dem
-  Display dargestellt.
+- **Symbole je nach geschaltetem Gerät** — also eine Glühbirne beim Licht, ein
+  Rollo beim Cover. Das geht nicht: Der Voice Assistant bekommt von Home
+  Assistant weder Domain noch Entität noch Ergebniswert zurück, der
+  entsprechende Trigger hat schlicht keine Parameter. Was das Gerät sieht, ist
+  allein der Antwortsatz — und „Eingeschaltet" verrät nicht, was eingeschaltet
+  wurde. Deshalb erkennt die Firmware nur *Messwert*, *Bestätigung* und *alles
+  Übrige*. Wer mehr will, kann die optionale API-Aktion `zeige_hinweis` aus
+  einer eigenen HA-Automation aufrufen (dokumentiert in `packages/core.yaml`);
+  für den Normalbetrieb wird sie nicht gebraucht.
 - **Deutsches Wake Word.** Bräuchte ein eigenes microWakeWord-Modell.
 - **Bedienelemente am Touchscreen.** Bewusst entfernt: Der Touchscreen kennt
   nur Tippen (wecken, Sprachvorgang abbrechen) und Gedrückthalten

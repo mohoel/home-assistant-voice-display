@@ -70,6 +70,37 @@ api:
   encryption:
     key: !secret api_encryption_key
 
+  # Optionaler Haken fuer Home Assistant. Fuer den normalen Betrieb wird er
+  # nicht gebraucht - das Geraet kommt ohne eine einzige Automation aus, und
+  # ohne diesen Aufruf aendert sich nichts.
+  #
+  # Er existiert, weil dem Geraet eine Sache grundsaetzlich fehlt: Was ein
+  # Befehl bewirkt hat, erfaehrt es nie. on_intent_end hat im Codegen eine
+  # leere Parameterliste (voice_assistant/__init__.py:311), also weder Domain
+  # noch Entitaet noch Wert. Wer das trotzdem will - ein Gluehbirnen-Symbol
+  # beim Schalten, ein Hinweis bei der Tuerklingel - kann von HA aus
+  #
+  #   action: esphome.assist_satellit_zeige_hinweis
+  #   data: {icon: "\U0000E31D", nachricht: "Post da", sekunden: 10}
+  #
+  # rufen. icon ist ein Codepoint aus dem Font font_icon (packages/ui.yaml);
+  # nur die dort gelisteten Glyphen sind eingebettet, andere bleiben leer.
+  #
+  # Der Parameter heisst nachricht und nicht text, weil cv.validate_id_name die
+  # Namen der ESPHome-Plattformen sperrt - "text" ist eine davon.
+  actions:
+    - action: zeige_hinweis
+      variables:
+        icon: string
+        nachricht: string
+        sekunden: int
+      then:
+        - script.execute:
+            id: show_hint
+            icon: !lambda return icon;
+            nachricht: !lambda return nachricht;
+            sekunden: !lambda return sekunden;
+
 ota:
   - platform: esphome
     password: !secret ota_password
@@ -103,6 +134,12 @@ time:
                 - lvgl.widget.update:
                     id: lbl_clock
                     y: !lambda return -20 + (int8_t) (random_uint32() % 17) - 8;
+                # Der Countdown eines laufenden Timers steht an derselben
+                # Stelle wie die Uhr und braucht denselben Schutz - er steht
+                # dort sogar unbewegter, weil sich nur die Ziffern aendern.
+                - lvgl.widget.update:
+                    id: lbl_timer
+                    y: !lambda return -15 + (int8_t) (random_uint32() % 17) - 8;
                 - lvgl.widget.update:
                     id: lbl_date
                     y: !lambda return 61 + (int8_t) (random_uint32() % 17) - 8;
