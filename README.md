@@ -22,6 +22,8 @@ Statusanzeige statt eines LED-Rings.
   schwarzer AMOLED-Hintergrund heißt physisch abgeschaltete Pixel
 - Antippen weckt das Display aus dem Standby — und bricht einen laufenden
   Sprachvorgang ab (Zuhören, Verarbeitung oder Sprachausgabe)
+- Drei Sekunden gedrückt halten zeigt IP-Adresse und QR-Code zur
+  Weboberfläche
 - Stummschaltung, Wake-Word-Empfindlichkeit und Displayhelligkeit als HA-Entities
 - Weboberfläche unter der Geräte-IP für Ausrichtung, Standby-Seite und die
   Symbolfarben — ohne Home Assistant und ohne Neubau der Firmware
@@ -122,6 +124,11 @@ direkt unter seiner IP). Sie funktioniert unabhängig von Home Assistant und
 braucht keinen Internetzugang — Oberfläche und Stylesheet liegen im Flash. Auf
 dem Touchscreen selbst gibt es bewusst keine Bedienelemente.
 
+Wer die Adresse nicht zur Hand hat: **drei Sekunden auf das Display drücken**.
+Das Gerät zeigt dann unter der Überschrift „Konfiguration" seine IP-Adresse und
+einen QR-Code, der direkt auf diese Seite führt. Ein Tippen führt zurück, und
+nach der Standby-Zeit verschwindet die Seite von selbst.
+
 | Gruppe | Einstellung | Wirkung |
 |---|---|---|
 | Anzeige | **Ausrichtung** | Dreht das Bild in 90-Grad-Schritten (0/90/180/270). Die Touch-Koordinaten dreht LVGL mit. 45 Grad gibt die Grafikbibliothek nicht her. |
@@ -212,9 +219,9 @@ die Select-Entity erhöhen.
 - **Timer-Anzeige.** Die HA-Sprachtimer laufen, werden aber noch nicht auf dem
   Display dargestellt.
 - **Deutsches Wake Word.** Bräuchte ein eigenes microWakeWord-Modell.
-- **Bedienelemente am Touchscreen.** Bewusst entfernt: Antippen weckt das
-  Display und bricht einen laufenden Sprachvorgang ab, mehr kann der
-  Touchscreen nicht. Alles Einstellbare liegt auf der Weboberfläche und in Home
-  Assistant. Lautstärke und Stummschaltung bleiben HA-Entities.
+- **Bedienelemente am Touchscreen.** Bewusst entfernt: Der Touchscreen kennt
+  nur Tippen (wecken, Sprachvorgang abbrechen) und Gedrückthalten
+  (Konfigurationsseite). Alles Einstellbare liegt auf der Weboberfläche und in
+  Home Assistant. Lautstärke und Stummschaltung bleiben HA-Entities.
 - **Weitere Standby-Seiten.** Der Auswahlmechanismus steht, es gibt bisher nur
   die Uhr.

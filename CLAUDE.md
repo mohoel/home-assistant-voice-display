@@ -100,6 +100,8 @@ Querverbindungen:
 | `ui.yaml` → `update_ui`, `apply_colors` | `globals: col_*` | `web.yaml` |
 | `ui.yaml` → `show_standby_page` | `select: sel_standby_page` | `web.yaml` |
 | `ui.yaml` → `on_screen_touch` | `script: abort_session` | `voice.yaml` |
+| `hardware.yaml` → `touchscreen.on_touch/on_release` | `script: detect_long_press` | `ui.yaml` |
+| `ui.yaml` → `show_config_page` | `text_sensor: device_ip` | `core.yaml` |
 
 Der Minutentakt für Uhr und Einbrennschutz liegt bewusst in `core.yaml` am
 `time:`-Block und nicht bei den Widgets: ESPHome führt **Plattform-Listen wie
@@ -117,7 +119,7 @@ Die Skripte sind die Bedienoberfläche der Logik, nicht die Handler selbst:
 - `voice.yaml`: `start_wake_word`, `stop_wake_word`, `set_idle_or_muted`,
   `end_session`, `clear_error`, `abort_session`
 - `ui.yaml`: `update_ui`, `wake_display`, `sleep_display`, `show_standby_page`,
-  `update_clock`, `apply_colors`
+  `show_config_page`, `detect_long_press`, `update_clock`, `apply_colors`
 - `web.yaml`: `apply_rotation`, `sync_color_texts`
 
 **Alles mit `delay:` oder `wait_until:` gehört in ein Skript mit `mode: restart`,
@@ -159,6 +161,17 @@ Punkte, die man beim Ändern leicht übersieht:
   läuft nichts doppelt. Wichtig ist das `start_wake_word` am Ende, weil
   `request_stop()` `continuous_` löscht und das Gerät in der HA-Engine sonst
   taub bliebe.
+- **Gedrückthalten öffnet `page_config`.** Die Geste steckt nicht in LVGL,
+  sondern im Touchscreen-Treiber: `on_touch` startet `detect_long_press`
+  (`delay: ${long_press_time}`), `on_release` stoppt es wieder. LVGLs
+  `on_long_press` schied aus, weil es an einem Widget hängt und nur feuert,
+  wenn der Finger auch eins trifft — hier soll jede Stelle zählen. `on_touch`
+  feuert genau einmal je Berührung (`touchscreen.cpp`: `first_touch_`), das
+  `mode: restart` des Skripts wird also nicht von Bewegungen zurückgesetzt.
+  `show_config_page` füllt Label und QR-Code erst zur Laufzeit aus
+  `device_ip` — beim Bauen ist die Adresse unbekannt. Die Ruhezone des
+  QR-Codes muss dabei explizit an (`lv_qrcode_set_quiet_zone`), LVGL hat sie
+  per Default aus und die Module stünden bis an den Kachelrand.
 
 Substitutions aus `assist-satellit.yaml` werden auch **innerhalb von Lambdas**
 als `${phase_listening}` eingesetzt (Textersetzung vor dem YAML-Parsing) — daher

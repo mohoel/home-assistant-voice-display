@@ -1,8 +1,13 @@
 # Oberflaeche auf dem runden 466x466-AMOLED.
 #
-# Zwei Seiten:
+# Drei Seiten:
 #   page_main      Statusicon, Punkte oder Balken - je nach Phase
 #   page_standby   gedimmte Uhr
+#   page_config    IP-Adresse und QR-Code zur Weboberflaeche
+#
+# Der Touchscreen kennt zwei Gesten: Tippen (wecken, laufenden Sprachvorgang
+# abbrechen, Konfigurationsseite verlassen) und Gedrueckthalten fuer
+# ${long_press_time} (Konfigurationsseite oeffnen).
 #
 # Lautstaerke und Stummschaltung gibt es bewusst nicht als Touch-Bedienseite
 # auf dem Geraet - beides bleibt HA-Entities (`media_out`, `switch.mute`).
@@ -254,6 +259,51 @@ lvgl:
             text_color: ${color_text_dim}
             text_align: CENTER
 
+    # --------------------------------------------------------- Konfiguration
+    # Erreichbar nur ueber Gedrueckthalten (${long_press_time}), siehe
+    # detect_long_press. Jedes weitere Tippen fuehrt zurueck (on_screen_touch),
+    # und nach ${standby_timeout} ohne Beruehrung faellt on_idle ohnehin in den
+    # Standby.
+    #
+    # Die Y-Werte sind auf den runden Bildschirm abgestimmt: bei Radius 233
+    # bleibt auf Hoehe der zweizeiligen Hinweiszeile (y bis ~167) noch eine
+    # Sehne von rund 325 px - die 260 px breite Box passt also mit Rand.
+    - id: page_config
+      bg_color: 0x000000
+      bg_opa: COVER
+      widgets:
+        - label:
+            id: lbl_config_title
+            align: CENTER
+            y: -150
+            text: "Konfiguration"
+            text_font: font_date
+            text_color: ${color_text}
+            text_align: CENTER
+
+        # Inhalt setzt show_config_page zur Laufzeit - beim Bauen ist die
+        # IP-Adresse noch unbekannt. Der Platzhalter erscheint nie, weil die
+        # Seite nur ueber show_config_page sichtbar wird.
+        - qrcode:
+            id: qr_config
+            align: CENTER
+            y: -10
+            size: ${qr_size}
+            text: "http://"
+            dark_color: 0x000000
+            light_color: 0xFFFFFF
+
+        - label:
+            id: lbl_config_hint
+            align: CENTER
+            y: 140
+            width: 260
+            text: ""
+            text_font: font_small
+            text_color: ${color_text_dim}
+            text_align: CENTER
+            long_mode: WRAP
+
 script:
   # ------------------------------------------------------ Symbolfarben setzen
   # Traegt die Farb-Globals aus packages/web.yaml in die Widgets ein. Die
@@ -363,8 +413,12 @@ script:
           else:
             - script.execute: wake_display
 
-  # Antippen hat je nach Phase zwei Bedeutungen:
+  # Antippen hat je nach Zustand drei Bedeutungen:
   #
+  # - Auf der Konfigurationsseite fuehrt es zurueck. update_ui waehlt die
+  #   richtige Seite (Standby oder Hauptseite); die Helligkeit setzt danach
+  #   der passende Zweig unten - wer gerade tippt, will nicht ins Dunkle
+  #   zurueck.
   # - Waehrend Zuhoeren, Verarbeitung oder Sprachausgabe bricht es den Vorgang
   #   ab (abort_session in packages/voice.yaml). Das Display ist in diesen
   #   Phasen ohnehin schon wach, ein wake_display waere ueberfluessig -
@@ -379,6 +433,11 @@ script:
   - id: on_screen_touch
     mode: restart
     then:
+      - if:
+          condition:
+            lvgl.page.is_showing: page_config
+          then:
+            - script.execute: update_ui
       - if:
           condition:
             lambda: |-
@@ -399,6 +458,54 @@ script:
                       brightness: ${active_brightness}
                 else:
                   - script.execute: wake_display
+
+  # --------------------------------------------------- Gedrueckthalten (3 s)
+  # Gestartet vom on_touch des Touchscreens, gestoppt vom on_release
+  # (packages/hardware.yaml). Wer frueher loslaesst, kommt nie beim
+  # script.execute an - das ist die ganze Gestenerkennung.
+  #
+  # LVGL haette mit on_long_press ein eigenes Ereignis, das aber an einem
+  # Widget haengt: es feuert nur, wenn der Finger auch wirklich ein Widget
+  # trifft. Hier soll jede Stelle des Bildschirms zaehlen, deshalb der Weg
+  # ueber den Touchscreen-Treiber.
+  #
+  # Bleibt ein on_release aus (verschluckte Meldung des Controllers), erscheint
+  # die Seite ungewollt - ein Tippen fuehrt zurueck, und nach
+  # ${standby_timeout} raeumt on_idle sie ohnehin weg.
+  - id: detect_long_press
+    mode: restart
+    then:
+      - delay: ${long_press_time}
+      - script.execute: show_config_page
+
+  # Konfigurationsseite mit IP-Adresse und QR-Code. Beides wird erst hier
+  # gesetzt: beim Bauen ist die Adresse unbekannt, und sie kann sich nach einem
+  # Reconnect aendern.
+  #
+  # Faellt die Adresse leer aus (noch kein DHCP-Lease), tritt der mDNS-Name an
+  # ihre Stelle - der funktioniert im selben Netz genauso und ist besser als
+  # eine leere Zeile.
+  - id: show_config_page
+    mode: restart
+    then:
+      - lambda: |-
+          const std::string host = id(device_ip).state.empty()
+              ? std::string("${name}.local")
+              : id(device_ip).state;
+          // Ohne Ruhezone stehen die QR-Module bis an den Rand der Kachel -
+          // viele Scanner erkennen den Code dann nicht. LVGL rechnet die vier
+          // Modul breite Zone in die Skalierung ein, sobald das Flag gesetzt
+          // ist (lv_qrcode.c: get_satisfied_size).
+          lv_qrcode_set_quiet_zone(id(qr_config), true);
+          const std::string url = "http://" + host + "/";
+          lv_qrcode_update(id(qr_config), url.c_str(), url.size());
+          lv_label_set_text(
+              id(lbl_config_hint),
+              ("Im Browser " + host + " aufrufen oder den Code scannen").c_str());
+      - lvgl.page.show: page_config
+      - light.turn_on:
+          id: display_brightness
+          brightness: ${active_brightness}
 
   # ------------------------------------------------------- Display aufwecken
   - id: wake_display

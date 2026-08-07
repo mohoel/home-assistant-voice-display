@@ -84,6 +84,14 @@ substitutions:
   standby_brightness: "50%"
   active_brightness: "100%"
 
+  # Gedrueckthalten oeffnet die Konfigurationsseite (IP + QR-Code). Gemessen
+  # wird zwischen on_touch und on_release des Touchscreens, siehe
+  # detect_long_press in packages/ui.yaml.
+  long_press_time: 3s
+  # Kantenlaenge des QR-Codes. Mit Ruhezone (lv_qrcode_set_quiet_zone) skaliert
+  # LVGL den Code so, dass Module plus vier Modul breiter Rand hineinpassen.
+  qr_size: "180"
+
 packages:
   core: !include packages/core.yaml
   hardware: !include packages/hardware.yaml

@@ -130,6 +130,18 @@ text_sensor:
     name: "ESPHome-Version"
     entity_category: diagnostic
 
+  # Quelle fuer die Konfigurationsseite auf dem Display (show_config_page in
+  # packages/ui.yaml). Ueber die wifi_info-Plattform statt per Lambda, weil
+  # IPAddress::str() ab 2026.8.0 entfaellt und der Listener die Adresse nach
+  # jedem Reconnect von selbst nachzieht.
+  #
+  # internal: true - HA und die Weboberflaeche zeigen die Adresse ohnehin am
+  # Geraeteeintrag, eine zusaetzliche Entity waere nur Rauschen.
+  - platform: wifi_info
+    ip_address:
+      id: device_ip
+      internal: true
+
 button:
   - platform: restart
     name: "Neustart"
