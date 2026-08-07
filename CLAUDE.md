@@ -72,7 +72,7 @@ wirkt daher nur auf einem Gerät, das diese Farbe noch nie gesetzt bekommen hat.
 | `packages/core.yaml` | SoC, PSRAM, WLAN, API, OTA, Zeit, Diagnose |
 | `packages/hardware.yaml` | I2C, QSPI-Display, Touch, I2S, ES7210/ES8311, Media Player |
 | `packages/voice.yaml` | Wake Word, Voice Assistant, Engine-Umschaltung, Mute |
-| `packages/ui.yaml` | Fonts, LVGL-Seiten, Phasen-Animationen, Standby-Uhr, Timer-Ring |
+| `packages/ui.yaml` | Fonts, LVGL-Seiten, Phasen-Animationen, Standby-Uhr, Zifferblatt, Timer-Ring |
 | `packages/web.yaml` | Web-Bedienseite: Webserver, Ausrichtung, Standby-Seite, Symbolfarben |
 | `sounds/` | Klingel- und Bestätigungston als FLAC, eingebettet über `files:` am Media Player |
 
@@ -110,8 +110,14 @@ Querverbindungen:
 | `ui.yaml` → `update_ui`, `apply_colors` | `globals: col_timer`, `col_result` | `web.yaml` |
 | `core.yaml` → `api.actions.zeige_hinweis` | `script: show_hint` | `ui.yaml` |
 | `core.yaml` → `ha_time.on_time` | `lbl_timer` | `ui.yaml` |
+| `core.yaml` → `ha_time.on_time` | `script: update_dial` | `ui.yaml` |
+| `hardware.yaml` → `display_brightness.on_turn_on` | `script: show_standby_page`, `standby_return`, `page_off` | `ui.yaml` |
+| `hardware.yaml` → `display_brightness.on_turn_on` | `global: boot_done` | `web.yaml` |
+| `ui.yaml` → `update_dial`, `apply_colors` | `global: col_dial` | `web.yaml` |
+| `web.yaml` → `sel_standby_page.on_value` | `script: show_standby_page`, `page_standby`, `page_dial` | `ui.yaml` |
+| `web.yaml` → `sel_standby_page.on_value` | `global: boot_done` | `web.yaml` |
 
-Der Minutentakt für Uhr und Einbrennschutz liegt bewusst in `core.yaml` am
+Der Minutentakt für Uhr und Zifferblatt liegt bewusst in `core.yaml` am
 `time:`-Block und nicht bei den Widgets: ESPHome führt **Plattform-Listen wie
 `time:` nicht per `id` über Package-Grenzen zusammen** — ein zweiter Eintrag mit
 `id: ha_time` in `ui.yaml` wird als eigene, plattformlose Komponente validiert
@@ -127,9 +133,9 @@ Die Skripte sind die Bedienoberfläche der Logik, nicht die Handler selbst:
 - `voice.yaml`: `start_wake_word`, `stop_wake_word`, `set_idle_or_muted`,
   `end_session`, `clear_error`, `abort_session`, `timer_start_ringing`,
   `timer_ring_sound`, `timer_ring_guard`, `timer_stop_ringing`
-- `ui.yaml`: `update_ui`, `wake_display`, `sleep_display`, `show_standby_page`,
-  `show_config_page`, `detect_long_press`, `update_clock`, `apply_colors`,
-  `update_timer_ui`, `show_hint`
+- `ui.yaml`: `update_ui`, `wake_display`, `sleep_display`, `standby_return`,
+  `show_standby_page`, `show_config_page`, `detect_long_press`, `update_clock`,
+  `update_dial`, `apply_colors`, `update_timer_ui`, `show_hint`
 - `web.yaml`: `apply_rotation`, `sync_color_texts`
 
 **Alles mit `delay:` oder `wait_until:` gehört in ein Skript mit `mode: restart`,
@@ -217,6 +223,60 @@ Punkte, die man beim Ändern leicht übersieht:
   `on_timer_cancelled` und `on_timer_finished` `timer_active` selbst auf
   `false` setzen müssen. Laufen noch weitere Timer, korrigiert der nächste Tick
   das innerhalb einer Sekunde zurück; der Ring kann dabei kurz blinken.
+- **Es gibt zwei Standby-Seiten, ausgewählt über den Index.**
+  `show_standby_page` liest `sel_standby_page.active_index()`: 0 ist die Uhr
+  (`page_standby`), 1 das Zifferblatt (`page_dial`). Eine neue Option gehört
+  deshalb ans **Ende** der Liste — wer eine einschiebt, verschiebt die
+  Zuordnung still. Dazu kommen ein Zweig in `show_standby_page` und ein
+  eigener `is_showing`-Zweig im Minutentakt in `core.yaml`.
+  Das `on_value` des Selects schaltet sofort um, wenn gerade eine
+  Standby-Seite vorne liegt. Es braucht **beide** Guards und zwar
+  geschachtelt: `boot_done` hält den Aufruf zurück, bis LVGL steht (ein
+  Template-Select feuert sein `on_value` schon beim Setup), und erst danach
+  darf die `is_showing`-Prüfung überhaupt laufen. Als `and:` wäre das nur
+  wegen der Kurzschluss-Auswertung richtig — geschachtelt ist es sichtbar
+  richtig.
+  Auf dem Zifferblatt gibt es **keinen Countdown**: von einem laufenden Timer
+  bleibt dort nur der Ring im `top_layer`. Das ist Absicht, die Ziffern
+  stünden mitten im Kranz.
+- **Standby heißt aus, nicht gedimmt.** Nach `standby_timeout` schaltet
+  `sleep_display` das Display komplett ab: Helligkeit 0 **und** die leere Seite
+  `page_off`. Beides zusammen, weil das Dimm-Register des CO5300 bei 0 nur die
+  kleinste Stufe meint — erst eine Seite ohne leuchtendes Widget macht den
+  AMOLED wirklich dunkel.
+  Eine gedimmte Zwischenstufe gab es einmal (`standby_brightness` +
+  `screen_off_delay`, zweistufig über ein Skript `screen_off`) und sie ist auf
+  Ansage wieder entfallen: eine dauerhaft gedimmte Uhr war der einzige ständig
+  leuchtende Inhalt im ganzen Entwurf. Beide Substitutions sind weg,
+  `active_brightness` ist die einzige verbliebene Helligkeit. Wer die Stufe
+  zurückholt, muss auch den Einbrennschutz mit zurückholen (siehe
+  `core.yaml`).
+  Uhr und Zifferblatt sind damit **keine Dauerzustände mehr**, sondern das, was
+  ein Tippen für `standby_timeout` zeigt.
+  **Der Rückweg in den Standby hängt nicht an einem zweiten `on_idle`.** Der
+  `IdleTrigger` feuert je Untätigkeitsphase genau einmal
+  (`lvgl_esphome.cpp:429`) und misst reine Touch-Untätigkeit. Nach einem
+  Tippen greift er von selbst wieder (die Berührung setzt den Zähler zurück) —
+  aber für einen Weckweg ohne Berührung käme er nie. Genau dafür gibt es
+  `standby_return` (`delay: ${standby_timeout}` → `sleep_display`), und es hat
+  genau **einen** Aufrufer: `display_brightness.on_turn_on` in `hardware.yaml`,
+  also das Einschalten des Lichts aus Home Assistant. Ohne das stünde dort ein
+  heller, leerer Bildschirm, den nichts mehr ausschaltet. Die geräteeigenen
+  Wege laufen in diesem Trigger bewusst ins Leere, weil sie die Seite **vor**
+  dem Einschalten umschalten; er feuert ohnehin nur beim Wechsel von aus nach
+  an und braucht denselben `boot_done`-Guard wie `apply_rotation`, weil er
+  schon beim Wiederherstellen des Lichtzustands im Setup feuern kann.
+  Umgekehrt gilt: **jeder Weg, der das Display wach hält, muss
+  `script.stop: standby_return` aufrufen** — sonst fällt der Bildschirm mitten
+  im Hinschauen ins Dunkle. Das sind `wake_display`, `show_config_page` und der
+  Idle/Muted-Zweig von `on_screen_touch`; letzterer holt zusätzlich über
+  `show_standby_page` die Standby-Seite zurück, weil im Standby `page_off`
+  vorne liegt und ein Tippen sonst nur das Nichts aufhellen würde.
+  **Einen Pixel-Shift gibt es deshalb nicht mehr.** Uhr, Datum, Countdown und
+  `dial_face` wanderten früher minütlich ein paar Pixel; das ist mit dem
+  Ausschalten ersatzlos entfallen (`core.yaml` ruft im Minutentakt nur noch
+  `update_clock` bzw. `update_dial`). Wer die zweite Stufe wieder ausbaut,
+  muss den Einbrennschutz mit zurückholen.
 - **`update_clock` steigt bei laufendem Timer aus.** Uhr und Datum teilen sich
   ihre Labels mit dem Countdown (`lbl_date` trägt dann den Timernamen). Ohne
   den Guard schriebe der Minutentakt aus `core.yaml` jede Minute Uhrzeit und
@@ -276,6 +336,15 @@ Code fürs Gerät. Es zeigt noch den Ring, den es auf dem Gerät nicht mehr gibt
 (siehe *Bekannte Einschränkungen*); sein Glow ist ein CSS-`drop-shadow` und hat in
 LVGL ohnehin keine Entsprechung.
 
+Ein drittes Mockup (`Runde Zeitanzeige.dc.html`, Claude-Design-Projekt
+„Runde Zeitanzeige") ist die Vorlage für die Standby-Seite `page_dial`:
+Strichkranz auf Radius 218, Ziffern auf Radius 168, keine Zeiger, aktuelle
+Stunde und Minute im Akzent mit Glow. Übernommen sind Radien, Längen,
+Strichstärken und Deckkräfte; nicht übernommen ist der dreifach gestapelte
+CSS-`box-shadow` (LVGL kann nur einen Schatten) und der Schnittwechsel der
+aktiven Ziffer auf Weight 500 — ein zweiter Font für zwölf Ziffern lohnt
+nicht, Farbe und volle Deckkraft tragen die Hervorhebung.
+
 Ein zweites, umfangreicheres Mockup (`Voice Assistant UI.dc.html` im
 Claude-Design-Projekt "Voice Assistant UI Design") erweitert das um die drei
 fehlenden Zustände **Error, Muted, Not Ready** und ersetzt den Phasentext auf
@@ -300,6 +369,46 @@ LVGL-Widgets in `ui.yaml`; das Mockup selbst bleibt reine Vorlage, nicht Code.
   `LV_OBJ_FLAG_CLICKABLE` entfernt, sobald `adjustable` false ist
   (`lvgl/widgets/arc.py:88`) — sonst läge ein 462 px großer Fangkorb über der
   ganzen Oberfläche.
+- **Das Zifferblatt ist die einzige Stelle mit `line:`-Widgets — und das ist
+  ein Compile-Schalter, kein Stilmittel.** ESPHome kompiliert nur die
+  LVGL-Widgets ein, die im YAML wirklich vorkommen (`__init__.py:476`:
+  `LV_USE_<TYP>` je benutztem Typ, alles andere landet als `0` in der
+  generierten `lv_conf.h`). Die 60 Striche von `page_dial` müssen deshalb im
+  YAML stehen und können **nicht** zur Laufzeit über `lv_line_create` erzeugt
+  werden — ohne einen einzigen `line:`-Eintrag steht `LV_USE_LINE` auf 0 und
+  die Funktion existiert gar nicht. Der übliche Ausweg über
+  `esphome: platformio_options: build_flags` fällt hier flach: der Build läuft
+  als natives ESP-IDF/CMake-Projekt ohne `platformio.ini` (siehe auch den
+  Hinweis zu `flash_mode` in `core.yaml`).
+  Warum überhaupt `line:`: ein Strich zeigt radial nach außen, steht also
+  fast immer schräg. Ein gedrehtes `obj:` bräuchte `transform_rotation` und
+  damit einen eigenen Layer je Frame — dieselbe Bandbreitenfalle wie beim
+  Ring. Ein `arc:` bräuchte keine Drehung, kann seine Winkel aber nur
+  ganzzahlig setzen, und ein Grad sind auf Radius 218 rund 3,8 px; die zarten
+  2-px-Minutenstriche des Entwurfs gäbe es damit nicht.
+  Die 72 Zeilen Geometrie sind **erzeugt**, die Formel steht im
+  Kopfkommentar von `page_dial`. Jeder Strich ist die Diagonale seiner
+  eigenen Box, deshalb liegt die Box-Mitte genau auf dem Kranzradius und
+  `align: CENTER` plus Versatz genügt. Das `max(…, 1)` bei Breite und Höhe
+  gilt den vier achsparallelen Strichen (12, 3, 6, 9 Uhr): eine Box der
+  Breite 0 hat eine leere Fläche und würde beim Zeichnen übersprungen.
+  Drei weitere Punkte, die man beim Anfassen übersieht:
+  - **`lv_line_set_points` kopiert nicht**, es übernimmt den Zeiger. Das
+    Punktearray der Minutenmarke in `update_dial` muss deshalb `static` sein.
+    Danach folgt zwingend ein `lv_obj_set_size`, sonst zieht die
+    Inhaltsgröße (`width_def = LV_SIZE_CONTENT`) die Box wieder zusammen.
+  - **Der Glow ist ein Kreis, der nur seinen Schatten trägt** (`bg_opa:
+    TRANSP` plus `shadow_*`). LVGL kennt keinen Weichzeichner für Linien oder
+    Text — das ist der einzige Weg. Er kostet nichts, weil er sich höchstens
+    einmal pro Minute bewegt.
+  - **Alle 72 Elemente liegen im Träger `dial_face`.** Angelegt wurde er für
+    den Einbrennschutz, der das Zifferblatt mit *einem* Aufruf verschob statt
+    mit 72; den gibt es nicht mehr, der Träger bleibt als greifbare Einheit.
+    Er ist mit 560 px größer als der Bildschirm, weil LVGL Kinder am
+    Elternrand abschneidet und der Glow sonst angeschnitten wäre.
+  In einer **Flow-Sequenz muss eine Substitution in Anführungszeichen**
+  (`points: [[0, "${dial_mark_len}"], …]`) — sonst liest der YAML-Parser das
+  `${` als Beginn einer Flow-Map und bricht ab.
 - **Für die Phasen gibt es keinen Ring.** Alle früheren Arc-Widgets
   (`ring_full`, `ring_slow`, `ring_fast` und ihre je drei Glow-Schichten) sind
   ersatzlos entfernt, samt

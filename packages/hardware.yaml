@@ -80,6 +80,32 @@ light:
     default_transition_length: 300ms
     initial_state:
       brightness: 100%
+    # Der Standby (sleep_display in packages/ui.yaml) schaltet das Licht ganz
+    # aus und legt die leere page_off vor. Wer es danach aus Home Assistant
+    # heraus wieder einschaltet, saehe sonst einen hellen, leeren Bildschirm -
+    # und nichts wuerde ihn je wieder ausschalten, weil der Rueckweg sonst nur
+    # ueber on_idle fuehrt und das eine Beruehrung braucht. Deshalb hier
+    # zusaetzlich standby_return, das nach ${standby_timeout} von selbst wieder
+    # ausschaltet.
+    #
+    # Die geraeteeigenen Weckwege laufen hier bewusst ins Leere: wake_display
+    # und on_screen_touch schalten die Seite *vor* dem Einschalten um, page_off
+    # liegt dann nicht mehr vorne. Der Trigger feuert ohnehin nur beim Wechsel
+    # von aus nach an (LightTurnOnTrigger: `is_on && !last_on_`).
+    #
+    # boot_done haelt den Aufruf zurueck, bis LVGL steht - der Trigger kann
+    # schon beim Wiederherstellen des Lichtzustands im Setup feuern.
+    on_turn_on:
+      - if:
+          condition:
+            lambda: return id(boot_done);
+          then:
+            - if:
+                condition:
+                  lvgl.page.is_showing: page_off
+                then:
+                  - script.execute: show_standby_page
+                  - script.execute: standby_return
 
 touchscreen:
   - platform: cst9220          # unterstuetzt CST9220 und CST9217

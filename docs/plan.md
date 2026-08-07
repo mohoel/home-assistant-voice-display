@@ -164,17 +164,32 @@ Farben stehen als Substitutions in `assist-satellit.yaml`. Icons sind Glyphen au
   `voice_assistant.on_tts_start` (Variable `x` = Antworttext) werden weiterhin in
   Template-Text-Sensoren gespiegelt, damit die Texte in HA sichtbar sind.
 
-**Standby-Page**: große Uhr `HH:MM` (Font ~120 px), Datum klein darunter,
-Display-Helligkeit auf ~8 %. Gegen Einbrennen wird die Uhr-Position jede Minute um
-±10 px verschoben (Pixel-Shift). Zeitquelle: `time: platform: homeassistant`.
+**Standby-Page**: große Uhr `HH:MM` (Font ~120 px), Datum klein darunter.
+Zeitquelle: `time: platform: homeassistant`. Sie ist kein Dauerzustand, sondern
+das, was ein Tippen für `standby_timeout` zeigt.
+
+**Zifferblatt-Page** (Alternative, siehe Phase 7): Strichkranz ohne Zeiger, alle
+72 Elemente im Träger `dial_face`.
+
+**Off-Page**: leer und schwarz — der eigentliche Standby-Zustand. Zusammen mit
+Helligkeit 0 heißt das auf AMOLED wirklich aus. Der frühere Pixel-Shift im
+Minutentakt ist damit entfallen: was nicht leuchtet, brennt auch nicht ein.
 
 **Control-Page**: Tippen im Standby → Lautstärke als `arc` (adjustable) plus
 Mute-Button; nach 8 s ohne Bedienung zurück in den Standby.
 
 **Wechsel-Logik**: jede Phasenänderung ≠ idle → Main-Page + volle Helligkeit.
-`lvgl: on_idle:` nach 30 s → Standby-Page + dimmen. `touchscreen: on_touch:` →
-aufwecken. Im Standby wird LVGL nicht pausiert (die Uhr muss laufen), aber die
-Rendering-Last ist minimal.
+`lvgl: on_idle:` nach `standby_timeout` → `sleep_display` → Off-Page +
+Helligkeit 0, ohne gedimmte Zwischenstufe. `touchscreen: on_touch:` → Uhr bzw.
+Zifferblatt bei voller Helligkeit, bis `on_idle` erneut zuschlägt. Im Standby
+wird LVGL nicht pausiert, aber auf der leeren Seite ist die Rendering-Last
+ohnehin null.
+
+Der Rückweg in den Standby hängt bewusst **nicht** an einem zweiten `on_idle`:
+der `IdleTrigger` feuert je Untätigkeitsphase genau einmal
+(`lvgl_esphome.cpp:429`) und misst reine Touch-Untätigkeit. Für den einen Weg,
+der ohne Berührung aufweckt — das Einschalten der Lichtentity aus HA — gibt es
+deshalb `standby_return` (`delay: ${standby_timeout}` → `sleep_display`).
 
 ---
 
@@ -297,9 +312,16 @@ Umlaute werden korrekt gerendert.
 
 ### Phase 5 — Standby, Uhr, Web-Bedienseite ✅
 
-- Standby-Page mit Uhr, Pixel-Shift im Minutentakt (umgesetzt als
+- Standby-Page mit Uhr im Minutentakt (umgesetzt als
   `ha_time.on_time: seconds: 0` in `core.yaml`, nicht als `interval:` — nur
-  wenn `page_standby` sichtbar ist)
+  wenn `page_standby` sichtbar ist). Der Pixel-Shift, der dort ursprünglich
+  mitlief, ist wieder entfallen, seit der Bildschirm nach `standby_timeout`
+  ganz ausgeht
+- Standby = aus: `sleep_display` (`ui.yaml`) legt die leere `page_off` vor und
+  schaltet die Helligkeit auf 0. Eine gedimmte Zwischenstufe gab es
+  zwischenzeitlich (`standby_brightness`, `screen_off_delay`), sie ist wieder
+  entfallen. Zurück holt die Anzeige jedes Tippen, jeder Sprachvorgang und
+  `display_brightness.on_turn_on` aus Home Assistant
 - ~~Control-Page auf dem Gerät~~ (Volume-`arc`, Mute-Button, Auto-Rückkehr nach
   8 s) — in 513bd50 entfernt und bewusst **nicht** zurückgeholt. Der damalige
   Hinweis bleibt für den Fall gültig, dass doch je wieder ein Volume-Widget
@@ -363,11 +385,19 @@ Saugroboter). Ohne Push aus HA technisch unmöglich, siehe oben. Der Haken
 
 ### Phase 7 — Weitere Standby-Bildschirme (HA-Sensoren, Grafik)
 
-Statt einer einzelnen Standby-Uhr mehrere Standby-Pages, zwischen denen per
-Wisch- oder Tipp-Geste umgeschaltet wird (LVGL `page_standby_*`, gesteuert über
-`touchscreen: on_touch:` mit Geometrie-Auswertung der Touch-Koordinaten, oder
-LVGL-eigenes Swipe-Gesture-Handling ab der im Core verfügbaren LVGL-Version
-prüfen).
+Statt einer einzelnen Standby-Uhr mehrere Standby-Pages. Die Auswahl läuft
+**nicht** über eine Geste am Gerät, sondern über den Select `sel_standby_page`
+auf der Web-Bedienseite — passend zur Entscheidung gegen Bedienelemente am
+Touchscreen.
+
+**Zifferblatt ✅** (umgesetzt, `page_dial` in `packages/ui.yaml`): Umsetzung des
+Designs „Runde Zeitanzeige". Ein Kranz aus 60 Strichen auf Radius 218 (jeder
+fünfte länger und heller), zwölf Ziffern auf Radius 168, **keine Zeiger** — die
+Stunde ist die in `col_dial` eingefärbte Ziffer, die Minute eine längere,
+ebenso eingefärbte Marke im Kranz; hinter beiden liegt je ein Kreis, der nur
+seinen LVGL-Schatten trägt und so den Glow des Entwurfs nachbildet.
+Aktualisiert wird im Minutentakt (`update_dial`), alles Weitere steht unter
+„Bekannte Einschränkungen" in CLAUDE.md.
 
 - **Sensor-Page**: `text_sensor`/`sensor`-Werte aus HA per `homeassistant:`
   Plattform einbinden (analog zu `ha_time` in `core.yaml`) — z. B. Innen-/
@@ -378,11 +408,12 @@ prüfen).
   Sparkline-Chart via LVGL `chart`-Widget für einen Verlaufswert (z. B.
   Stromverbrauch, Temperaturkurve) — Datenversorgung über
   `sensor.on_value` in einen `chart`-Series-Puffer.
-- Auswahl der aktiven Standby-Page: der Select `sel_standby_page` steht bereits
-  (Phase 5, `packages/web.yaml`), ebenso das Skript `show_standby_page` in
-  `ui.yaml` mit heute genau einem Zweig. Eine neue Seite braucht drei
-  Ergänzungen: eine Option im Select, einen Zweig im Skript und die
-  `is_showing`-Bedingung des Minutentakts in `core.yaml`.
+- Auswahl der aktiven Standby-Page: der Select `sel_standby_page`
+  (`packages/web.yaml`) wird von `show_standby_page` in `ui.yaml` über den
+  **Index** ausgewertet — „Uhr" ist 0, „Zifferblatt" ist 1. Eine neue Seite
+  braucht drei Ergänzungen: eine Option am **Ende** des Selects, einen Zweig im
+  Skript und einen eigenen `is_showing`-Zweig im Minutentakt in `core.yaml`.
+  Wer eine Option einschiebt statt anhängt, verschiebt die Zuordnung.
 - Achtung: jede zusätzliche Standby-Page erhöht den LVGL-Speicherbedarf
   (`buffer_size`) — nach Einbau erneut auf Boot-Loops/Alloc-Fehler prüfen
   (siehe Verification Phase 4/5).

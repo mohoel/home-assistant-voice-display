@@ -36,10 +36,16 @@ Statusanzeige statt eines LED-Rings.
   wartet und nicht auf ein neues Wake Word
 - **Keine Automation in Home Assistant nötig.** Alles oben läuft allein aus der
   Firmware; HA braucht nur die ESPHome-Integration
-- Standby zeigt eine stark gedimmte Uhr mit Datum („Dienstag, 4. August");
-  schwarzer AMOLED-Hintergrund heißt physisch abgeschaltete Pixel
-- Antippen weckt das Display aus dem Standby — und bricht einen laufenden
-  Sprachvorgang ab (Zuhören, Verarbeitung oder Sprachausgabe)
+- **Standby heißt aus:** 30 Sekunden ohne Berührung, dann schaltet sich der
+  Bildschirm komplett ab — leere schwarze Seite und Helligkeit 0. Eine
+  gedimmte Zwischenstufe gibt es nicht
+- Antippen weckt das Display und zeigt wahlweise eine **Uhr** mit Datum
+  („Dienstag, 4. August") oder ein **Zifferblatt** ohne Zeiger, auf dem die
+  aktuelle Stunde als leuchtende Ziffer und die Minute als leuchtender Strich
+  im Kranz stehen; umschaltbar auf der Weboberfläche. Nach 30 Sekunden geht
+  der Bildschirm wieder aus
+- Antippen bricht außerdem einen laufenden Sprachvorgang ab (Zuhören,
+  Verarbeitung oder Sprachausgabe)
 - Drei Sekunden gedrückt halten zeigt IP-Adresse und QR-Code zur
   Weboberfläche
 - Stummschaltung, Wake-Word-Empfindlichkeit und Displayhelligkeit als HA-Entities
@@ -150,8 +156,8 @@ nach der Standby-Zeit verschwindet die Seite von selbst.
 | Gruppe | Einstellung | Wirkung |
 |---|---|---|
 | Anzeige | **Ausrichtung** | Dreht das Bild in 90-Grad-Schritten (0/90/180/270). Die Touch-Koordinaten dreht LVGL mit. 45 Grad gibt die Grafikbibliothek nicht her. |
-| Anzeige | **Standby-Seite** | Welche Seite im Standby erscheint. Zurzeit gibt es nur die Uhr; weitere Seiten kommen später. |
-| Farben | **Farbe Zuhören / Verarbeitung / Sprachausgabe / Fehler / gedimmt / Timer / Bestätigung** | Farbe des jeweiligen Elements, als sechsstelliger Hex-Wert ohne Präfix (z. B. `03A9F4`). „Timer" färbt Ring und Glocke, „Bestätigung" den Haken. Ungültige Eingaben werden ignoriert. |
+| Anzeige | **Standby-Seite** | Welche Seite im Standby erscheint: **Uhr** (große Uhrzeit mit Datum) oder **Zifferblatt** (Strichkranz mit Ziffern, ohne Zeiger). Die Umschaltung wirkt sofort, wenn das Gerät gerade im Standby steht. |
+| Farben | **Farbe Zuhören / Verarbeitung / Sprachausgabe / Fehler / gedimmt / Timer / Bestätigung / Zifferblatt** | Farbe des jeweiligen Elements, als sechsstelliger Hex-Wert ohne Präfix (z. B. `03A9F4`). „Timer" färbt Ring und Glocke, „Bestätigung" den Haken, „Zifferblatt" die hervorgehobene Stunde und Minutenmarke. Ungültige Eingaben werden ignoriert. |
 
 Alle Einstellungen überstehen einen Neustart. Die Werte in
 `assist-satellit.yaml` sind nur die Voreinstellung ab Werk — was hier gesetzt
@@ -185,14 +191,15 @@ git checkout v0.1.0 && esphome run assist-satellit.yaml --device assist-satellit
 | `packages/core.yaml` | SoC, PSRAM, WLAN, API, OTA, Zeit, Diagnose |
 | `packages/hardware.yaml` | I2C, QSPI-Display, Touch, I2S-Audio, Codecs, Media Player |
 | `packages/voice.yaml` | Wake Word, Voice Assistant, Selects, Mute, Text-Sensoren |
-| `packages/ui.yaml` | Fonts, LVGL-Seiten, Phasen-Animationen, Standby-Uhr |
+| `packages/ui.yaml` | Fonts, LVGL-Seiten, Phasen-Animationen, Standby-Uhr, Zifferblatt |
 | `packages/web.yaml` | Weboberfläche: Ausrichtung, Standby-Seite, Symbolfarben |
 | `sounds/` | Klingel- und Bestätigungston, direkt in die Firmware eingebettet (Herkunft und Lizenz stehen dort) |
 
 Farben, Phasen-IDs und Standby-Zeiten stehen als Substitutions in
-`assist-satellit.yaml` — dort anpassen, nicht in den Packages. Bei den Farben
-ist das allerdings nur die Voreinstellung: sobald eine Farbe über die
-Weboberfläche gesetzt wurde, gilt der gespeicherte Wert.
+`assist-satellit.yaml` — dort anpassen, nicht in den Packages. Wie lange der
+Bildschirm nach der letzten Berührung anbleibt, ist `standby_timeout` (30 s);
+danach ist er aus. Bei den Farben ist es allerdings nur die Voreinstellung: sobald eine Farbe über
+die Weboberfläche gesetzt wurde, gilt der gespeicherte Wert.
 
 ## Hardware-Referenz
 
@@ -249,5 +256,12 @@ die Select-Entity erhöhen.
   nur Tippen (wecken, Sprachvorgang abbrechen) und Gedrückthalten
   (Konfigurationsseite). Alles Einstellbare liegt auf der Weboberfläche und in
   Home Assistant. Lautstärke und Stummschaltung bleiben HA-Entities.
-- **Weitere Standby-Seiten.** Der Auswahlmechanismus steht, es gibt bisher nur
-  die Uhr.
+- **Weitere Standby-Seiten.** Zur Auswahl stehen Uhr und Zifferblatt; Seiten
+  mit Sensorwerten aus Home Assistant fehlen noch.
+- **Kein Countdown auf dem Zifferblatt.** Läuft ein Timer, zeigt das
+  Zifferblatt nur den Ring am Bildschirmrand — die Restzeit in Ziffern gibt es
+  weiterhin nur auf der Standby-Uhr.
+- **Der ausgeschaltete Bildschirm zeigt auch einen laufenden Timer nicht.**
+  Nach `standby_timeout` geht alles aus, Ring inbegriffen; ein Tippen holt die
+  Anzeige für weitere 30 Sekunden zurück. Klingelt der Timer, weckt das Gerät
+  den Bildschirm von selbst.

@@ -115,10 +115,34 @@ substitutions:
   timer_sound_repeat: 3.2s
   timer_ring_timeout: 2min
 
-  # Standby
+  # Standby heisst aus: nach standby_timeout ohne Beruehrung schaltet
+  # sleep_display (packages/ui.yaml) das Display komplett ab - leere Seite
+  # page_off *und* Helligkeit 0. Eine gedimmte Zwischenstufe gibt es bewusst
+  # nicht mehr; auf AMOLED waere eine dauerhaft gedimmte Uhr der einzige
+  # staendig leuchtende Inhalt.
+  #
+  # standby_timeout ist damit die einzige Zeit, die zaehlt: so lange ist die
+  # Uhr bzw. das Zifferblatt nach einem Tippen zu sehen.
   standby_timeout: 30s
-  standby_brightness: "50%"
   active_brightness: "100%"
+
+  # Zifferblatt: zweite Standby-Seite nach dem Design "Runde Zeitanzeige".
+  # Es hat bewusst *keine* Zeiger - die Stunde ist die hervorgehobene Ziffer,
+  # die Minute der hervorgehobene Strich im Kranz. Ausgewaehlt wird die Seite
+  # ueber sel_standby_page auf der Web-Bedienseite.
+  #
+  # dial_radius, dial_mark_len und dial_num_radius beschreiben die Marken, die
+  # update_dial (packages/ui.yaml) zur Laufzeit setzt. Die 60 festen Striche
+  # und die zwoelf Ziffern sind mit denselben Werten erzeugt worden und stehen
+  # als Literale im YAML - wer hier dreht, muss sie neu erzeugen. Die Formel
+  # dafuer steht im Kopfkommentar von page_dial.
+  dial_radius: "218"
+  dial_mark_len: "20"
+  dial_num_radius: "168"
+  # Akzentfarbe des Zifferblatts. Wie die Symbolfarben nur der
+  # Auslieferungszustand: zur Laufzeit gilt das Global col_dial aus
+  # packages/web.yaml. Der Wert stammt aus dem Design-Mockup.
+  color_dial: "0xFF9F4D"
 
   # Gedrueckthalten oeffnet die Konfigurationsseite (IP + QR-Code). Gemessen
   # wird zwischen on_touch und on_release des Touchscreens, siehe

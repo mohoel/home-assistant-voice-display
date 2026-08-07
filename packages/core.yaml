@@ -110,18 +110,24 @@ time:
   - platform: homeassistant
     id: ha_time
     on_time:
-      # Frueher lagen in ui.yaml zwei Intervalle: alle 10 s die Uhr, alle 60 s
-      # der Einbrennschutz-Versatz. Die Uhr zeigt nur HH:MM, also genuegt die
-      # volle Minute - und zwar punktgenau statt bis zu 10 s versetzt. Die
-      # Seitenpruefung spart das Neuzeichnen des 108-px-Fonts, solange der
-      # Standby gar nicht sichtbar ist; beim Betreten frischt sleep_display
-      # die Uhr ohnehin auf.
+      # Die Uhr zeigt nur HH:MM, also genuegt die volle Minute - und zwar
+      # punktgenau statt bis zu 10 s versetzt wie beim frueheren 10-s-Intervall
+      # in ui.yaml. Die Seitenpruefung spart das Neuzeichnen des 108-px-Fonts,
+      # solange die Uhr gar nicht sichtbar ist; beim Betreten frischt
+      # show_standby_page sie ohnehin auf. Im Standby liegt page_off vorne
+      # (Bildschirm aus), dann trifft kein Zweig zu und der Takt macht nichts.
       # Die Widgets selbst stehen in ui.yaml.
       #
-      # Achtung: Die Seitenpruefung kennt nur page_standby. Sobald
-      # show_standby_page (ui.yaml) weitere Seiten schaltet, muss die
-      # Bedingung mitwachsen - sonst laeuft der Minutentakt auf einer neuen
-      # Standby-Seite gar nicht.
+      # Hier lag frueher zusaetzlich der Einbrennschutz: Uhr, Datum und
+      # Countdown wanderten minuetlich um ein paar Pixel, das Zifferblatt als
+      # Ganzes ueber seinen Traeger dial_face. Der ist ersatzlos entfallen,
+      # seit das Display nach ${standby_timeout} von selbst ganz ausgeht
+      # (sleep_display in ui.yaml) - laenger als standby_timeout steht kein
+      # Standbild mehr auf dem Schirm, und page_off leuchtet ueberhaupt nicht.
+      #
+      # Achtung: Es gibt einen Zweig je Standby-Seite. Sobald
+      # show_standby_page (ui.yaml) eine weitere schaltet, muss hier einer
+      # dazukommen - sonst laeuft der Minutentakt auf ihr gar nicht.
       - seconds: 0
         then:
           - if:
@@ -129,20 +135,11 @@ time:
                 lvgl.page.is_showing: page_standby
               then:
                 - script.execute: update_clock
-                # AMOLED-Schutz: Uhr und Datum wandern minuetlich ein paar
-                # Pixel, damit sich nichts einbrennt.
-                - lvgl.widget.update:
-                    id: lbl_clock
-                    y: !lambda return -20 + (int8_t) (random_uint32() % 17) - 8;
-                # Der Countdown eines laufenden Timers steht an derselben
-                # Stelle wie die Uhr und braucht denselben Schutz - er steht
-                # dort sogar unbewegter, weil sich nur die Ziffern aendern.
-                - lvgl.widget.update:
-                    id: lbl_timer
-                    y: !lambda return -15 + (int8_t) (random_uint32() % 17) - 8;
-                - lvgl.widget.update:
-                    id: lbl_date
-                    y: !lambda return 61 + (int8_t) (random_uint32() % 17) - 8;
+          - if:
+              condition:
+                lvgl.page.is_showing: page_dial
+              then:
+                - script.execute: update_dial
 
 # Diagnose-Entities: helfen beim Einschaetzen des Speicherdrucks
 # (LVGL + Voice Assistant sind zusammen speicherhungrig).

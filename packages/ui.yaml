@@ -1,9 +1,17 @@
 # Oberflaeche auf dem runden 466x466-AMOLED.
 #
-# Drei Seiten:
+# Fuenf Seiten:
 #   page_main      Statusicon, Punkte oder Balken - je nach Phase
-#   page_standby   gedimmte Uhr
+#   page_standby   Uhr - nach einem Tippen, bis der Bildschirm wieder ausgeht
+#   page_dial      Zifferblatt (Alternative zur Uhr, waehlbar)
+#   page_off       leer und schwarz - Bildschirm aus
 #   page_config    IP-Adresse und QR-Code zur Weboberflaeche
+#
+# Der Standby ist der ausgeschaltete Bildschirm, nicht ein gedimmter: nach
+# ${standby_timeout} ohne Beruehrung legt sleep_display die leere page_off vor
+# und schaltet das Licht aus. page_standby und page_dial sind deshalb keine
+# Dauerzustaende mehr, sondern das, was ein Tippen zeigt - welche von beiden,
+# entscheidet sel_standby_page (packages/web.yaml) ueber show_standby_page.
 #
 # Der Touchscreen kennt zwei Gesten: Tippen (wecken, laufenden Sprachvorgang
 # abbrechen, Konfigurationsseite verlassen) und Gedrueckthalten fuer
@@ -34,6 +42,15 @@ font:
     id: font_clock
     size: 140
     glyphsets: [GF_Latin_Core]
+
+  # Ziffern des Zifferblatts (page_dial). Leichter Schnitt und 32 px wie im
+  # Design-Mockup - font_date (31 px, Schnitt 600) waere fast so gross, aber
+  # deutlich fetter; zwoelf Ziffern auf einem Kranz sollen zierlich wirken.
+  # Nur die zehn Ziffern, das spart Flash.
+  - file: "gfonts://Figtree@500"
+    id: font_dial
+    size: 32
+    glyphs: ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
 
   # Countdown eines laufenden Timers und Zahl eines Messwerts. Kleiner als
   # font_clock, damit auch sieben Zeichen ("1:23:45") in den runden Bildschirm
@@ -98,6 +115,35 @@ lvgl:
                   && id(voice_assistant_phase) != ${phase_timer_ringing};
           then:
             - script.execute: sleep_display
+
+  # ------------------------------------------------- Stile des Zifferblatts
+  # Der einzige Ort im Projekt mit style_definitions, und er verdient sich das:
+  # page_dial legt 60 Striche und zwoelf Ziffern an, die sich nur in Position
+  # und Laenge unterscheiden. Ohne gemeinsamen Stil stuenden Farbe, Deckkraft
+  # und Strichstaerke 72-mal im YAML.
+  #
+  # `align: CENTER` steht mit im Stil, weil LVGL die Ausrichtung als echte
+  # Style-Property kennt (LV_STYLE_ALIGN) - damit tragen die Widgets unten nur
+  # noch ihren Versatz zur Mitte.
+  style_definitions:
+    - id: dial_st_h # Stundenstrich: laenger und heller
+      align: CENTER
+      line_width: 3
+      line_color: ${color_text}
+      line_opa: 50%
+      line_rounded: true
+    - id: dial_st_m # Minutenstrich
+      align: CENTER
+      line_width: 2
+      line_color: ${color_text}
+      line_opa: 22%
+      line_rounded: true
+    - id: dial_st_num # Ziffer
+      align: CENTER
+      text_font: font_dial
+      text_color: ${color_text}
+      text_opa: 80%
+      text_align: CENTER
 
   # ------------------------------------------------------------ Timer-Ring
   # Der top_layer liegt ueber allen Seiten - der Ring ist damit auf der
@@ -381,6 +427,230 @@ lvgl:
             text_color: ${color_text_dim}
             text_align: CENTER
 
+    # ------------------------------------------------ Standby: Zifferblatt
+    # Zweite, ueber sel_standby_page waehlbare Standby-Seite. Umsetzung des
+    # Designs "Runde Zeitanzeige" (Claude-Design-Projekt) und bewusst *ohne*
+    # Zeiger: die Stunde ist die hervorgehobene Ziffer, die Minute der
+    # hervorgehobene Strich im Kranz. Beides setzt update_dial.
+    #
+    # Warum `line:` und nicht `obj:` oder `arc:`
+    # -----------------------------------------
+    # Ein Strich zeigt radial nach aussen, steht also in fast jeder Position
+    # schraeg. Ein gedrehtes `obj:` waere der naheliegende Weg, aber
+    # transform_rotation laesst LVGL 9 das Widget in einen eigenen Layer
+    # rendern - genau die Zeichenbandbreite, an der schon der Phasen-Ring
+    # gescheitert ist. Ein `arc:` braucht keine Drehung, kann seine Winkel
+    # aber nur ganzzahlig setzen: ein Grad sind auf Radius 218 rund 3,8 px,
+    # die zarten 2-px-Minutenstriche des Entwurfs gaebe es damit nicht. Bleibt
+    # `line:` - kein Layer, echte Kantenglaettung, runde Enden
+    # (`line_rounded`) und eine Bounding-Box in Strichgroesse statt 466 px.
+    #
+    # Achtung beim Umbau: LVGL kompiliert nur die Widgets ein, die im YAML
+    # auch vorkommen (LV_USE_LINE steht sonst auf 0). Die Striche muessen
+    # deshalb hier stehen und koennen nicht zur Laufzeit erzeugt werden.
+    #
+    # Woher die Zahlen kommen
+    # -----------------------
+    # Die 72 Zeilen unten sind erzeugt, nicht von Hand geschrieben. Fuer
+    # Strich i (0..59, i % 5 == 0 ist ein Stundenstrich) mit Winkel a = i * 6°
+    # und Laenge len (16 bzw. 7 px):
+    #
+    #   ux =  sin a                  hx = len/2 * ux
+    #   uy = -cos a                  hy = len/2 * uy
+    #   width  = max(round(2*|hx|), 1)   x = round(${dial_radius} * ux)
+    #   height = max(round(2*|hy|), 1)   y = round(${dial_radius} * uy)
+    #   points = innerer -> aeusserer Endpunkt, Ursprung linke obere Ecke
+    #
+    # Der Strich ist damit die Diagonale seiner eigenen Box, und die Box-Mitte
+    # liegt genau auf dem Kranzradius - deshalb genuegt `align: CENTER` plus
+    # Versatz. Das `max(..., 1)` gilt den vier achsparallelen Strichen (12, 3,
+    # 6, 9 Uhr): eine Box der Breite 0 hat eine leere Flaeche und wuerde beim
+    # Zeichnen uebersprungen.
+    #
+    # Die Ziffern stehen nach derselben Rechnung auf Radius ${dial_num_radius},
+    # Winkel n * 30°.
+    - id: page_dial
+      bg_color: 0x000000
+      bg_opa: COVER
+      scrollable: false
+      widgets:
+        # Alle Elemente liegen in einem gemeinsamen Traeger. Angelegt wurde er
+        # fuer den Einbrennschutz, der das ganze Zifferblatt mit *einem*
+        # Aufruf verschob statt mit 72; den gibt es nicht mehr (der Bildschirm
+        # geht stattdessen ganz aus, siehe sleep_display). Er bleibt trotzdem,
+        # weil er das Zifferblatt als eine Einheit greifbar macht und nichts
+        # kostet. Er ist groesser als der Bildschirm, weil LVGL Kinder am
+        # Elternrand abschneidet und der Glow der Minutenmarke sonst
+        # angeschnitten waere: 218 (Kranz) + 7 (halbe Glow-Box)
+        # + 33 (Weichzeichnung) + 8 (Reserve) = 266, also 560 / 2 = 280 als
+        # Halbmesser mit Rand.
+        - obj:
+            id: dial_face
+            align: CENTER
+            width: 560
+            height: 560
+            bg_opa: TRANSP
+            border_width: 0
+            radius: 0
+            pad_all: 0
+            clickable: false
+            scrollable: false
+            widgets:
+              # Die beiden Weichzeichner-Kreise stehen zuerst, damit sie unter
+              # Marke und Ziffer liegen - Reihenfolge ist Z-Ordnung. Sie sind
+              # selbst unsichtbar (bg_opa: TRANSP) und tragen nur ihren
+              # Schatten; LVGL zeichnet den auch ohne Hintergrund. Das ist der
+              # einzige Weg zu einem Glow, den LVGL kennt: einen Weichzeichner
+              # fuer Linien oder Text gibt es nicht. Beide bewegen sich
+              # hoechstens einmal pro Minute, die Weichzeichnung faellt also
+              # nicht ins Gewicht.
+              - obj:
+                  id: dial_glow_num
+                  align: CENTER
+                  width: 34
+                  height: 34
+                  radius: 30
+                  bg_opa: TRANSP
+                  border_width: 0
+                  pad_all: 0
+                  shadow_width: 40
+                  shadow_spread: 0
+                  shadow_color: ${color_dial}
+                  shadow_opa: 45%
+                  hidden: true
+              - obj:
+                  id: dial_glow_tick
+                  align: CENTER
+                  width: 14
+                  height: 14
+                  radius: 20
+                  bg_opa: TRANSP
+                  border_width: 0
+                  pad_all: 0
+                  shadow_width: 30
+                  shadow_spread: 3
+                  shadow_color: ${color_dial}
+                  shadow_opa: 60%
+                  hidden: true
+
+              # --- 60 feste Striche (erzeugt, siehe Kopfkommentar) ---
+              - line: {id: dial_t00, styles: [dial_st_h], x: 0, y: -218, width: 1, height: 16, points: [[0, 16], [0, 0]]}
+              - line: {id: dial_t01, styles: [dial_st_m], x: 23, y: -217, width: 1, height: 7, points: [[0, 7], [1, 0]]}
+              - line: {id: dial_t02, styles: [dial_st_m], x: 45, y: -213, width: 1, height: 7, points: [[0, 7], [1, 0]]}
+              - line: {id: dial_t03, styles: [dial_st_m], x: 67, y: -207, width: 2, height: 7, points: [[0, 7], [2, 0]]}
+              - line: {id: dial_t04, styles: [dial_st_m], x: 89, y: -199, width: 3, height: 6, points: [[0, 6], [3, 0]]}
+              - line: {id: dial_t05, styles: [dial_st_h], x: 109, y: -189, width: 8, height: 14, points: [[0, 14], [8, 0]]}
+              - line: {id: dial_t06, styles: [dial_st_m], x: 128, y: -176, width: 4, height: 6, points: [[0, 6], [4, 0]]}
+              - line: {id: dial_t07, styles: [dial_st_m], x: 146, y: -162, width: 5, height: 5, points: [[0, 5], [5, 0]]}
+              - line: {id: dial_t08, styles: [dial_st_m], x: 162, y: -146, width: 5, height: 5, points: [[0, 5], [5, 0]]}
+              - line: {id: dial_t09, styles: [dial_st_m], x: 176, y: -128, width: 6, height: 4, points: [[0, 4], [6, 0]]}
+              - line: {id: dial_t10, styles: [dial_st_h], x: 189, y: -109, width: 14, height: 8, points: [[0, 8], [14, 0]]}
+              - line: {id: dial_t11, styles: [dial_st_m], x: 199, y: -89, width: 6, height: 3, points: [[0, 3], [6, 0]]}
+              - line: {id: dial_t12, styles: [dial_st_m], x: 207, y: -67, width: 7, height: 2, points: [[0, 2], [7, 0]]}
+              - line: {id: dial_t13, styles: [dial_st_m], x: 213, y: -45, width: 7, height: 1, points: [[0, 1], [7, 0]]}
+              - line: {id: dial_t14, styles: [dial_st_m], x: 217, y: -23, width: 7, height: 1, points: [[0, 1], [7, 0]]}
+              - line: {id: dial_t15, styles: [dial_st_h], x: 218, y: 0, width: 16, height: 1, points: [[0, 0], [16, 0]]}
+              - line: {id: dial_t16, styles: [dial_st_m], x: 217, y: 23, width: 7, height: 1, points: [[0, 0], [7, 1]]}
+              - line: {id: dial_t17, styles: [dial_st_m], x: 213, y: 45, width: 7, height: 1, points: [[0, 0], [7, 1]]}
+              - line: {id: dial_t18, styles: [dial_st_m], x: 207, y: 67, width: 7, height: 2, points: [[0, 0], [7, 2]]}
+              - line: {id: dial_t19, styles: [dial_st_m], x: 199, y: 89, width: 6, height: 3, points: [[0, 0], [6, 3]]}
+              - line: {id: dial_t20, styles: [dial_st_h], x: 189, y: 109, width: 14, height: 8, points: [[0, 0], [14, 8]]}
+              - line: {id: dial_t21, styles: [dial_st_m], x: 176, y: 128, width: 6, height: 4, points: [[0, 0], [6, 4]]}
+              - line: {id: dial_t22, styles: [dial_st_m], x: 162, y: 146, width: 5, height: 5, points: [[0, 0], [5, 5]]}
+              - line: {id: dial_t23, styles: [dial_st_m], x: 146, y: 162, width: 5, height: 5, points: [[0, 0], [5, 5]]}
+              - line: {id: dial_t24, styles: [dial_st_m], x: 128, y: 176, width: 4, height: 6, points: [[0, 0], [4, 6]]}
+              - line: {id: dial_t25, styles: [dial_st_h], x: 109, y: 189, width: 8, height: 14, points: [[0, 0], [8, 14]]}
+              - line: {id: dial_t26, styles: [dial_st_m], x: 89, y: 199, width: 3, height: 6, points: [[0, 0], [3, 6]]}
+              - line: {id: dial_t27, styles: [dial_st_m], x: 67, y: 207, width: 2, height: 7, points: [[0, 0], [2, 7]]}
+              - line: {id: dial_t28, styles: [dial_st_m], x: 45, y: 213, width: 1, height: 7, points: [[0, 0], [1, 7]]}
+              - line: {id: dial_t29, styles: [dial_st_m], x: 23, y: 217, width: 1, height: 7, points: [[0, 0], [1, 7]]}
+              - line: {id: dial_t30, styles: [dial_st_h], x: 0, y: 218, width: 1, height: 16, points: [[0, 0], [0, 16]]}
+              - line: {id: dial_t31, styles: [dial_st_m], x: -23, y: 217, width: 1, height: 7, points: [[1, 0], [0, 7]]}
+              - line: {id: dial_t32, styles: [dial_st_m], x: -45, y: 213, width: 1, height: 7, points: [[1, 0], [0, 7]]}
+              - line: {id: dial_t33, styles: [dial_st_m], x: -67, y: 207, width: 2, height: 7, points: [[2, 0], [0, 7]]}
+              - line: {id: dial_t34, styles: [dial_st_m], x: -89, y: 199, width: 3, height: 6, points: [[3, 0], [0, 6]]}
+              - line: {id: dial_t35, styles: [dial_st_h], x: -109, y: 189, width: 8, height: 14, points: [[8, 0], [0, 14]]}
+              - line: {id: dial_t36, styles: [dial_st_m], x: -128, y: 176, width: 4, height: 6, points: [[4, 0], [0, 6]]}
+              - line: {id: dial_t37, styles: [dial_st_m], x: -146, y: 162, width: 5, height: 5, points: [[5, 0], [0, 5]]}
+              - line: {id: dial_t38, styles: [dial_st_m], x: -162, y: 146, width: 5, height: 5, points: [[5, 0], [0, 5]]}
+              - line: {id: dial_t39, styles: [dial_st_m], x: -176, y: 128, width: 6, height: 4, points: [[6, 0], [0, 4]]}
+              - line: {id: dial_t40, styles: [dial_st_h], x: -189, y: 109, width: 14, height: 8, points: [[14, 0], [0, 8]]}
+              - line: {id: dial_t41, styles: [dial_st_m], x: -199, y: 89, width: 6, height: 3, points: [[6, 0], [0, 3]]}
+              - line: {id: dial_t42, styles: [dial_st_m], x: -207, y: 67, width: 7, height: 2, points: [[7, 0], [0, 2]]}
+              - line: {id: dial_t43, styles: [dial_st_m], x: -213, y: 45, width: 7, height: 1, points: [[7, 0], [0, 1]]}
+              - line: {id: dial_t44, styles: [dial_st_m], x: -217, y: 23, width: 7, height: 1, points: [[7, 0], [0, 1]]}
+              - line: {id: dial_t45, styles: [dial_st_h], x: -218, y: 0, width: 16, height: 1, points: [[16, 0], [0, 0]]}
+              - line: {id: dial_t46, styles: [dial_st_m], x: -217, y: -23, width: 7, height: 1, points: [[7, 1], [0, 0]]}
+              - line: {id: dial_t47, styles: [dial_st_m], x: -213, y: -45, width: 7, height: 1, points: [[7, 1], [0, 0]]}
+              - line: {id: dial_t48, styles: [dial_st_m], x: -207, y: -67, width: 7, height: 2, points: [[7, 2], [0, 0]]}
+              - line: {id: dial_t49, styles: [dial_st_m], x: -199, y: -89, width: 6, height: 3, points: [[6, 3], [0, 0]]}
+              - line: {id: dial_t50, styles: [dial_st_h], x: -189, y: -109, width: 14, height: 8, points: [[14, 8], [0, 0]]}
+              - line: {id: dial_t51, styles: [dial_st_m], x: -176, y: -128, width: 6, height: 4, points: [[6, 4], [0, 0]]}
+              - line: {id: dial_t52, styles: [dial_st_m], x: -162, y: -146, width: 5, height: 5, points: [[5, 5], [0, 0]]}
+              - line: {id: dial_t53, styles: [dial_st_m], x: -146, y: -162, width: 5, height: 5, points: [[5, 5], [0, 0]]}
+              - line: {id: dial_t54, styles: [dial_st_m], x: -128, y: -176, width: 4, height: 6, points: [[4, 6], [0, 0]]}
+              - line: {id: dial_t55, styles: [dial_st_h], x: -109, y: -189, width: 8, height: 14, points: [[8, 14], [0, 0]]}
+              - line: {id: dial_t56, styles: [dial_st_m], x: -89, y: -199, width: 3, height: 6, points: [[3, 6], [0, 0]]}
+              - line: {id: dial_t57, styles: [dial_st_m], x: -67, y: -207, width: 2, height: 7, points: [[2, 7], [0, 0]]}
+              - line: {id: dial_t58, styles: [dial_st_m], x: -45, y: -213, width: 1, height: 7, points: [[1, 7], [0, 0]]}
+              - line: {id: dial_t59, styles: [dial_st_m], x: -23, y: -217, width: 1, height: 7, points: [[1, 7], [0, 0]]}
+
+              # Die Minutenmarke ist ein einzelner, laengerer Strich, den
+              # update_dial ueber den gerade gueltigen Minutenstrich legt -
+              # sie deckt ihn mit ${dial_mark_len} px Laenge vollstaendig ab.
+              # Ein eigenes Widget statt eines umgefaerbten Strichs, weil sich
+              # mit der Farbe auch die Laenge aendert: die Punkte eines
+              # `line:` liegen in einem Array, das die Komponente je Widget
+              # haelt - eines davon jede Minute zu tauschen und beim naechsten
+              # Mal wieder herzustellen waere derselbe Rechenweg zweimal.
+              # Werte hier sind die Zwoelf-Uhr-Stellung; gesetzt wird sie beim
+              # ersten update_dial.
+              - line:
+                  id: dial_active
+                  align: CENTER
+                  x: 0
+                  y: -${dial_radius}
+                  width: 1
+                  height: ${dial_mark_len}
+                  # In einer Flow-Sequenz muss die Substitution in
+                  # Anfuehrungszeichen - sonst liest der YAML-Parser das
+                  # "${" als Beginn einer Flow-Map.
+                  points: [[0, "${dial_mark_len}"], [0, 0]]
+                  line_width: 3
+                  line_color: ${color_dial}
+                  line_opa: COVER
+                  line_rounded: true
+                  hidden: true
+
+              # --- Zwoelf Ziffern (erzeugt, siehe Kopfkommentar) ---
+              - label: {id: dial_n01, styles: [dial_st_num], x: 84, y: -145, text: "1"}
+              - label: {id: dial_n02, styles: [dial_st_num], x: 145, y: -84, text: "2"}
+              - label: {id: dial_n03, styles: [dial_st_num], x: 168, y: 0, text: "3"}
+              - label: {id: dial_n04, styles: [dial_st_num], x: 145, y: 84, text: "4"}
+              - label: {id: dial_n05, styles: [dial_st_num], x: 84, y: 145, text: "5"}
+              - label: {id: dial_n06, styles: [dial_st_num], x: 0, y: 168, text: "6"}
+              - label: {id: dial_n07, styles: [dial_st_num], x: -84, y: 145, text: "7"}
+              - label: {id: dial_n08, styles: [dial_st_num], x: -145, y: 84, text: "8"}
+              - label: {id: dial_n09, styles: [dial_st_num], x: -168, y: 0, text: "9"}
+              - label: {id: dial_n10, styles: [dial_st_num], x: -145, y: -84, text: "10"}
+              - label: {id: dial_n11, styles: [dial_st_num], x: -84, y: -145, text: "11"}
+              - label: {id: dial_n12, styles: [dial_st_num], x: 0, y: -168, text: "12"}
+
+    # ------------------------------------------------------ Bildschirm aus
+    # Leere schwarze Seite - der Standby-Zustand des Geraets. Sie ist der
+    # zweite Teil des Ausschaltens: die Helligkeit allein genuegt nicht, weil
+    # das Dimm-Register des CO5300 bei 0 nur die kleinste Stufe meint und nicht
+    # garantiert "aus" - eine helle Uhr koennte dabei noch schwach glimmen. Auf
+    # AMOLED ist Schwarz dagegen echtes Pixel-aus, also zeigt sleep_display
+    # beides zusammen: Helligkeit 0 *und* eine Seite ohne ein einziges Widget.
+    #
+    # Das ist zugleich der Ersatz fuer den frueheren Pixel-Shift: was nicht
+    # leuchtet, brennt auch nicht ein.
+    - id: page_off
+      bg_color: 0x000000
+      bg_opa: COVER
+      scrollable: false
+
     # --------------------------------------------------------- Konfiguration
     # Erreichbar nur ueber Gedrueckthalten (${long_press_time}), siehe
     # detect_long_press. Jedes weitere Tippen fuehrt zurueck (on_screen_touch),
@@ -494,6 +764,19 @@ script:
           lv_obj_set_style_arc_color(
               id(ring_timer), lv_color_hex((uint32_t) id(col_timer)),
               LV_PART_INDICATOR);
+          // Zifferblatt: Minutenmarke und die beiden Weichzeichner-Kreise.
+          // Die Stundenziffer faerbt update_dial, das gleich darunter laeuft;
+          // die 60 festen Striche bleiben weiss und sind nicht einstellbar.
+          lv_obj_set_style_line_color(
+              id(dial_active)->obj, lv_color_hex((uint32_t) id(col_dial)),
+              LV_PART_MAIN);
+          lv_obj_set_style_shadow_color(
+              id(dial_glow_tick), lv_color_hex((uint32_t) id(col_dial)),
+              LV_PART_MAIN);
+          lv_obj_set_style_shadow_color(
+              id(dial_glow_num), lv_color_hex((uint32_t) id(col_dial)),
+              LV_PART_MAIN);
+      - script.execute: update_dial
       - script.execute: update_ui
 
   # --------------------------------------------------- Statusanzeige updaten
@@ -654,10 +937,12 @@ script:
   #   ab (abort_session in packages/voice.yaml). Das Display ist in diesen
   #   Phasen ohnehin schon wach, ein wake_display waere ueberfluessig -
   #   abort_session endet selbst mit update_ui und damit im Standby-Zweig.
-  # - Sonst weckt es nur das Display. Im Leerlauf/stumm bleibt die Standby-Uhr
-  #   sichtbar, nur heller - dafuer braucht es keinen eigenen Ruecksprung-Timer,
-  #   das erledigt lvgl.on_idle oben schon (faellt nach ${standby_timeout}
-  #   von selbst zurueck in sleep_display).
+  # - Sonst weckt es nur das Display. Im Leerlauf/stumm ist der Bildschirm
+  #   dabei in aller Regel aus (page_off), das Tippen holt also die
+  #   Standby-Seite zurueck und schaltet auf ${active_brightness}. Einen
+  #   eigenen Ruecksprung-Timer braucht das nicht: die Beruehrung hat LVGLs
+  #   Untaetigkeitszaehler zurueckgesetzt, on_idle oben faellt nach
+  #   ${standby_timeout} von selbst wieder in sleep_display.
   #
   # Fehler und "nicht bereit" sind bewusst nicht abbrechbar: da laeuft nichts,
   # was man abbrechen koennte, und clear_error raeumt von selbst auf.
@@ -699,6 +984,20 @@ script:
                           return id(voice_assistant_phase) == ${phase_idle}
                               || id(voice_assistant_phase) == ${phase_muted};
                       then:
+                        # Wer tippt, will hinsehen: ein laufender Rueckfall aus
+                        # Home Assistant faellt weg. Ab hier zaehlt wieder
+                        # on_idle, das die Beruehrung gerade zurueckgesetzt hat
+                        # - der Bildschirm geht also ${standby_timeout} nach
+                        # dieser Beruehrung von selbst wieder aus.
+                        - script.stop: standby_return
+                        # War der Bildschirm schon aus, liegt page_off vorne
+                        # und traegt nichts. Ein Tippen holt die Standby-Seite
+                        # zurueck, statt nur das Nichts aufzuhellen.
+                        - if:
+                            condition:
+                              lvgl.page.is_showing: page_off
+                            then:
+                              - script.execute: show_standby_page
                         - light.turn_on:
                             id: display_brightness
                             brightness: ${active_brightness}
@@ -748,6 +1047,7 @@ script:
           lv_label_set_text(
               id(lbl_config_hint),
               ("Im Browser " + host + " aufrufen oder den Code scannen").c_str());
+      - script.stop: standby_return
       - lvgl.page.show: page_config
       - light.turn_on:
           id: display_brightness
@@ -757,34 +1057,79 @@ script:
   - id: wake_display
     mode: restart
     then:
+      - script.stop: standby_return
       - lvgl.page.show: page_main
       - light.turn_on:
           id: display_brightness
           brightness: ${active_brightness}
 
+  # --------------------------------------------------- Bildschirm ausschalten
+  # Standby heisst aus, nicht gedimmt: die frueheren Substitutions
+  # standby_brightness und screen_off_delay gibt es nicht mehr, und mit ihnen
+  # auch keine Zwischenstufe. Eine gedimmte Uhr ist auf einem AMOLED der
+  # einzige dauerhaft leuchtende Inhalt im ganzen Entwurf - genau das soll im
+  # Ruhezustand nicht mehr passieren.
+  #
+  # Beides zusammen ist noetig: das Dimm-Register des CO5300 meint bei 0 nur
+  # die kleinste Stufe und nicht garantiert "aus", eine helle Uhr koennte also
+  # noch schwach glimmen. Erst die Seite ohne ein einziges Widget macht den
+  # Bildschirm wirklich schwarz.
+  #
+  # Erst dunkel, dann umschalten: so ist der Seitenwechsel nicht zu sehen.
   - id: sleep_display
     mode: restart
     then:
-      - script.execute: show_standby_page
-      - light.turn_on:
-          id: display_brightness
-          brightness: ${standby_brightness}
+      - light.turn_off: display_brightness
+      - lvgl.page.show: page_off
+
+  # --------------------------------------- Rueckfall ohne Beruehrung
+  # Nur fuer einen Weckweg noetig: das Einschalten der Lichtentity aus Home
+  # Assistant (on_turn_on in packages/hardware.yaml). Alle anderen Wege gehen
+  # ueber den Touchscreen, und der setzt LVGLs Untaetigkeitszaehler zurueck -
+  # dort holt on_idle den Bildschirm nach ${standby_timeout} von selbst wieder
+  # ab.
+  #
+  # Ein zweites on_idle waere der naheliegende Weg und ist falsch: der Trigger
+  # misst reine Touch-Untaetigkeit und feuert je Untaetigkeitsphase genau
+  # einmal (IdleTrigger::is_idle_ in lvgl_esphome.cpp:429). Ohne Beruehrung
+  # steht der Zaehler laengst ueber der Schwelle, der Trigger kaeme also nie
+  # wieder - der Bildschirm bliebe bis zur naechsten Beruehrung an.
+  #
+  # `mode: restart` ist Pflicht (delay in einem Skript), und jeder Weg, der das
+  # Display absichtlich wach haelt, muss es stoppen - sonst faellt der
+  # Bildschirm mitten im Hinschauen ins Dunkle. Das sind wake_display,
+  # show_config_page und der Idle-Zweig von on_screen_touch.
+  - id: standby_return
+    mode: restart
+    then:
+      - delay: ${standby_timeout}
+      - script.execute: sleep_display
 
   # Welche Standby-Seite gezeigt wird, entscheidet sel_standby_page aus
-  # packages/web.yaml. Heute gibt es nur die Uhr, also genau einen Zweig - der
-  # Erweiterungspunkt fuer weitere Seiten (Phase 7) ist hier. Wer eine
-  # hinzufuegt, muss drei Stellen anfassen: eine Option in sel_standby_page,
-  # einen Zweig hier und die is_showing-Bedingung des Minutentakts in
-  # packages/core.yaml.
+  # packages/web.yaml. Wer eine weitere hinzufuegt, muss drei Stellen
+  # anfassen: eine Option in sel_standby_page, einen Zweig hier und die
+  # is_showing-Bedingung des Minutentakts in packages/core.yaml.
+  #
+  # Der Inhalt wird jeweils *vor* dem Seitenwechsel aufgefrischt, damit keine
+  # veraltete Uhrzeit aufblitzt.
   - id: show_standby_page
     mode: restart
     then:
-      - script.execute: update_clock
-      - lvgl.page.show: page_standby
+      - if:
+          condition:
+            lambda: return id(sel_standby_page).active_index().value_or(0) == 1;
+          then:
+            - script.execute: update_dial
+            - lvgl.page.show: page_dial
+          else:
+            - script.execute: update_clock
+            - lvgl.page.show: page_standby
       # Erst nach dem Seitenwechsel: update_timer_ui schreibt den Countdown nur,
       # wenn die Standby-Seite auch wirklich vorne liegt. Der Aufruf raeumt
       # ausserdem auf, wenn der letzte Timer ablief, waehrend eine andere Seite
-      # sichtbar war - dann steht lbl_clock noch auf versteckt.
+      # sichtbar war - dann steht lbl_clock noch auf versteckt. Auf dem
+      # Zifferblatt bleibt vom Timer nur der Ring im top_layer; einen Countdown
+      # gibt es dort bewusst nicht, er wuerde mitten im Kranz stehen.
       - script.execute: update_timer_ui
 
   # ------------------------------------------------------------- Timer-Anzeige
@@ -889,7 +1234,103 @@ script:
                                               t.day_of_month,
                                               MONAT[t.month - 1]);
 
-  # Minuetlicher Takt fuer Uhr und Einbrennschutz haengt am Zeitgeber in
+  # ------------------------------------------------------------ Zifferblatt
+  # Gegenstueck zu update_clock fuer page_dial. Laeuft beim Betreten des
+  # Standbys, danach im Minutentakt aus core.yaml und einmal nach jeder
+  # Farbaenderung (apply_colors).
+  #
+  # Es sind genau drei Dinge zu tun: die Minutenmarke auf den gueltigen Strich
+  # legen, die Stundenziffer einfaerben und die vorige zuruecksetzen. Die 60
+  # festen Striche werden nie angefasst - die laengere Marke deckt den Strich
+  # darunter ab.
+  #
+  # Kein Guard auf die sichtbare Seite: die Aufrufer wissen, wann es sich
+  # lohnt, und LVGL verwirft ein lv_obj_invalidate fuer Widgets, die nicht auf
+  # dem aktiven Screen liegen, ohnehin.
+  - id: update_dial
+    mode: restart
+    then:
+      - lambda: |-
+          auto t = id(ha_time).now();
+          if (!t.is_valid()) {
+            // Vor der ersten Zeit aus Home Assistant gibt es nichts
+            // hervorzuheben. Der Kranz steht, Marke und Glow bleiben weg -
+            // eine Marke auf der Zwoelf waere eine Falschaussage.
+            lv_obj_add_flag(id(dial_active)->obj, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_add_flag(id(dial_glow_tick), LV_OBJ_FLAG_HIDDEN);
+            lv_obj_add_flag(id(dial_glow_num), LV_OBJ_FLAG_HIDDEN);
+            return;
+          }
+
+          static const float BOGEN = 3.14159265f / 180.0f;
+
+          // --- Minutenmarke ---
+          // Dieselbe Rechnung wie fuer die festen Striche (Kopfkommentar von
+          // page_dial), nur mit Laenge ${dial_mark_len}. Das Punktearray muss
+          // LVGL ueberdauern: lv_line_set_points uebernimmt den Zeiger, es
+          // kopiert nicht - deshalb static und nicht auf dem Stapel.
+          static lv_point_precise_t marke[2];
+          const float am = t.minute * 6.0f * BOGEN;
+          const float ux = sinf(am), uy = -cosf(am);
+          const float hx = 0.5f * ${dial_mark_len} * ux;
+          const float hy = 0.5f * ${dial_mark_len} * uy;
+          const int32_t bw = (int32_t) lroundf(2.0f * fabsf(hx));
+          const int32_t bh = (int32_t) lroundf(2.0f * fabsf(hy));
+          marke[0].x = hx > 0 ? 0 : bw;
+          marke[0].y = hy > 0 ? 0 : bh;
+          marke[1].x = hx > 0 ? bw : 0;
+          marke[1].y = hy > 0 ? bh : 0;
+          lv_line_set_points(id(dial_active)->obj, marke, 2);
+          // Nach set_points, sonst zieht die Inhaltsgroesse die Box wieder auf
+          // die Punkte zusammen. Die Mindestgroesse 1 gilt den vier
+          // achsparallelen Stellungen (0, 15, 30, 45): eine Box der Breite 0
+          // hat eine leere Flaeche und wuerde beim Zeichnen uebersprungen.
+          lv_obj_set_size(id(dial_active)->obj, bw > 0 ? bw : 1, bh > 0 ? bh : 1);
+
+          const int32_t mx = (int32_t) lroundf(${dial_radius} * ux);
+          const int32_t my = (int32_t) lroundf(${dial_radius} * uy);
+          lv_obj_align(id(dial_active)->obj, LV_ALIGN_CENTER, mx, my);
+          lv_obj_align(id(dial_glow_tick), LV_ALIGN_CENTER, mx, my);
+          lv_obj_remove_flag(id(dial_active)->obj, LV_OBJ_FLAG_HIDDEN);
+          lv_obj_remove_flag(id(dial_glow_tick), LV_OBJ_FLAG_HIDDEN);
+
+          // --- Stundenziffer ---
+          int stunde = t.hour % 12;
+          if (stunde == 0) stunde = 12;
+          lv_obj_t *const zahlen[12] = {
+              id(dial_n01), id(dial_n02), id(dial_n03), id(dial_n04),
+              id(dial_n05), id(dial_n06), id(dial_n07), id(dial_n08),
+              id(dial_n09), id(dial_n10), id(dial_n11), id(dial_n12)};
+
+          // Die vorige Ziffer bekommt den Kranzstil zurueck. Der steht als
+          // Zahl hier statt als Global, weil er nicht einstellbar ist -
+          // einstellbar ist nur der Akzent (col_dial). 204 ist das
+          // text_opa: 80% aus dial_st_num.
+          //
+          // Der Zweig laeuft auch, wenn sich die Stunde gar nicht geaendert
+          // hat: dann kommt der Aufruf von apply_colors, und die Ziffer muss
+          // die neue Akzentfarbe bekommen.
+          static int8_t vorige = -1;
+          if (vorige >= 1 && vorige <= 12) {
+            lv_obj_set_style_text_color(zahlen[vorige - 1],
+                                        lv_color_hex(${color_text}), LV_PART_MAIN);
+            lv_obj_set_style_text_opa(zahlen[vorige - 1], (lv_opa_t) 204,
+                                      LV_PART_MAIN);
+          }
+          lv_obj_set_style_text_color(
+              zahlen[stunde - 1], lv_color_hex((uint32_t) id(col_dial)),
+              LV_PART_MAIN);
+          lv_obj_set_style_text_opa(zahlen[stunde - 1], LV_OPA_COVER,
+                                    LV_PART_MAIN);
+          vorige = (int8_t) stunde;
+
+          const float az = stunde * 30.0f * BOGEN;
+          lv_obj_align(id(dial_glow_num), LV_ALIGN_CENTER,
+                       (int32_t) lroundf(${dial_num_radius} * sinf(az)),
+                       (int32_t) lroundf(-${dial_num_radius} * cosf(az)));
+          lv_obj_remove_flag(id(dial_glow_num), LV_OBJ_FLAG_HIDDEN);
+
+  # Der minuetliche Takt fuer Uhr und Zifferblatt haengt am Zeitgeber in
   # core.yaml (`time: ha_time` -> on_time), weil ESPHome Plattform-Listen
   # ueber Package-Grenzen hinweg nicht per id zusammenfuehrt.
 
