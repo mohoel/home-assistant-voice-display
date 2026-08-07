@@ -255,6 +255,32 @@ lvgl:
             text_align: CENTER
 
 script:
+  # ------------------------------------------------------ Symbolfarben setzen
+  # Traegt die Farb-Globals aus packages/web.yaml in die Widgets ein. Die
+  # bg_color-Angaben oben sind damit nur noch der Zustand bis zum ersten Lauf
+  # (on_boot, priority -100) - danach gilt, was in den Globals steht.
+  #
+  # Nur die statischen Farben stehen hier; die Icon-Farbe haengt an der Phase
+  # und kommt aus update_ui, das deshalb am Ende laeuft. Die Animationstakte am
+  # Dateiende fassen nur Deckkraft, Groesse und Position an, keine Farbe.
+  #
+  # Muss idempotent sein: sync_color_texts loest beim Boot ueber das on_value
+  # der Textfelder einen zweiten Durchlauf mit denselben Werten aus.
+  - id: apply_colors
+    mode: restart
+    then:
+      - lambda: |-
+          lv_obj_t *const dots[3] = {id(dot_1), id(dot_2), id(dot_3)};
+          for (uint8_t i = 0; i < 3; i++)
+            lv_obj_set_style_bg_color(
+                dots[i], lv_color_hex((uint32_t) id(col_thinking)), LV_PART_MAIN);
+          lv_obj_t *const bars[5] = {id(bar_1), id(bar_2), id(bar_3),
+                                     id(bar_4), id(bar_5)};
+          for (uint8_t i = 0; i < 5; i++)
+            lv_obj_set_style_bg_color(
+                bars[i], lv_color_hex((uint32_t) id(col_replying)), LV_PART_MAIN);
+      - script.execute: update_ui
+
   # --------------------------------------------------- Statusanzeige updaten
   - id: update_ui
     mode: restart
@@ -313,13 +339,17 @@ script:
                         # Farbcodierung: blau beim Zuhoeren (es atmet dabei,
                         # siehe interval: am Dateiende), rot bei Fehlern,
                         # gedimmt bei stumm und "nicht bereit".
+                        #
+                        # Die Farben kommen aus den Globals in
+                        # packages/web.yaml (zur Laufzeit einstellbar), die
+                        # Phasen bleiben Substitutions.
                         - lvgl.widget.update:
                             id: lbl_icon
                             text_color: !lambda |-
                               switch (id(voice_assistant_phase)) {
-                                case ${phase_listening}: return lv_color_hex(${color_listening});
-                                case ${phase_error}:     return lv_color_hex(${color_error});
-                                default:                 return lv_color_hex(${color_text_dim});
+                                case ${phase_listening}: return lv_color_hex((uint32_t) id(col_listening));
+                                case ${phase_error}:     return lv_color_hex((uint32_t) id(col_error));
+                                default:                 return lv_color_hex((uint32_t) id(col_dim));
                               }
                         - lvgl.widget.show: lbl_icon
 

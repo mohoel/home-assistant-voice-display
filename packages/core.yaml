@@ -24,6 +24,13 @@ esphome:
             id: boot_done
             value: "true"
         - script.execute: apply_rotation
+        # Restaurierte Symbolfarben in die Widgets schreiben und danach die
+        # Eingabefelder der Weboberflaeche auf denselben Stand bringen.
+        # apply_colors endet selbst mit update_ui; der Aufruf unten bleibt
+        # trotzdem stehen, damit die Oberflaeche auch dann gezeichnet wird,
+        # wenn hier spaeter umgebaut wird.
+        - script.execute: apply_colors
+        - script.execute: sync_color_texts
         - script.execute: update_ui
   # Hinweis: platformio_options (flash_mode, f_flash, f_cpu) aus der
   # Community-Config wirken beim nativen ESP-IDF-Toolchain nicht und wurden
