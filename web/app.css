@@ -1,0 +1,374 @@
+/* Bedienseite des Geraets - Aussehen.
+ *
+ * Umsetzung des Entwurfs aus dem Claude-Design-Projekt "Konfigurationsseite".
+ * Die Seite ist bewusst *nicht* das ESPHome-Standard-Frontend, sondern eigener
+ * Code (siehe README.md in diesem Verzeichnis): dessen Stile stecken im Shadow
+ * DOM der lit-Komponenten und lassen sich von aussen nur ueber eine einzige
+ * Variable (--primary-color) anfassen. Hier ist alles im Licht-DOM, also gilt
+ * dieses Stylesheet direkt.
+ *
+ * Der @import muss die erste Regel bleiben. Ohne Internet laedt er nicht und
+ * alles faellt auf system-ui zurueck - Farben, Raster und Eckmarken bleiben,
+ * nur der kondensierte Schnitt der Ueberschriften fehlt. Beide Familien
+ * einzubetten waere rund 200 kB Flash fuer eine selten geoeffnete Seite.
+ */
+@import url("https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap");
+
+:root {
+  --primary-color: #5980a6;
+  --ink: #1d1f20;
+  --bg: #f2f2f3;
+  --surface: #e9e9ea;
+  --accent-100: #eef6ff;
+  --accent-300: #b5d9fd;
+  --accent-600: #597ea3;
+  --accent-700: #416180;
+  --accent-900: #1d2d3d;
+  --divider: rgba(29, 31,32, 0.16);
+  --ok: #7fd18a;
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Barlow", system-ui, sans-serif;
+  font-weight: 400;
+}
+
+/* ---------- Kopfband ---------- */
+
+header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  background: var(--accent-900);
+  color: #f2f2f3;
+}
+
+header .logo {
+  flex: 0 0 auto;
+  display: flex;
+  color: #f2f2f3;
+}
+
+header .title-wrap {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+header h1 {
+  margin: 0;
+  font-family: "Barlow Condensed", system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 1.6rem;
+  line-height: 1.1em;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+header .subtitle {
+  font-size: 12px;
+  opacity: 0.7;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+header .controls {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Verbindungspunkt. Gefuellt und gruen, solange Ereignisse ankommen. */
+header .beat {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid rgba(242, 242, 243, 0.6);
+  transition: background-color 200ms ease, border-color 200ms ease;
+}
+
+header .beat.connected {
+  background: var(--ok);
+  border-color: var(--ok);
+}
+
+/* ---------- Raster ---------- */
+
+/* Der Entwurf gibt der Entity-Spalte minmax(320px, 700px) und stellt die
+ * Logspalte daneben. Die Logspalte gibt es hier nicht, aber die Tabelle soll
+ * deshalb nicht auf Bildschirmbreite auseinanderlaufen - sonst steht ein
+ * 600 px breites Auswahlfeld neben einem kurzen Namen. */
+main {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0 8px 24px;
+}
+
+/* ---------- Gruppe: Kopf und Rahmen ---------- */
+
+.tab-header {
+  display: inline-flex;
+  max-width: 90%;
+  align-items: center;
+  font-family: "Barlow Condensed", system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.5em 1.2em;
+  margin-top: 1.2em;
+  background: var(--accent-900);
+  color: #f2f2f3;
+  user-select: none;
+}
+
+.tab-container {
+  position: relative;
+  border: 1px solid rgba(29, 31,32, 0.2);
+  background: var(--bg);
+}
+
+/* Technische Eckmarken: ein Winkel je Ecke, aus zwei 1-px-Strichen des
+ * ::before/::after-Paars. Sie liegen ausserhalb des Rahmens und fangen keine
+ * Klicks ab. */
+.tab-container > .corner {
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  color: rgba(29, 31,32, 0.4);
+  pointer-events: none;
+}
+
+.tab-container > .corner::before,
+.tab-container > .corner::after {
+  content: "";
+  position: absolute;
+  background: currentColor;
+}
+
+.tab-container > .corner::before {
+  left: 4px;
+  top: 0;
+  width: 1px;
+  height: 100%;
+}
+
+.tab-container > .corner::after {
+  top: 4px;
+  left: 0;
+  width: 100%;
+  height: 1px;
+}
+
+.tab-container > .corner.tl { top: -5px; left: -5px; }
+.tab-container > .corner.tr { top: -5px; right: -5px; }
+.tab-container > .corner.bl { bottom: -5px; left: -5px; }
+.tab-container > .corner.br { bottom: -5px; right: -5px; }
+
+/* ---------- Zeile ---------- */
+
+.entity-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  padding: 6px 8px;
+  border-bottom: 1px solid rgba(29, 31,32, 0.1);
+  transition: background-color 0.2s ease-out;
+}
+
+.entity-row:last-child {
+  border-bottom: none;
+}
+
+.entity-row:nth-child(2n) {
+  background-color: rgba(29, 31,32, 0.03);
+}
+
+.entity-row:hover {
+  background-color: var(--accent-100);
+}
+
+.entity-row > .icon {
+  flex: 0 0 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent-700);
+}
+
+.entity-row > .label {
+  flex: 1 1 40%;
+  min-width: 150px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.entity-row > .value {
+  flex: 1 1 50%;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* ---------- Eingaben ---------- */
+
+select,
+input[type="text"] {
+  font-family: "Barlow", system-ui, sans-serif;
+  font-size: 1rem;
+  border: 1px solid var(--divider);
+  border-radius: 0;
+  background: var(--surface);
+  color: var(--ink);
+}
+
+select {
+  width: 100%;
+  padding: 5px 8px;
+}
+
+input[type="text"] {
+  height: 1.6rem;
+  padding: 0 6px;
+}
+
+.select-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: flex-end;
+  width: 100%;
+}
+
+/* Vorschaukachel neben einem Auswahlfeld. Im Entwurf ein Platzhalter,
+ * hier mit einer echten Miniatur des runden Displays gefuellt. */
+.preview {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 28px;
+  border: 1px solid rgba(29, 31,32, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(29, 31,32, 0.55);
+  background: var(--surface);
+}
+
+.colorpicker {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.color-swatches {
+  display: flex;
+  gap: 4px;
+}
+
+.color-swatch {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  margin: 0;
+  border: 1px solid rgba(29, 31,32, 0.35);
+  border-radius: 0;
+  cursor: pointer;
+}
+
+.color-swatch:hover {
+  outline: 2px solid var(--accent-600);
+  outline-offset: 1px;
+}
+
+input[type="color"] {
+  width: 32px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--divider);
+  border-radius: 0;
+  background: none;
+  cursor: pointer;
+}
+
+input[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 0 !important;
+}
+
+input[type="color"]::-webkit-color-swatch {
+  border: none;
+}
+
+.hex {
+  width: 8ch;
+  text-transform: uppercase;
+}
+
+/* Ungueltige Eingabe: das Geraet nimmt nur sechs Hexstellen an. */
+.hex:invalid {
+  border-color: #e04c3f;
+}
+
+/* ---------- Knoepfe ---------- */
+
+button {
+  cursor: pointer;
+  border-radius: 0;
+  color: var(--accent-700);
+  border: 1px solid var(--divider);
+  background-color: transparent;
+  padding: 7px 12px;
+  font-family: "Barlow Condensed", system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+button:hover {
+  background-color: var(--accent-100);
+  border-color: var(--accent-600);
+}
+
+button:active {
+  background-color: var(--accent-300);
+}
+
+.footnote {
+  margin-top: 1.2em;
+  font-size: 12px;
+  opacity: 0.6;
+}
+
+@media (max-width: 560px) {
+  .entity-row {
+    flex-wrap: wrap;
+  }
+
+  .entity-row > .label {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .entity-row > .value {
+    flex: 1 1 100%;
+  }
+}

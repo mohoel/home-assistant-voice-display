@@ -1,9 +1,27 @@
 # Bedienseite ueber die IP des Geraets (http://assist-satellit.local/).
 #
-# ESPHome rendert hier ausschliesslich sein Standard-Entity-Dashboard - eigenes
-# HTML gibt es nicht. Die "Bedienseite" ist deshalb eine Gruppe von Entities,
-# geordnet ueber sorting_groups; die Gruppen und ihre Reihenfolge sind die
-# einzige Gestaltungsmoeglichkeit. sorting_groups setzt version: 3 voraus.
+# Die Seite ist **eigener Code** (web/app.js und web/app.css), nicht das
+# ESPHome-Standard-Frontend. Der Haken dafuer sind css_include und js_include:
+# ESPHome baut die Index-Seite selbst und legt sie als
+#
+#     <link rel=stylesheet href=/0.css><script type=module src=/0.js></script>
+#     <esp-app></esp-app>
+#
+# ab (build_index_html in components/web_server/__init__.py). Laedt man das
+# Standard-Bundle nicht, bleibt <esp-app> ein undefiniertes, leeres Element und
+# unser Modul baut die Seite an seiner Stelle auf.
+#
+# Warum ueberhaupt eigener Code: Die Stile des Standard-Frontends stecken im
+# Shadow DOM seiner lit-Komponenten und sind von aussen nur ueber eine einzige
+# Variable (--primary-color) erreichbar; Radien, Kopfzeile und Zeilenraster sind
+# hart verdrahtet. Ein Fork des 232-kB-Bundles waere die Alternative gewesen -
+# minifiziert, nicht pflegbar und bei jedem ESPHome-Update neu zu bauen. Diese
+# Seite haengt stattdessen nur an der REST-Schnittstelle des Geraets.
+# Herkunft des Entwurfs und Pflegehinweise: web/README.md.
+#
+# sorting_groups bleibt die Quelle der Gruppierung - app.js zeigt genau die
+# Entities, die einer Gruppe zugeordnet sind. sorting_groups setzt version: 3
+# voraus.
 #
 # Der Webserver teilt sich den HTTP-Server mit dem captive_portal aus
 # core.yaml - beides zusammen ist auf ESP-IDF vorgesehen und braucht keine
@@ -14,9 +32,19 @@
 
 web_server:
   version: 3
-  # Legt JS und CSS ins Flash (16 MB, unkritisch). Ohne das laedt das Frontend
-  # von GitHub nach und die Seite bleibt ohne Internetzugang leer.
-  local: true
+  # Kein local: true! Damit liefert das Geraet fuer "/" das eingebaute
+  # Standard-Frontend aus (web_server.cpp:431) und ignoriert die generierte
+  # Index-Seite - /0.js wuerde nie geladen.
+  #
+  # js_url leert die Voreinstellung https://oi.esphome.io/v3/www.js, sonst
+  # laedt das Standard-Bundle zusaetzlich nach. css_url ist ab version 2 schon
+  # von Haus aus leer.
+  js_url: ""
+  # Pfade relativ zu assist-satellit.yaml, nicht zu dieser Datei:
+  # CORE.relative_config_path loest immer gegen das Konfigurationsverzeichnis
+  # auf - dieselbe Regel wie bei den Klaengen am Media Player.
+  css_include: web/app.css
+  js_include: web/app.js
   sorting_groups:
     - id: grp_display
       name: "Anzeige"

@@ -164,6 +164,37 @@ Punkte, die man beim Ändern leicht übersieht:
   solange `boot_done` false ist; gesetzt wird es in `core.yaml` im `on_boot`
   mit priority `-100`. Nicht mit `init_in_progress` verwechseln — das hängt an
   der API-Verbindung und käme für die Ausrichtung viel zu spät.
+- **Die Weboberfläche ist eigener Code, nicht das ESPHome-Dashboard.**
+  `web/app.js` und `web/app.css` hängen über `css_include`/`js_include` in der
+  Index-Seite, die ESPHome selbst baut; ohne geladenes Standard-Bundle bleibt
+  `<esp-app>` ein leeres Element und unser Modul baut die Seite an seiner
+  Stelle auf. Drei Fallstricke, alle in `web/README.md` ausgeführt: **`local:
+  true` muss weg** (sonst liefert das Gerät für `/` das eingebaute Frontend,
+  `web_server.cpp:431`, und `/0.js` wird nie geladen), **`js_url: ""`**
+  unterdrückt das Nachladen vom CDN, und die Pfade sind relativ zu
+  `assist-satellit.yaml`. Die Seite spricht nur `GET /events`,
+  `POST /select/<entity>/set?option=` und `POST /text/<entity>/set?value=` —
+  ein ESPHome-Update kann sie nicht brechen, solange die drei bleiben. Zum
+  Ausprobieren ohne Flash gibt es keinen festen Mock im Repo; einer ist schnell
+  gebaut, weil die Ereignisformate in `web_server.cpp` stehen.
+  **`app.js` kennt keine Entity beim Namen.** Es zeigt, was eine
+  `sorting_group` hat, in der Reihenfolge, in der das Gerät sie meldet (also
+  YAML-Reihenfolge — `sorting_weight` ist überall gleich). Eine Farbe wird
+  über die *Form* erkannt (`text`-Entity, `max_length == 6`, Wert sieht aus wie
+  Hex), nicht über den Namen. Eine neue Einstellung in `web.yaml` erscheint
+  damit von selbst.
+- **Alles außerhalb von `web.yaml` trägt `disabled_by_default: true`.** Das ist
+  der zweite Teil derselben Entscheidung: `web_server` kennt **kein** „nur im
+  Web verstecken" (die Per-Entity-Optionen sind ausschließlich
+  `sorting_weight` und `sorting_group_id`), und `internal: true` nähme die
+  Entities auch Home Assistant weg. Für unsere eigene Seite wäre der Schalter
+  streng genommen nicht mehr nötig — sie filtert ohnehin über die
+  Sortiergruppe —, aber er hält die Entities auch im HA-Gerätebild
+  zusammengeräumt und ist der Rückfallpfad, falls jemand auf das
+  Standard-Frontend zurückgeht. Der Preis: eine **frisch** eingerichtete
+  HA-Integration legt sie deaktiviert an, Displayhelligkeit und Media Player
+  müssen dort einmal eingeschaltet werden — sonst fehlen der
+  `on_turn_on`-Weg in den Standby und die Announcements.
 - **Ein Tippen bricht den laufenden Sprachvorgang ab.** `on_screen_touch`
   verzweigt nach Phase: Zuhören/Verarbeitung/Sprachausgabe → `abort_session`,
   sonst wie bisher Display wecken bzw. nur aufhellen. `abort_session` ruft
@@ -350,6 +381,18 @@ Claude-Design-Projekt "Voice Assistant UI Design") erweitert das um die drei
 fehlenden Zustände **Error, Muted, Not Ready** und ersetzt den Phasentext auf
 `page_main` durch Statusicons (Material Symbols, siehe unten). Umgesetzt mit
 LVGL-Widgets in `ui.yaml`; das Mockup selbst bleibt reine Vorlage, nicht Code.
+
+Ein viertes Mockup betrifft **nicht** das Display, sondern die Weboberfläche:
+`uploads/file-1786186211037-nedf.html` im Claude-Design-Projekt
+„Konfigurationsseite". Es ist als einziges kein HTML/CSS-Entwurf, sondern ein
+**angepasster Build des ESPHome-Frontends** — 232 kB minifiziertes JavaScript.
+Übernommen sind Palette, Typografie (Barlow / Barlow Condensed), die Eckmarken
+an den Containern, das dunkle Kopfband und die Vorschaukachel neben den
+Auswahlfeldern. Nicht übernommen ist der Fork selbst: Er wäre bei jedem
+ESPHome-Update neu zu bauen und von Hand nicht zu pflegen. `web/app.js` setzt
+den Entwurf stattdessen als eigene Seite um (Begründung in `web/README.md`).
+Deshalb fehlen dort auch Logansicht, OTA-Formular und der
+„Entwicklerwerkzeuge"-Knopf des Entwurfs.
 
 ## Bekannte Einschränkungen
 

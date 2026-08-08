@@ -148,6 +148,11 @@ direkt unter seiner IP). Sie funktioniert unabhängig von Home Assistant und
 braucht keinen Internetzugang — Oberfläche und Stylesheet liegen im Flash. Auf
 dem Touchscreen selbst gibt es bewusst keine Bedienelemente.
 
+Die Seite ist **nicht** das ESPHome-Standard-Dashboard, sondern eigener Code
+(`web/app.js`, `web/app.css`) nach einem eigenen Entwurf. Sie zeigt genau die
+beiden Gruppen unten und sonst nichts. Warum das so ist und was beim
+Aktualisieren zu beachten wäre, steht in [web/README.md](web/README.md).
+
 Wer die Adresse nicht zur Hand hat: **drei Sekunden auf das Display drücken**.
 Das Gerät zeigt dann unter der Überschrift „Konfiguration" seine IP-Adresse und
 einen QR-Code, der direkt auf diese Seite führt. Ein Tippen führt zurück, und
@@ -157,12 +162,20 @@ nach der Standby-Zeit verschwindet die Seite von selbst.
 |---|---|---|
 | Anzeige | **Ausrichtung** | Dreht das Bild in 90-Grad-Schritten (0/90/180/270). Die Touch-Koordinaten dreht LVGL mit. 45 Grad gibt die Grafikbibliothek nicht her. |
 | Anzeige | **Standby-Seite** | Welche Seite im Standby erscheint: **Uhr** (große Uhrzeit mit Datum) oder **Zifferblatt** (Strichkranz mit Ziffern, ohne Zeiger). Die Umschaltung wirkt sofort, wenn das Gerät gerade im Standby steht. |
-| Farben | **Farbe Zuhören / Verarbeitung / Sprachausgabe / Fehler / gedimmt / Timer / Bestätigung / Zifferblatt** | Farbe des jeweiligen Elements, als sechsstelliger Hex-Wert ohne Präfix (z. B. `03A9F4`). „Timer" färbt Ring und Glocke, „Bestätigung" den Haken, „Zifferblatt" die hervorgehobene Stunde und Minutenmarke. Ungültige Eingaben werden ignoriert. |
+| Farben | **Farbe Zuhören / Verarbeitung / Sprachausgabe / Fehler / gedimmt / Timer / Bestätigung / Zifferblatt** | Farbe des jeweiligen Elements — entweder über den Farbwähler, eines der acht Vorgabefelder oder als sechsstelliger Hex-Wert ohne Präfix (z. B. `03A9F4`). „Timer" färbt Ring und Glocke, „Bestätigung" den Haken, „Zifferblatt" die hervorgehobene Stunde und Minutenmarke. Ungültige Eingaben springen auf den zuletzt bestätigten Wert zurück. |
+
+Neben beiden Auswahlfeldern steht eine Miniatur des runden Displays: Sie dreht
+die Marke mit der Ausrichtung mit und zeigt bei der Standby-Seite Uhr gegen
+Zifferblatt.
 
 Alle Einstellungen überstehen einen Neustart. Die Werte in
 `assist-satellit.yaml` sind nur die Voreinstellung ab Werk — was hier gesetzt
-wird, hat Vorrang. Darunter zeigt dieselbe Seite die üblichen Entities
-(Helligkeit, Stummschaltung, Wake-Word-Optionen, Diagnose, Neustart).
+wird, hat Vorrang. Mehr zeigt die Seite nicht: Helligkeit, Stummschaltung,
+Wake-Word-Optionen, Diagnose und Neustart stehen in Home Assistant.
+
+Wer das Gerät neu in Home Assistant einrichtet, findet diese Entities dort
+zunächst **deaktiviert** und muss sie einmal einschalten. Bei einem bereits
+eingebundenen Gerät ändert sich nichts.
 
 Die Seite ist **ohne Passwort** im lokalen Netz erreichbar. Wer das nicht will,
 ergänzt in `packages/web.yaml` einen `auth:`-Block mit Zugangsdaten aus
@@ -192,7 +205,8 @@ git checkout v0.1.0 && esphome run assist-satellit.yaml --device assist-satellit
 | `packages/hardware.yaml` | I2C, QSPI-Display, Touch, I2S-Audio, Codecs, Media Player |
 | `packages/voice.yaml` | Wake Word, Voice Assistant, Selects, Mute, Text-Sensoren |
 | `packages/ui.yaml` | Fonts, LVGL-Seiten, Phasen-Animationen, Standby-Uhr, Zifferblatt |
-| `packages/web.yaml` | Weboberfläche: Ausrichtung, Standby-Seite, Symbolfarben |
+| `packages/web.yaml` | Weboberfläche: Webserver, Ausrichtung, Standby-Seite, Symbolfarben |
+| `web/` | Die Weboberfläche selbst — eigene Seite statt ESPHome-Dashboard (Aufbau und Pflege stehen dort) |
 | `sounds/` | Klingel- und Bestätigungston, direkt in die Firmware eingebettet (Herkunft und Lizenz stehen dort) |
 
 Farben, Phasen-IDs und Standby-Zeiten stehen als Substitutions in
