@@ -1,11 +1,13 @@
 # Oberflaeche auf dem runden 466x466-AMOLED.
 #
-# Fuenf Seiten:
+# Sechs Seiten:
 #   page_main      Statusicon, Punkte oder Balken - je nach Phase
 #   page_standby   Uhr - nach einem Tippen, bis der Bildschirm wieder ausgeht
 #   page_dial      Zifferblatt (Alternative zur Uhr, waehlbar)
 #   page_off       leer und schwarz - Bildschirm aus
 #   page_config    IP-Adresse und QR-Code zur Weboberflaeche
+#   page_power     PV-Uebersicht (Ring aus PV/Batterie/Netz), per Schalter
+#                  sw_pv_overview (packages/web.yaml) per Sprachbefehl gezeigt
 #
 # Der Standby ist der ausgeschaltete Bildschirm, nicht ein gedimmter: nach
 # ${standby_timeout} ohne Beruehrung legt sleep_display die leere page_off vor
@@ -81,6 +83,40 @@ font:
       - "\U0000E668" # check                 - Befehl ausgefuehrt
       - "\U0000E7F7" # notifications_active   - Timer klingelt
 
+  # ------------------------------------------------------- PV-Uebersicht
+  # Fuenf eigene Fontgroessen fuer page_power, nach demselben Prinzip wie
+  # ueberall sonst im Projekt: jedes Element seine eigene Groesse statt eines
+  # Generalisten (siehe font_dial/font_timer). Glyphen jeweils auf das
+  # Noetigste beschraenkt, ausser bei echtem Fliesstext (Segmentnamen,
+  # Hausverbrauch-Bildunterschrift), der bekommt GF_Latin_Core wie font_small.
+  #
+  # Codepoint des Haus-Icons aus demselben Material-Symbols-Register wie
+  # font_icon oben.
+  - file: "gfonts://Material+Symbols+Outlined"
+    id: font_power_icon
+    size: 40
+    glyphs:
+      - "\U0000E9B2" # home
+  - file: "gfonts://Figtree@600"
+    id: font_power_value
+    size: 46
+    glyphs: ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", ","]
+  - file: "gfonts://Figtree@500"
+    id: font_power_unit
+    size: 20
+    glyphs: ["k", "W"]
+  # Segmentlabels im Ring: Zahl und Einheit stehen dort in einem einzigen
+  # Label ("620 W" / "2,4 kW"), anders als beim Hausverbrauch in der Mitte -
+  # deshalb hier zusaetzlich Ziffern, Komma und Leerzeichen im selben Font.
+  - file: "gfonts://Figtree@700"
+    id: font_power_badge_value
+    size: 20
+    glyphs: ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", ",", " ", "k", "W"]
+  - file: "gfonts://Figtree@500"
+    id: font_power_caption
+    size: 13
+    glyphsets: [GF_Latin_Core]
+
 lvgl:
   displays: [disp]
   touchscreens: [touch]
@@ -106,13 +142,23 @@ lvgl:
       # laufenden Sprachvorgang in den Standby, sobald 30 s niemand den
       # Bildschirm angefasst hat. Den Rueckweg in den Standby uebernimmt
       # ohnehin update_ui, sobald die Phase wieder auf Idle steht.
+      #
+      # Die PV-Uebersicht (page_power) ist von derselben Ausnahme betroffen,
+      # aber aus einem anderen Grund: sie zeigt keine Phase, sondern ist per
+      # Schalter (sw_pv_overview, packages/web.yaml) sozusagen "angepinnt" -
+      # wer sie per Sprachbefehl einblendet, will sie ansehen, nicht dass sie
+      # nach ${standby_timeout} ungetippt wieder verschwindet. Aus geht sie
+      # erst, wenn der Schalter das auch tut (on_turn_off dort).
       - if:
           condition:
-            lambda: |-
-              return id(voice_assistant_phase) != ${phase_listening}
-                  && id(voice_assistant_phase) != ${phase_thinking}
-                  && id(voice_assistant_phase) != ${phase_replying}
-                  && id(voice_assistant_phase) != ${phase_timer_ringing};
+            and:
+              - lambda: |-
+                  return id(voice_assistant_phase) != ${phase_listening}
+                      && id(voice_assistant_phase) != ${phase_thinking}
+                      && id(voice_assistant_phase) != ${phase_replying}
+                      && id(voice_assistant_phase) != ${phase_timer_ringing};
+              - not:
+                  lvgl.page.is_showing: page_power
           then:
             - script.execute: sleep_display
 
@@ -696,6 +742,137 @@ lvgl:
             text_align: CENTER
             long_mode: WRAP
 
+    # ------------------------------------------------------- PV-Uebersicht
+    # Nicht Teil der Standby-Rotation, sondern erreichbar nur ueber den
+    # Schalter sw_pv_overview (packages/web.yaml), der sie per Sprachbefehl
+    # einblendet ("PV Uebersicht" einschalten). Antippen schaltet ihn wieder
+    # aus (on_screen_touch); das eigentliche Ein-/Ausblenden inklusive
+    # Standby-Rueckkehr macht dessen on_turn_on/on_turn_off.
+    #
+    # Umsetzung von "Leistungsfluss Display.dc.html" (Claude-Design-Projekt
+    # "Leistungsfluss-Dashboard Design"): ein Ring aus bis zu drei Segmenten
+    # (PV, Batterie, Netz - Flaeche proportional zu ihrem Leistungsanteil, mit
+    # ${power_ring_gap_deg} Grad Luecke dazwischen wie im Mockup), dazu ein
+    # Label je Segment auf Radius ${power_badge_radius}, und in der Mitte der
+    # Hausverbrauch. Alle Winkel, Positionen und Texte setzt update_power_flow
+    # zur Laufzeit - hier stehen nur die leeren Widgets.
+    #
+    # Drei separate Arcs statt eines CSS-Conic-Gradients (den LVGL nicht
+    # kennt), nach demselben Rezept wie ring_timer im top_layer: value bleibt
+    # immer auf dem Maximum, die Farbe steckt im indicator, und
+    # ${power_ring_gap_deg} entsteht rein daraus, dass end_angle etwas vor dem
+    # naechsten start_angle endet.
+    #
+    # Eine Quelle mit 0 W (oder deren Sensor gerade keinen gueltigen Wert
+    # liefert) verschwindet ganz aus dem Ring statt eines Nullsegments -
+    # siehe update_power_flow.
+    - id: page_power
+      bg_color: 0x000000
+      bg_opa: COVER
+      scrollable: false
+      widgets:
+        - arc:
+            id: arc_pv
+            align: CENTER
+            width: ${power_ring_outer}
+            height: ${power_ring_outer}
+            min_value: 0
+            max_value: 100
+            value: 100
+            start_angle: 270
+            end_angle: 270
+            arc_width: ${power_ring_width}
+            arc_opa: TRANSP
+            bg_opa: TRANSP
+            pad_all: 0
+            hidden: true
+            indicator:
+              arc_width: ${power_ring_width}
+              arc_color: ${color_pv}
+              arc_opa: COVER
+        - arc:
+            id: arc_batt
+            align: CENTER
+            width: ${power_ring_outer}
+            height: ${power_ring_outer}
+            min_value: 0
+            max_value: 100
+            value: 100
+            start_angle: 270
+            end_angle: 270
+            arc_width: ${power_ring_width}
+            arc_opa: TRANSP
+            bg_opa: TRANSP
+            pad_all: 0
+            hidden: true
+            indicator:
+              arc_width: ${power_ring_width}
+              arc_color: ${color_batt}
+              arc_opa: COVER
+        - arc:
+            id: arc_netz
+            align: CENTER
+            width: ${power_ring_outer}
+            height: ${power_ring_outer}
+            min_value: 0
+            max_value: 100
+            value: 100
+            start_angle: 270
+            end_angle: 270
+            arc_width: ${power_ring_width}
+            arc_opa: TRANSP
+            bg_opa: TRANSP
+            pad_all: 0
+            hidden: true
+            indicator:
+              arc_width: ${power_ring_width}
+              arc_color: ${color_netz}
+              arc_opa: COVER
+
+        # --- Hausverbrauch in der Mitte ---
+        - label:
+            id: lbl_power_icon
+            align: CENTER
+            y: -37
+            text: "\U0000E9B2" # home
+            text_font: font_power_icon
+            text_color: ${color_text}
+            text_align: CENTER
+        - label:
+            id: lbl_power_value
+            align: CENTER
+            x: -18
+            y: 12
+            text: "0"
+            text_font: font_power_value
+            text_color: ${color_text}
+            text_align: CENTER
+        - label:
+            id: lbl_power_unit
+            align: CENTER
+            x: 26
+            y: 20
+            text: "W"
+            text_font: font_power_unit
+            text_color: ${color_text_dim}
+            text_align: CENTER
+        - label:
+            id: lbl_power_caption
+            align: CENTER
+            y: 49
+            text: "Hausverbrauch"
+            text_font: font_power_caption
+            text_color: ${color_text_dim}
+            text_align: CENTER
+
+        # --- Segmentlabels: Text und Position setzt update_power_flow ---
+        - label: {id: lbl_pv_val, align: CENTER, text: "", text_font: font_power_badge_value, text_color: "${color_pv}", text_align: CENTER, hidden: true}
+        - label: {id: lbl_pv_name, align: CENTER, text: "PV", text_font: font_power_caption, text_color: "${color_text_dim}", text_align: CENTER, hidden: true}
+        - label: {id: lbl_batt_val, align: CENTER, text: "", text_font: font_power_badge_value, text_color: "${color_batt}", text_align: CENTER, hidden: true}
+        - label: {id: lbl_batt_name, align: CENTER, text: "Batterie", text_font: font_power_caption, text_color: "${color_text_dim}", text_align: CENTER, hidden: true}
+        - label: {id: lbl_netz_val, align: CENTER, text: "", text_font: font_power_badge_value, text_color: "${color_netz}", text_align: CENTER, hidden: true}
+        - label: {id: lbl_netz_name, align: CENTER, text: "Netz", text_font: font_power_caption, text_color: "${color_text_dim}", text_align: CENTER, hidden: true}
+
 globals:
   # Ein Hinweis von aussen steht an (API-Aktion zeige_hinweis in
   # packages/core.yaml). Nur update_ui und show_hint fassen ihn an.
@@ -883,10 +1060,16 @@ script:
 
   # Antippen hat je nach Zustand drei Bedeutungen:
   #
-  # - Auf der Konfigurationsseite fuehrt es zurueck. update_ui waehlt die
-  #   richtige Seite (Standby oder Hauptseite); die Helligkeit setzt danach
-  #   der passende Zweig unten - wer gerade tippt, will nicht ins Dunkle
-  #   zurueck.
+  # - Auf der Konfigurationsseite und der PV-Uebersicht fuehrt es zurueck.
+  #   Bei der Konfigurationsseite direkt per update_ui; bei der PV-Uebersicht
+  #   ueber switch.turn_off, damit der Schalter in Home Assistant denselben
+  #   Zustand zeigt wie das Display (sonst bliebe er "an", obwohl die Seite
+  #   schon weg ist, und ein erneutes Einschalten per Sprachbefehl bliebe ohne
+  #   sichtbare Wirkung, weil sich der Zustand ja nicht aendert). Der eigentliche
+  #   Seitenwechsel passiert dann in dessen on_turn_off. Beide Zweige laufen in
+  #   die gleiche Fortsetzung unten: update_ui waehlt die richtige Seite
+  #   (Standby oder Hauptseite); die Helligkeit setzt danach der passende
+  #   Zweig unten - wer gerade tippt, will nicht ins Dunkle zurueck.
   # - Waehrend Zuhoeren, Verarbeitung oder Sprachausgabe bricht es den Vorgang
   #   ab (abort_session in packages/voice.yaml). Das Display ist in diesen
   #   Phasen ohnehin schon wach, ein wake_display waere ueberfluessig -
@@ -923,6 +1106,11 @@ script:
                   lvgl.page.is_showing: page_config
                 then:
                   - script.execute: update_ui
+            - if:
+                condition:
+                  lvgl.page.is_showing: page_power
+                then:
+                  - switch.turn_off: sw_pv_overview
             - if:
                 condition:
                   lambda: |-
@@ -1280,6 +1468,108 @@ script:
   # Der minuetliche Takt fuer Uhr und Zifferblatt haengt am Zeitgeber in
   # core.yaml (`time: ha_time` -> on_time), weil ESPHome Plattform-Listen
   # ueber Package-Grenzen hinweg nicht per id zusammenfuehrt.
+
+  # -------------------------------------------------------- PV-Uebersicht
+  # Zeichnet page_power neu: Ring (drei Arcs) und die sieben Textlabels. Laeuft
+  # bei jedem on_value der vier HA-Sensor-Importe (packages/core.yaml) und
+  # einmal beim Einschalten von sw_pv_overview (packages/web.yaml) - unabhaengig
+  # davon, ob die Seite gerade sichtbar ist. Das ist bewusst kein Guard auf
+  # lvgl.page.is_showing wie beim Minutentakt oben: anders als der 40-ms-Takt
+  # der Phasenanimationen feuert das hier ereignisgetrieben im Sekunden- bis
+  # Minutentakt (Home-Assistant-Leistungssensoren), also unkritisch fuer die
+  # Zeichenbandbreite.
+  #
+  # Winkelrechnung 1:1 aus buildRing()/ringMarkers() im Mockup-Skript
+  # (support.js-Laufzeit von "Leistungsfluss Display.dc.html"): angle laeuft
+  # kumulativ ueber die volle Segmentbreite (ohne die Luecke abzuziehen), erst
+  # end_angle wird um ${power_ring_gap_deg} verkuerzt - dadurch bleibt die
+  # Segmentmitte (fuer die Labelposition) unabhaengig von der Luecke. 0 Grad
+  # ist zwoelf Uhr im Uhrzeigersinn wie im CSS-conic-gradient des Mockups;
+  # LVGL zaehlt Winkel ab drei Uhr, deshalb + 270 wie bei ring_timer weiter
+  # oben (Werte ueber 360 normalisiert LVGL selbst).
+  - id: update_power_flow
+    mode: restart
+    then:
+      - lambda: |-
+          float pv   = id(ha_pv_power).state;
+          float batt = id(ha_batt_power).state;
+          float netz = id(ha_netz_power).state;
+          float haus = id(ha_haus_power).state;
+
+          // Sensor ohne gueltigen Wert (NaN, vor der ersten Meldung aus HA)
+          // oder negativ (Batterie laedt, Netz speist ein) wie 0 behandeln -
+          // ein Vergleich mit NaN ist immer false, das faengt beides in einem
+          // Zug. Der Ring zeigt nur Quellen, die gerade wirklich zum Haus hin
+          // fliessen.
+          if (!(pv   > 0.0f)) pv   = 0.0f;
+          if (!(batt > 0.0f)) batt = 0.0f;
+          if (!(netz > 0.0f)) netz = 0.0f;
+          if (!(haus > 0.0f)) haus = 0.0f;
+
+          // Unter 1000 W in Watt ohne Nachkommastelle, ab 1000 W in kW mit
+          // einer Nachkommastelle und Komma statt Punkt.
+          auto format = [](float w) -> std::string {
+            char buf[16];
+            if (w < 1000.0f) {
+              snprintf(buf, sizeof(buf), "%.0f", w);
+            } else {
+              snprintf(buf, sizeof(buf), "%.1f", w / 1000.0f);
+              for (char *p = buf; *p; ++p)
+                if (*p == '.') *p = ',';
+            }
+            return std::string(buf);
+          };
+          auto einheit = [](float w) -> const char* {
+            return w < 1000.0f ? "W" : "kW";
+          };
+
+          lv_label_set_text(id(lbl_power_value), format(haus).c_str());
+          lv_label_set_text(id(lbl_power_unit), einheit(haus));
+
+          // Die Ringfarbe steckt fest im indicator: der jeweiligen Arc-Definition
+          // (page_power), hier geht es nur um Anteil, Winkel und Textinhalt.
+          struct Quelle {
+            float w;
+            lv_obj_t *arc, *lbl_val, *lbl_name;
+          };
+          Quelle quellen[3] = {
+            {pv,   id(arc_pv),   id(lbl_pv_val),   id(lbl_pv_name)},
+            {batt, id(arc_batt), id(lbl_batt_val), id(lbl_batt_name)},
+            {netz, id(arc_netz), id(lbl_netz_val), id(lbl_netz_name)},
+          };
+          const float total = pv + batt + netz;
+          static const float BOGEN = 3.14159265f / 180.0f;
+          float angle = 0.0f; // zwoelf Uhr, wie buildRing() im Mockup
+
+          for (uint8_t i = 0; i < 3; i++) {
+            Quelle &q = quellen[i];
+            if (total <= 0.0f || q.w <= 0.0f) {
+              lv_obj_add_flag(q.arc, LV_OBJ_FLAG_HIDDEN);
+              lv_obj_add_flag(q.lbl_val, LV_OBJ_FLAG_HIDDEN);
+              lv_obj_add_flag(q.lbl_name, LV_OBJ_FLAG_HIDDEN);
+              continue;
+            }
+
+            const float span = (q.w / total) * 360.0f;
+            const float start = angle;
+            const float end = angle + span - (i < 2 ? (float) ${power_ring_gap_deg} : 0.0f);
+            const float mitte = angle + span / 2.0f;
+            angle += span;
+
+            lv_arc_set_start_angle(q.arc, (int32_t) lroundf(270.0f + start));
+            lv_arc_set_end_angle(q.arc, (int32_t) lroundf(270.0f + end));
+            lv_obj_remove_flag(q.arc, LV_OBJ_FLAG_HIDDEN);
+
+            const float rad = mitte * BOGEN;
+            const int32_t dx = (int32_t) lroundf(${power_badge_radius} * sinf(rad));
+            const int32_t dy = (int32_t) lroundf(-${power_badge_radius} * cosf(rad));
+
+            lv_label_set_text(q.lbl_val, (format(q.w) + " " + einheit(q.w)).c_str());
+            lv_obj_align(q.lbl_val, LV_ALIGN_CENTER, dx, dy - 12);
+            lv_obj_align(q.lbl_name, LV_ALIGN_CENTER, dx, dy + 10);
+            lv_obj_remove_flag(q.lbl_val, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_remove_flag(q.lbl_name, LV_OBJ_FLAG_HIDDEN);
+          }
 
 # --------------------------------------------- Animation der Verarbeitung
 # ESPHome-LVGL hat kein Animations-Primitive fuer eigene Widget-Eigenschaften

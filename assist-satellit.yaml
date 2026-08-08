@@ -150,6 +150,30 @@ substitutions:
   # LVGL den Code so, dass Module plus vier Modul breiter Rand hineinpassen.
   qr_size: "180"
 
+  # PV-Uebersicht (page_power): Kreisdiagramm aus PV-/Batterie-/Netzleistung
+  # als Ring, Hausverbrauch als Zahl in der Mitte. Umsetzung von
+  # "Leistungsfluss Display.dc.html" (Claude-Design-Projekt
+  # "Leistungsfluss-Dashboard Design"). Nicht ueber sel_standby_page waehlbar,
+  # sondern ueber den Schalter sw_pv_overview (packages/web.yaml), der die
+  # Seite per Sprachbefehl einblendet ("Schalte PV Uebersicht ein").
+  #
+  # Geometrie 1:1 aus dem Mockup: der Ring liegt zwischen Radius 167 und 199
+  # (34..66 px Einzug vom 466-px-Bildschirmrand), die Segmentlabels auf
+  # Radius 108. power_ring_outer ist der Aussendurchmesser (2 * 199 = 398),
+  # power_ring_width die Kranzbreite (199 - 167 = 32).
+  power_ring_outer: "398"
+  power_ring_width: "32"
+  power_ring_gap_deg: "3"
+  power_badge_radius: "108"
+
+  # Farben der drei Ringsegmente, aus den oklch-Werten des Mockups nach sRGB
+  # umgerechnet. Wie der Kranz des Zifferblatts (siehe color_dial-Kommentar in
+  # web.yaml) bewusst nicht ueber die Weboberflaeche einstellbar - der Ring
+  # ist die eine Hauptaussage der Seite, nicht ein editierbares Akzentdetail.
+  color_pv: "0xCCAC16"
+  color_batt: "0x00C9D3"
+  color_netz: "0x9CA1FF"
+
 packages:
   core: !include packages/core.yaml
   hardware: !include packages/hardware.yaml

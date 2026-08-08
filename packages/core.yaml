@@ -152,6 +152,39 @@ sensor:
     update_interval: 60s
     entity_category: diagnostic
 
+  # PV-Uebersicht (page_power in packages/ui.yaml): reine Importe bereits
+  # bestehender Home-Assistant-Sensoren, analog zu ha_time weiter oben - das
+  # Geraet misst selbst nichts. internal: true wie bei device_ip, damit keine
+  # doppelten Entities entstehen (die Werte stehen schon in HA).
+  #
+  # Alle vier in Watt; update_power_flow (ui.yaml) rechnet ab 1000 W selbst
+  # auf kW um. Ein fehlender oder negativer Wert (Batterie laedt, Netz speist
+  # ein) wird dort wie 0 behandelt, nicht hier - deshalb kein weiterer Filter.
+  - platform: homeassistant
+    id: ha_pv_power
+    entity_id: sensor.pv_anlage_solar_power
+    internal: true
+    on_value:
+      - script.execute: update_power_flow
+  - platform: homeassistant
+    id: ha_batt_power
+    entity_id: sensor.pv_anlage_battery_power
+    internal: true
+    on_value:
+      - script.execute: update_power_flow
+  - platform: homeassistant
+    id: ha_netz_power
+    entity_id: sensor.pv_anlage_grid_power
+    internal: true
+    on_value:
+      - script.execute: update_power_flow
+  - platform: homeassistant
+    id: ha_haus_power
+    entity_id: sensor.pv_anlage_home_power
+    internal: true
+    on_value:
+      - script.execute: update_power_flow
+
 text_sensor:
   - platform: version
     name: "ESPHome-Version"
