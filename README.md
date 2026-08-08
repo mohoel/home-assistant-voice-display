@@ -162,11 +162,13 @@ nach der Standby-Zeit verschwindet die Seite von selbst.
 |---|---|---|
 | Anzeige | **Ausrichtung** | Dreht das Bild in 90-Grad-Schritten (0/90/180/270). Die Touch-Koordinaten dreht LVGL mit. 45 Grad gibt die Grafikbibliothek nicht her. |
 | Anzeige | **Standby-Seite** | Welche Seite im Standby erscheint: **Uhr** (große Uhrzeit mit Datum) oder **Zifferblatt** (Strichkranz mit Ziffern, ohne Zeiger). Die Umschaltung wirkt sofort, wenn das Gerät gerade im Standby steht. |
-| Farben | **Farbe Zuhören / Verarbeitung / Sprachausgabe / Fehler / gedimmt / Timer / Bestätigung / Zifferblatt** | Farbe des jeweiligen Elements — entweder über den Farbwähler, eines der acht Vorgabefelder oder als sechsstelliger Hex-Wert ohne Präfix (z. B. `03A9F4`). „Timer" färbt Ring und Glocke, „Bestätigung" den Haken, „Zifferblatt" die hervorgehobene Stunde und Minutenmarke. Ungültige Eingaben springen auf den zuletzt bestätigten Wert zurück. |
+| Farben | **Farbe Zuhören / Verarbeitung / Sprachausgabe / Fehler / Gedimmt / Timer / Bestätigung / Zifferblatt** | Farbe des jeweiligen Elements — entweder über den Farbwähler, eines der acht Vorgabefelder oder als sechsstelliger Hex-Wert ohne Präfix (z. B. `03A9F4`). „Timer" färbt Ring und Glocke, „Bestätigung" den Haken, „Zifferblatt" die hervorgehobene Stunde und Minutenmarke. Ungültige Eingaben springen auf den zuletzt bestätigten Wert zurück. |
 
-Neben beiden Auswahlfeldern steht eine Miniatur des runden Displays: Sie dreht
-die Marke mit der Ausrichtung mit und zeigt bei der Standby-Seite Uhr gegen
-Zifferblatt.
+Beide Auswahlfelder sind keine Dropdowns, sondern eine Reihe Kacheln — je
+Option eine Miniatur des runden Displays. Sie dreht die Marke mit der
+Ausrichtung mit und zeigt bei der Standby-Seite Uhr gegen Zifferblatt, sodass
+man die Wirkung vor dem Klick sieht. Die angeklickte Kachel wird hervorgehoben,
+sobald das Gerät den Wert bestätigt hat.
 
 Alle Einstellungen überstehen einen Neustart. Die Werte in
 `assist-satellit.yaml` sind nur die Voreinstellung ab Werk — was hier gesetzt

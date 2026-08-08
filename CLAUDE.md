@@ -75,6 +75,7 @@ wirkt daher nur auf einem Gerät, das diese Farbe noch nie gesetzt bekommen hat.
 | `packages/ui.yaml` | Fonts, LVGL-Seiten, Phasen-Animationen, Standby-Uhr, Zifferblatt, Timer-Ring |
 | `packages/web.yaml` | Web-Bedienseite: Webserver, Ausrichtung, Standby-Seite, Symbolfarben |
 | `sounds/` | Klingel- und Bestätigungston als FLAC, eingebettet über `files:` am Media Player |
+| `web/` | Die Bedienseite selbst: `app.js`, `app.css`, dazu `mockup.py` und das erzeugte Standbild `mockup.html` für die Gestaltung |
 
 Die Voice-Assistant-Logik folgt `esphome/wake-word-voice-assistants`
 (esp32-s3-box-3) und `esphome/home-assistant-voice-pe`. Bei neuen Features zuerst
@@ -182,7 +183,16 @@ Punkte, die man beim Ändern leicht übersieht:
   YAML-Reihenfolge — `sorting_weight` ist überall gleich). Eine Farbe wird
   über die *Form* erkannt (`text`-Entity, `max_length == 6`, Wert sieht aus wie
   Hex), nicht über den Namen. Eine neue Einstellung in `web.yaml` erscheint
-  damit von selbst.
+  damit von selbst. Dieselbe Regel gilt für die beiden Eingriffe in den
+  Anzeigetext: das führende „Farbe " fällt bei Farbzeilen weg (unter der
+  Überschrift „Farben" wäre es doppelt), und ein Auswahlfeld wird zur
+  Kachelreihe — beides über die Form, nicht über eine Liste von Entities.
+  **Umlaute in Entity-Namen sind unbedenklich**: der Webserver adressiert über
+  den Namen, nicht über die `object_id` (`web_server.cpp:549`), und dekodiert
+  den Pfad vorher (`web_server_idf.cpp:324`). Sie ändern aber die abgeleitete
+  `object_id` — eine bestehende HA-Integration legt danach neue Entities an und
+  lässt die alten als Waisen zurück. Die Farbwerte hängen an den Globals in
+  `web.yaml` und überleben das.
 - **Alles außerhalb von `web.yaml` trägt `disabled_by_default: true`.** Das ist
   der zweite Teil derselben Entscheidung: `web_server` kennt **kein** „nur im
   Web verstecken" (die Per-Entity-Optionen sind ausschließlich
@@ -393,6 +403,26 @@ ESPHome-Update neu zu bauen und von Hand nicht zu pflegen. `web/app.js` setzt
 den Entwurf stattdessen als eigene Seite um (Begründung in `web/README.md`).
 Deshalb fehlen dort auch Logansicht, OTA-Formular und der
 „Entwicklerwerkzeuge"-Knopf des Entwurfs.
+
+Ein fünftes Mockup betrifft dieselbe Weboberfläche und **löst das vierte ab**:
+`uploads/mockup.html` im Claude-Design-Projekt „Bedienseite". Es ist kein
+fremder Entwurf, sondern der Rücklauf unseres eigenen Standbilds — dunkle
+Fläche in oklch (alle Töne auf Farbwinkel 264), Manrope und Roboto Mono statt
+Barlow, Zeilen als Kacheln in einem zweispaltigen Raster, und die Dropdowns
+ersetzt durch klickbare Vorschaukacheln je Option. Vom vierten Mockup bleiben
+der Seitenaufbau und die Eckmarken — letztere sind mit `display: none`
+abgeschaltet, weil der Gruppenblock keinen Rahmen mehr hat, um den sie stehen
+könnten; Regeln und Markup bleiben als Ein-Zeilen-Rückweg.
+
+Der Weg dorthin ist der Grund, warum `web/mockup.py` existiert: Die Seite baut
+ihr Markup erst zur Laufzeit, ein Entwurf braucht aber etwas, das ohne Gerät
+rendert. Das Skript erzeugt `web/mockup.html` — dasselbe Markup mit
+Beispielwerten und eingebettetem `app.css` — und dieses Standbild geht nach
+Claude Design. **Es ist eine Ableitung und muss nach jeder Änderung an
+`app.css` oder `app.js` neu erzeugt werden**, sonst gestaltet der nächste
+Durchgang an einem veralteten Bild. Sein Kopfkommentar führt die Klassennamen
+auf, die `app.js` und `app.css` teilen; wer dort umbenennt, muss beide Seiten
+mitziehen.
 
 ## Bekannte Einschränkungen
 

@@ -178,6 +178,18 @@ select:
 text:
   # Farbeingabe als sechsstelliges Hex ohne Praefix (z. B. 03A9F4). Einen
   # Farbwaehler kennt das ESPHome-Dashboard nicht - Text ist der einzige Weg.
+  # web/app.js baut daraus einen echten Farbwaehler, und die Ueberschrift
+  # "Farben" macht das Wort im Namen doppelt - die Seite schneidet das fuehrende
+  # "Farbe " deshalb selbst weg. Der Name bleibt hier vollstaendig, weil er in
+  # Home Assistant ohne die Ueberschrift steht.
+  #
+  # Umlaute im Namen sind unbedenklich: der Webserver adressiert Entities ueber
+  # den *Namen*, nicht ueber die object_id ("Uses names (not object_id) to avoid
+  # UTF-8 collision issues", web_server.cpp:549), und dekodiert den Pfad vorher
+  # (web_server_idf.cpp:324). Was sie aendern, ist die von ESPHome abgeleitete
+  # object_id - eine bestehende HA-Integration legt daher neue Entities an und
+  # die alten bleiben als Waisen zurueck. Die Farbwerte selbst haengen an den
+  # Globals oben und ueberleben das.
   #
   # Kein restore_value hier: die Globals oben sind die Quelle der Wahrheit und
   # halten den Wert ueber den Neustart. sync_color_texts schreibt sie im on_boot
@@ -185,7 +197,7 @@ text:
   # zeigt. Deshalb optimistic - ohne set_action gaebe es sonst keinen Zustand.
   - platform: template
     id: txt_col_listening
-    name: "Farbe Zuhoeren"
+    name: "Farbe Zuhören"
     icon: mdi:palette
     entity_category: config
     mode: text
@@ -265,7 +277,7 @@ text:
 
   - platform: template
     id: txt_col_dim
-    name: "Farbe gedimmt"
+    name: "Farbe Gedimmt"
     icon: mdi:palette
     entity_category: config
     mode: text
@@ -305,7 +317,7 @@ text:
 
   - platform: template
     id: txt_col_result
-    name: "Farbe Bestaetigung"
+    name: "Farbe Bestätigung"
     icon: mdi:palette
     entity_category: config
     mode: text

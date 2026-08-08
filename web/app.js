@@ -160,85 +160,80 @@ function updateHeader() {
 // ---------------------------------------------------------------------------
 // Vorschaukachel
 //
-// Der Entwurf laesst neben jedem Auswahlfeld eine 40x28-Kachel frei
-// ("Vorschau folgt"). Gefuellt ist sie hier mit einer Miniatur des runden
-// Displays: fuer die Ausrichtung eine Marke, die mit dem gewaehlten Winkel
-// wandert, fuer die Standby-Seite Uhr gegen Zifferblatt.
+// Jede Kachel ist eine Miniatur des runden Displays: fuer die Ausrichtung eine
+// Marke, die mit dem Winkel wandert, fuer die Standby-Seite Uhr gegen
+// Zifferblatt. Gezeichnet wird immer der *uebergebene* Wert, nicht der aktuelle
+// Zustand - dieselbe Funktion malt damit die Vorschau je Option.
 // ---------------------------------------------------------------------------
 
-function buildPreview(entity) {
-  const box = el("div", "preview");
-  const ns = "http://www.w3.org/2000/svg";
-  const node = document.createElementNS(ns, "svg");
-  node.setAttribute("viewBox", "0 0 24 24");
-  node.setAttribute("width", "22");
-  node.setAttribute("height", "22");
-  box.appendChild(node);
+const NS = "http://www.w3.org/2000/svg";
 
-  box.update = (value) => {
-    node.textContent = "";
-    const ring = document.createElementNS(ns, "circle");
-    ring.setAttribute("cx", "12");
-    ring.setAttribute("cy", "12");
-    ring.setAttribute("r", "10");
-    ring.setAttribute("fill", "none");
-    ring.setAttribute("stroke", "currentColor");
-    ring.setAttribute("stroke-width", "1");
-    node.appendChild(ring);
+function shape(tag, attrs) {
+  const node = document.createElementNS(NS, tag);
+  for (const [key, value] of Object.entries(attrs)) node.setAttribute(key, value);
+  return node;
+}
 
-    const angle = { "0°": 0, "90°": 90, "180°": 180, "270°": 270 }[value];
-    if (angle !== undefined) {
-      // Ausrichtung: eine Marke am oberen Rand, mitgedreht.
-      const mark = document.createElementNS(ns, "rect");
-      mark.setAttribute("x", "9");
-      mark.setAttribute("y", "3");
-      mark.setAttribute("width", "6");
-      mark.setAttribute("height", "2");
-      mark.setAttribute("fill", "currentColor");
-      mark.setAttribute("transform", `rotate(${angle} 12 12)`);
-      node.appendChild(mark);
-      box.title = `Ausrichtung ${value}`;
-      return;
+// Beschriftung der Kachel, gleichzeitig der title-Text.
+function previewTitle(value) {
+  if (/^\d+°$/.test(value)) return `Ausrichtung ${value}`;
+  return `Standby: ${value}`;
+}
+
+function drawPreview(node, value) {
+  node.textContent = "";
+  node.appendChild(
+    shape("circle", { cx: 12, cy: 12, r: 10, fill: "none", stroke: "currentColor", "stroke-width": 1 })
+  );
+
+  const angle = { "0°": 0, "90°": 90, "180°": 180, "270°": 270 }[value];
+  if (angle !== undefined) {
+    // Ausrichtung: eine Marke am oberen Rand, mitgedreht.
+    node.appendChild(
+      shape("rect", {
+        x: 9, y: 3, width: 6, height: 2,
+        fill: "currentColor",
+        transform: `rotate(${angle} 12 12)`,
+      })
+    );
+    return;
+  }
+
+  if (value === "Zifferblatt") {
+    // Zwoelf Striche auf dem Kranz, wie page_dial. Bewusst ohne Zeiger: die
+    // Seite auf dem Geraet hat keine, und eine Vorschau soll nicht mehr
+    // versprechen als das Geraet zeigt.
+    for (let i = 0; i < 12; i++) {
+      node.appendChild(
+        shape("line", {
+          x1: 12, y1: 3.5, x2: 12, y2: 5.5,
+          stroke: "currentColor",
+          "stroke-width": 1,
+          transform: `rotate(${i * 30} 12 12)`,
+        })
+      );
     }
+    return;
+  }
 
-    if (value === "Zifferblatt") {
-      // Zwoelf Striche auf dem Kranz, wie page_dial.
-      for (let i = 0; i < 12; i++) {
-        const tick = document.createElementNS(ns, "line");
-        tick.setAttribute("x1", "12");
-        tick.setAttribute("y1", "3.5");
-        tick.setAttribute("x2", "12");
-        tick.setAttribute("y2", "5.5");
-        tick.setAttribute("stroke", "currentColor");
-        tick.setAttribute("stroke-width", "1");
-        tick.setAttribute("transform", `rotate(${i * 30} 12 12)`);
-        node.appendChild(tick);
-      }
-      box.title = "Standby: Zifferblatt";
-      return;
-    }
+  // Uhr: grosse Uhrzeit mit Datum darunter, angedeutet als zwei Balken.
+  node.appendChild(shape("rect", { x: 6, y: 9.5, width: 12, height: 3, fill: "currentColor" }));
+  node.appendChild(
+    shape("rect", { x: 8.5, y: 14, width: 7, height: 1.5, fill: "currentColor", opacity: 0.5 })
+  );
+}
 
-    // Uhr: grosse Uhrzeit mit Datum darunter, angedeutet als zwei Balken.
-    const time = document.createElementNS(ns, "rect");
-    time.setAttribute("x", "6");
-    time.setAttribute("y", "9.5");
-    time.setAttribute("width", "12");
-    time.setAttribute("height", "3");
-    time.setAttribute("fill", "currentColor");
-    node.appendChild(time);
-    const date = document.createElementNS(ns, "rect");
-    date.setAttribute("x", "8.5");
-    date.setAttribute("y", "14");
-    date.setAttribute("width", "7");
-    date.setAttribute("height", "1.5");
-    date.setAttribute("fill", "currentColor");
-    date.setAttribute("opacity", "0.5");
-    node.appendChild(date);
-    box.title = "Standby: Uhr";
-  };
-
-  box.update(entity.value);
-  return box;
+// Eine Option als klickbare Kachel mit Miniatur und Beschriftung.
+function buildOptionTile(option) {
+  const tile = el("button", "preview preview--option");
+  tile.type = "button";
+  tile.dataset.value = option;
+  tile.title = previewTitle(option);
+  const node = shape("svg", { viewBox: "0 0 24 24", width: 28, height: 28 });
+  drawPreview(node, option);
+  tile.appendChild(node);
+  tile.appendChild(el("span", null, option));
+  return tile;
 }
 
 // ---------------------------------------------------------------------------
@@ -256,30 +251,33 @@ const PRESETS = [
   "#8b4fc9",
 ];
 
+// Auswahl als Kachelreihe. Ein Dropdown gibt es hier nicht mehr: beide
+// Auswahlfelder des Geraets zeigen etwas Sichtbares, und die Vorschau gehoert
+// dann an die Option, nicht daneben. Aus dem Klick wird direkt das POST - eine
+// verborgene <select> als Zwischenstation braucht es nicht, weil die Seite ihre
+// Werte ohnehin nur ueber die REST-Schnittstelle setzt.
 function buildSelectRow(entity, row) {
-  const wrap = el("div", "select-wrap");
-  const field = el("select");
+  const wrap = el("div", "select-wrap select-wrap--tiles");
+  const tiles = [];
   for (const option of entity.option || []) {
-    const item = el("option", null, option);
-    item.value = option;
-    if (option === entity.value) item.selected = true;
-    field.appendChild(item);
+    const tile = buildOptionTile(option);
+    tile.addEventListener("click", () => {
+      mark(option);
+      post(entity, "set", `option=${encodeURIComponent(option)}`);
+    });
+    tiles.push(tile);
+    wrap.appendChild(tile);
   }
-  const preview = buildPreview(entity);
-  field.addEventListener("change", () => {
-    preview.update(field.value);
-    post(entity, "set", `option=${encodeURIComponent(field.value)}`);
-  });
-  wrap.appendChild(field);
-  wrap.appendChild(preview);
   row.querySelector(".value").appendChild(wrap);
 
-  // Zustandsuebernahme von aussen: nicht anfassen, solange das Feld offen ist.
-  row.sync = (value) => {
-    if (document.activeElement === field) return;
-    field.value = value;
-    preview.update(value);
-  };
+  function mark(value) {
+    for (const tile of tiles) {
+      tile.classList.toggle("selected", tile.dataset.value === value);
+    }
+  }
+
+  mark(entity.value);
+  row.sync = mark;
 }
 
 function buildColorRow(entity, row) {
@@ -314,15 +312,19 @@ function buildColorRow(entity, row) {
   });
   wrap.appendChild(hex);
 
-  // Das Icon der Zeile ist der aktuelle Farbwert selbst.
+  // Das Icon der Zeile ist der aktuelle Farbwert selbst. Maße und Rahmen
+  // stehen in app.css unter .icon > .chip, hier nur der Wert.
   const dot = row.querySelector(".icon");
   dot.textContent = "";
-  const chip = el("div");
-  chip.style.width = "18px";
-  chip.style.height = "18px";
-  chip.style.border = "1px solid rgba(29,31,32,.35)";
+  const chip = el("div", "chip");
   chip.style.background = "#" + entity.value;
   dot.appendChild(chip);
+
+  // Unter der Überschrift „Farben" ist das Wort im Namen jeder Zeile doppelt.
+  // Das ist eine Regel über die Form des Namens, keine Liste von Entities:
+  // eine neue Farbe in packages/web.yaml braucht hier nichts nachzutragen.
+  const label = row.querySelector(".label");
+  label.textContent = label.textContent.replace(/^Farbe\s+/, "");
 
   function send(value) {
     if (!/^[0-9a-f]{6}$/i.test(value)) {

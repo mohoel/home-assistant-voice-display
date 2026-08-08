@@ -4,8 +4,24 @@
 <http://assist-satellit.local/>. Sie ist **eigener Code** und ersetzt das
 ESPHome-Standard-Frontend vollständig.
 
-Der Entwurf stammt aus dem Claude-Design-Projekt „Konfigurationsseite"
-(`uploads/file-1786186211037-nedf.html`).
+Der Entwurf stammt aus dem Claude-Design-Projekt „Bedienseite"
+(`uploads/mockup.html`) — dunkle Fläche, Manrope und Roboto Mono, Kacheln statt
+Tabellenzeilen. Er löst den ersten Entwurf aus „Konfigurationsseite"
+(`uploads/file-1786186211037-nedf.html`, helles Barlow-Layout) ab; von dem
+stammen noch der Aufbau der Seite und die Eckmarken, die inzwischen
+abgeschaltet sind.
+
+Gestaltet wird **nicht** an dieser Seite, sondern an `mockup.html` daneben: ein
+Standbild mit Beispielwerten und eingebettetem CSS, das ohne Gerät rendert.
+`app.js` baut das Markup erst zur Laufzeit aus den Ereignissen des Geräts auf —
+ohne Gerät gäbe es nichts zu zeigen. Der Kopfkommentar im Standbild nennt die
+Klassennamen, die beide Seiten teilen, und was das Gerät vorgibt. Erzeugt wird
+es von `mockup.py`, ist also eine Ableitung und nach jeder Änderung an
+`app.css` oder `app.js` neu zu bauen:
+
+```bash
+python3 web/mockup.py
+```
 
 ## Wie die Seite eingehängt ist
 
@@ -70,10 +86,16 @@ Zwei Dinge sind gegenüber dem reinen Ablesen von Entities hinzugekommen:
 - **Farben** werden als solche erkannt und bekommen einen Farbwähler mit acht
   Presets. Die Erkennung geht über die Form (`text`-Entity, genau sechs
   Zeichen, Wert sieht aus wie Hex), nicht über den Namen — eine neue Farbe
-  braucht hier also nichts.
-- **Auswahlfelder** bekommen die Vorschaukachel, die der Entwurf als
-  Platzhalter („Vorschau folgt") vorsieht: eine Miniatur des runden Displays,
-  die die Marke mit der Ausrichtung dreht bzw. Uhr gegen Zifferblatt zeigt.
+  braucht hier also nichts. Unter der Überschrift „Farben" schneidet die Seite
+  ein führendes „Farbe " aus dem Namen weg; in Home Assistant steht er
+  vollständig, dort fehlt die Überschrift.
+- **Auswahlfelder** haben kein Dropdown, sondern eine Reihe klickbarer
+  Vorschaukacheln: eine Miniatur des runden Displays je Option, die die Marke
+  mit der Ausrichtung dreht bzw. Uhr gegen Zifferblatt zeigt. Beide
+  Einstellungen des Geräts betreffen etwas Sichtbares, deshalb gehört die
+  Vorschau an die Option und nicht daneben. Das Zifferblatt zeigt dabei
+  bewusst **keine Zeiger** — die Seite auf dem Gerät hat keine, und eine
+  Vorschau soll nicht mehr versprechen, als das Gerät zeigt.
 
 Die Icons sind eigene SVG-Pfade. Das Standard-Frontend lädt seine Icons vom
 Iconify-Dienst nach; die Seite soll ohne Internetzugang vollständig sein.

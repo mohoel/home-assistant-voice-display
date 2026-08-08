@@ -1,0 +1,749 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Assist-Satellit — Bedienseite</title>
+<!--
+  STANDBILD der Bedienseite des Geräts, zum Gestalten.
+
+  Dies ist kein Code fürs Gerät. Im Betrieb baut web/app.js das Markup zur
+  Laufzeit aus den Ereignissen des Geräts auf; ohne Gerät ist die Seite leer,
+  und ohne dieses Standbild gäbe es nichts zu gestalten. Hier steht dasselbe
+  Markup mit Beispielwerten, das CSS aus web/app.css ist eingebettet.
+
+  Erzeugt von web/mockup.py – von Hand geändert wird es nur zum
+  Gestalten. Nach jeder Änderung an app.css oder app.js läuft das Skript neu,
+  sonst läuft das Standbild vom Gerät weg.
+
+  RÜCKWEG: Was hier geändert wird, wandert von Hand zurück – CSS nach
+  web/app.css, Struktur nach web/app.js. Damit das ohne Ratespiel geht, sind
+  die folgenden Namen ein Vertrag. Sie dürfen umbenannt werden, aber dann
+  müssen beide Seiten mit:
+
+    header .title-wrap h1 / .subtitle / .controls / .beat[.connected]
+    main
+    .tab-header
+    .tab-container  >  i.corner.tl/.tr/.bl/.br        (derzeit display:none)
+    .entity-row     >  .icon  .label  .value
+    .icon           >  .chip                          (nur bei Farbzeilen)
+    .select-wrap.select-wrap--tiles
+                    >  button.preview.preview--option[data-value][.selected]
+    .colorpicker    >  .color-swatches > button.color-swatch
+                       input[type=color]
+                       input.hex
+    .footnote
+
+  Drei Dinge, die das Gerät vorgibt und die kein Entwurf aufheben kann:
+
+  1. Es gibt genau diese beiden Gruppen, und ihre Namen kommen aus
+     packages/web.yaml (sorting_groups). Weitere Gruppen entstehen dort, nicht
+     hier.
+  2. Farben sind auf dem Gerät sechsstellige Hexwerte ohne Präfix. Der
+     Farbwähler ist eine Zutat der Oberfläche, das Hexfeld ist die Wahrheit.
+  3. Die Optionen der beiden Auswahlfelder stehen ebenfalls in web.yaml, und
+     bei der Standby-Seite zählt ihre *Reihenfolge*: ui.yaml wertet den Index
+     aus. Eine Kachel dazu heißt eine Option dazu, und die gehört ans Ende.
+
+  Die Kacheln zeigen, was das Gerät wirklich anzeigt: die Standby-Seite
+  „Zifferblatt" hat auf dem Gerät keine Zeiger, also hat sie hier auch keine.
+-->
+<style>
+/* Bedienseite des Geräts – Aussehen.
+ *
+ * Zweite Fassung, aus dem Claude-Design-Projekt „Bedienseite" (mockup.html).
+ * Sie löst den ersten, hellen Entwurf („Konfigurationsseite", Barlow auf
+ * Papierweiß) vollständig ab: dunkle Fläche, Manrope für Text und Roboto Mono
+ * für alles Technische, Kacheln statt Tabellenzeilen.
+ *
+ * Die Seite ist bewusst *nicht* das ESPHome-Standard-Frontend, sondern eigener
+ * Code (siehe README.md in diesem Verzeichnis): dessen Stile stecken im Shadow
+ * DOM der lit-Komponenten und lassen sich von außen nur über eine einzige
+ * Variable (--primary-color) anfassen. Hier ist alles im Licht-DOM, also gilt
+ * dieses Stylesheet direkt.
+ *
+ * Der @import muss die erste Regel bleiben. Ohne Internet lädt er nicht und
+ * alles fällt auf system-ui zurück – Farben, Raster und Kacheln bleiben, nur
+ * der Schnitt fehlt. Beide Familien einzubetten wären rund 200 kB Flash für
+ * eine selten geöffnete Seite.
+ *
+ * Die Farben stehen in oklch, so wie der Entwurf sie liefert. Alle Töne teilen
+ * denselben Farbwinkel (264, Blauviolett) und unterscheiden sich nur in
+ * Helligkeit und Buntheit – deshalb lässt sich das ganze Erscheinungsbild über
+ * diese eine Zahl verschieben.
+ */
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Roboto+Mono:wght@400;500;600&display=swap");
+
+:root {
+  --primary-color: #8a6df5;
+  --bg: oklch(0.16 0.022 264);
+  --surface: oklch(0.215 0.026 264);
+  --surface-2: oklch(0.27 0.032 264);
+  --ink: oklch(0.96 0.008 264);
+  --ink-dim: oklch(0.72 0.02 264);
+  --accent: oklch(0.72 0.19 264);
+  --accent-bright: oklch(0.82 0.15 264);
+  --accent-dim: oklch(0.72 0.19 264 / 0.18);
+  --divider: oklch(0.45 0.03 264 / 0.4);
+  --ok: oklch(0.76 0.17 152);
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Manrope", system-ui, sans-serif;
+  font-weight: 500;
+}
+
+/* ---------- Kopfband ---------- */
+
+header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 18px 20px;
+  background: oklch(0.13 0.022 264);
+  color: var(--ink);
+  border-bottom: 1px solid var(--divider);
+}
+
+header .logo {
+  flex: 0 0 auto;
+  display: flex;
+  color: var(--accent-bright);
+  filter: drop-shadow(0 0 6px oklch(0.72 0.19 264 / 0.55));
+}
+
+header .title-wrap {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+header h1 {
+  margin: 0;
+  font-family: "Roboto Mono", monospace;
+  font-weight: 600;
+  font-size: 1.3rem;
+  line-height: 1.15em;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+header .subtitle {
+  font-size: 12px;
+  font-family: "Roboto Mono", monospace;
+  color: var(--ink-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+header .controls {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Verbindungspunkt. Gefüllt und grün mit Leuchten, solange Ereignisse ankommen. */
+header .beat {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid oklch(0.96 0.008 264 / 0.25);
+  transition: background-color 200ms ease, border-color 200ms ease, box-shadow 200ms ease;
+}
+
+header .beat.connected {
+  background: var(--ok);
+  border-color: var(--ok);
+  box-shadow: 0 0 10px 2px oklch(0.76 0.17 152 / 0.6);
+}
+
+/* ---------- Raster ---------- */
+
+/* Die Kacheln sollen nicht auf Bildschirmbreite auseinanderlaufen – sonst steht
+ * eine Reihe Vorschaukacheln allein auf 1400 px. */
+main {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0 16px 32px;
+}
+
+/* ---------- Gruppe: Kopf und Rahmen ---------- */
+
+.tab-header {
+  display: inline-flex;
+  max-width: 90%;
+  align-items: center;
+  font-family: "Roboto Mono", monospace;
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.6em 1em;
+  margin-top: 1.8em;
+  color: var(--accent-bright);
+  border-bottom: 2px solid var(--accent);
+  user-select: none;
+}
+
+.tab-container {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  padding: 14px 4px 6px;
+}
+
+@media (min-width: 640px) {
+  .tab-container {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Technische Eckmarken: HUD-Winkel je Ecke des Gruppenblocks. Sie sind im
+ * zweiten Entwurf *abgeschaltet* – der Gruppenblock hat keinen Rahmen mehr,
+ * seit die Zeilen eigene Kacheln sind, und Winkel um nichts herum wirken
+ * verloren. Die Regeln bleiben stehen und app.js legt die vier Elemente
+ * weiterhin an: ein Entwurf, der sie zurückholen will, braucht dann nur diese
+ * eine Zeile. */
+.tab-container > .corner {
+  display: none;
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  color: var(--accent);
+  pointer-events: none;
+  filter: drop-shadow(0 0 3px oklch(0.72 0.19 264 / 0.7));
+}
+
+.tab-container > .corner::before,
+.tab-container > .corner::after {
+  content: "";
+  position: absolute;
+  background: currentColor;
+}
+
+.tab-container > .corner::before {
+  left: 5px;
+  top: 0;
+  width: 2px;
+  height: 100%;
+}
+
+.tab-container > .corner::after {
+  top: 5px;
+  left: 0;
+  width: 100%;
+  height: 2px;
+}
+
+.tab-container > .corner.tl { top: -6px; left: -6px; }
+.tab-container > .corner.tr { top: -6px; right: -6px; }
+.tab-container > .corner.bl { bottom: -6px; left: -6px; }
+.tab-container > .corner.br { bottom: -6px; right: -6px; }
+
+/* ---------- Zeile: große Kachel ---------- */
+
+.entity-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  min-height: 72px;
+  padding: 16px;
+  background: var(--surface);
+  border: 1px solid var(--divider);
+  border-radius: 6px;
+  transition: background-color 0.2s ease-out, border-color 0.2s ease-out;
+}
+
+.entity-row:hover {
+  background-color: var(--surface-2);
+  border-color: var(--accent);
+}
+
+.entity-row > .icon {
+  flex: 0 0 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent-bright);
+  background: var(--accent-dim);
+  border-radius: 6px;
+}
+
+/* Bei einer Farbzeile ist das Icon der Farbwert selbst. */
+.entity-row > .icon > .chip {
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--divider);
+  border-radius: 3px;
+}
+
+.entity-row > .label {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-weight: 700;
+  font-size: 1rem;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Der Wert steht immer in einer eigenen Zeile unter dem Namen: die
+ * Kachelreihen und die Farbfelder brauchen die volle Breite. */
+.entity-row > .value {
+  flex: 1 1 100%;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* ---------- Eingaben ---------- */
+
+select,
+input[type="text"] {
+  font-family: "Manrope", system-ui, sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+  border: 1px solid var(--divider);
+  border-radius: 6px;
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+select {
+  width: 100%;
+  height: 48px;
+  padding: 0 12px;
+}
+
+select:focus,
+input[type="text"]:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-dim);
+}
+
+input[type="text"] {
+  height: 48px;
+  padding: 0 10px;
+}
+
+.select-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: flex-end;
+  width: 100%;
+}
+
+/* Grundform der Vorschaukachel: eine Miniatur des runden Displays. */
+.preview {
+  flex: 0 0 auto;
+  width: 52px;
+  height: 44px;
+  border: 1px solid var(--divider);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent-bright);
+  background: var(--surface-2);
+}
+
+/* Auswahl über klickbare Vorschaukacheln statt über ein Dropdown. Beide
+ * Auswahlfelder des Geräts zeigen etwas, das man sehen können sollte, bevor man
+ * es wählt – die Ausrichtung des Bildes und die Standby-Seite. */
+.select-wrap--tiles {
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+}
+
+.preview--option {
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  width: 108px;
+  height: 96px;
+  cursor: pointer;
+  font-family: "Roboto Mono", monospace;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  transition: background-color 0.2s ease-out, border-color 0.2s ease-out, color 0.2s ease-out;
+}
+
+.preview--option:hover {
+  border-color: var(--accent);
+}
+
+.preview--option.selected {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+  color: var(--accent-bright);
+  box-shadow: 0 0 0 1px var(--accent) inset;
+}
+
+/* ---------- Farbe ---------- */
+
+/* Reihenfolge über order: Farbwähler und Hexfeld nebeneinander, die
+ * Vorgabefelder darunter über die ganze Breite. */
+.colorpicker {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  width: 100%;
+}
+
+.colorpicker > input[type="color"] {
+  order: 1;
+  width: 60px;
+  height: 48px;
+}
+
+.colorpicker > .hex {
+  order: 2;
+  width: 10ch;
+  height: 48px;
+  font-size: 1rem;
+}
+
+.color-swatches {
+  order: 3;
+  flex-basis: 100%;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.color-swatch {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  margin: 0;
+  border: 1px solid var(--divider);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.color-swatch:hover {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+input[type="color"] {
+  width: 44px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid var(--divider);
+  border-radius: 6px;
+  background: none;
+  cursor: pointer;
+}
+
+input[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 0 !important;
+}
+
+input[type="color"]::-webkit-color-swatch {
+  border: none;
+  border-radius: 5px;
+}
+
+.hex {
+  width: 9ch;
+  text-transform: uppercase;
+  font-family: "Roboto Mono", monospace;
+}
+
+/* Ungültige Eingabe: das Gerät nimmt nur sechs Hexstellen an. */
+.hex:invalid {
+  border-color: oklch(0.62 0.19 25);
+}
+
+/* ---------- Knöpfe ---------- */
+
+button {
+  cursor: pointer;
+  border-radius: 6px;
+  color: var(--accent-bright);
+  border: 1px solid var(--divider);
+  background-color: transparent;
+  padding: 10px 14px;
+  font-family: "Roboto Mono", monospace;
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+button:hover {
+  background-color: var(--accent-dim);
+  border-color: var(--accent);
+}
+
+button:active {
+  background-color: var(--surface-2);
+}
+
+.footnote {
+  margin-top: 1.6em;
+  font-size: 12px;
+  font-family: "Roboto Mono", monospace;
+  color: var(--ink-dim);
+}
+
+@media (max-width: 560px) {
+  .entity-row > .label {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .entity-row > .value {
+    flex: 1 1 100%;
+  }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <a class="logo" href="https://esphome.io/web-api" title="ESPHome">
+    <svg viewBox="0 0 32 32" width="30" height="30"><path d="M1.3 18H5v10h21.8V18h3.7l-3.7-3.7V7.8h-2.4V12l-8.7-8.7L1.3 18Z" fill="currentColor"></path></svg>
+  </a>
+  <div class="title-wrap">
+    <h1>assist-satellit</h1>
+    <div class="subtitle">Voice Satellite · verbunden</div>
+  </div>
+  <div class="controls">
+    <div class="beat connected"></div>
+  </div>
+</header>
+
+<main>
+
+  <div class="tab-header">Anzeige</div>
+  <div class="tab-container">
+    <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+
+    <div class="entity-row">
+      <div class="icon"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h10a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"></path><path d="M10 6h4"></path></svg></div>
+      <div class="label">Ausrichtung</div>
+      <div class="value">
+        <div class="select-wrap select-wrap--tiles">
+          <button class="preview preview--option selected" type="button" data-value="0°" title="Ausrichtung 0°"><svg viewBox="0 0 24 24" width="28" height="28"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1"></circle><rect x="9" y="3" width="6" height="2" fill="currentColor" transform="rotate(0 12 12)"></rect></svg><span>0°</span></button>
+          <button class="preview preview--option" type="button" data-value="90°" title="Ausrichtung 90°"><svg viewBox="0 0 24 24" width="28" height="28"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1"></circle><rect x="9" y="3" width="6" height="2" fill="currentColor" transform="rotate(90 12 12)"></rect></svg><span>90°</span></button>
+          <button class="preview preview--option" type="button" data-value="180°" title="Ausrichtung 180°"><svg viewBox="0 0 24 24" width="28" height="28"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1"></circle><rect x="9" y="3" width="6" height="2" fill="currentColor" transform="rotate(180 12 12)"></rect></svg><span>180°</span></button>
+          <button class="preview preview--option" type="button" data-value="270°" title="Ausrichtung 270°"><svg viewBox="0 0 24 24" width="28" height="28"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1"></circle><rect x="9" y="3" width="6" height="2" fill="currentColor" transform="rotate(270 12 12)"></rect></svg><span>270°</span></button>
+        </div>
+      </div>
+    </div>
+
+    <div class="entity-row">
+      <div class="icon"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z"></path><path d="M12 7v5l3 2"></path></svg></div>
+      <div class="label">Standby-Seite</div>
+      <div class="value">
+        <div class="select-wrap select-wrap--tiles">
+          <button class="preview preview--option selected" type="button" data-value="Uhr" title="Standby: Uhr"><svg viewBox="0 0 24 24" width="28" height="28"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1"></circle><rect x="6" y="9.5" width="12" height="3" fill="currentColor"></rect><rect x="8.5" y="14" width="7" height="1.5" fill="currentColor" opacity="0.5"></rect></svg><span>Uhr</span></button>
+          <button class="preview preview--option" type="button" data-value="Zifferblatt" title="Standby: Zifferblatt"><svg viewBox="0 0 24 24" width="28" height="28"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1"></circle><line x1="12" y1="3.5" x2="12" y2="5.5" stroke="currentColor" stroke-width="1" transform="rotate(0 12 12)"></line><line x1="12" y1="3.5" x2="12" y2="5.5" stroke="currentColor" stroke-width="1" transform="rotate(30 12 12)"></line><line x1="12" y1="3.5" x2="12" y2="5.5" stroke="currentColor" stroke-width="1" transform="rotate(60 12 12)"></line><line x1="12" y1="3.5" x2="12" y2="5.5" stroke="currentColor" stroke-width="1" transform="rotate(90 12 12)"></line><line x1="12" y1="3.5" x2="12" y2="5.5" stroke="currentColor" stroke-width="1" transform="rotate(120 12 12)"></line><line x1="12" y1="3.5" x2="12" y2="5.5" stroke="currentColor" stroke-width="1" transform="rotate(150 12 12)"></line><line x1="12" y1="3.5" x2="12" y2="5.5" stroke="currentColor" stroke-width="1" transform="rotate(180 12 12)"></line><line x1="12" y1="3.5" x2="12" y2="5.5" stroke="currentColor" stroke-width="1" transform="rotate(210 12 12)"></line><line x1="12" y1="3.5" x2="12" y2="5.5" stroke="currentColor" stroke-width="1" transform="rotate(240 12 12)"></line><line x1="12" y1="3.5" x2="12" y2="5.5" stroke="currentColor" stroke-width="1" transform="rotate(270 12 12)"></line><line x1="12" y1="3.5" x2="12" y2="5.5" stroke="currentColor" stroke-width="1" transform="rotate(300 12 12)"></line><line x1="12" y1="3.5" x2="12" y2="5.5" stroke="currentColor" stroke-width="1" transform="rotate(330 12 12)"></line></svg><span>Zifferblatt</span></button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="tab-header">Farben</div>
+  <div class="tab-container">
+    <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+
+    <div class="entity-row">
+      <div class="icon"><div class="chip" style="background: #03A9F4;"></div></div>
+      <div class="label">Zuhören</div>
+      <div class="value">
+        <div class="colorpicker">
+          <div class="color-swatches">
+            <button class="color-swatch" type="button" title="FFFFFF" style="background: #ffffff;"></button>
+            <button class="color-swatch" type="button" title="FFD9A0" style="background: #ffd9a0;"></button>
+            <button class="color-swatch" type="button" title="5980A6" style="background: #5980a6;"></button>
+            <button class="color-swatch" type="button" title="E04C3F" style="background: #e04c3f;"></button>
+            <button class="color-swatch" type="button" title="E8A13A" style="background: #e8a13a;"></button>
+            <button class="color-swatch" type="button" title="3F9153" style="background: #3f9153;"></button>
+            <button class="color-swatch" type="button" title="3F7AB0" style="background: #3f7ab0;"></button>
+            <button class="color-swatch" type="button" title="8B4FC9" style="background: #8b4fc9;"></button>
+          </div>
+          <input type="color" value="#03a9f4">
+          <input class="hex" type="text" maxlength="6" pattern="[0-9a-fA-F]{6}" spellcheck="false" value="03A9F4">
+        </div>
+      </div>
+    </div>
+    <div class="entity-row">
+      <div class="icon"><div class="chip" style="background: #FFB300;"></div></div>
+      <div class="label">Verarbeitung</div>
+      <div class="value">
+        <div class="colorpicker">
+          <div class="color-swatches">
+            <button class="color-swatch" type="button" title="FFFFFF" style="background: #ffffff;"></button>
+            <button class="color-swatch" type="button" title="FFD9A0" style="background: #ffd9a0;"></button>
+            <button class="color-swatch" type="button" title="5980A6" style="background: #5980a6;"></button>
+            <button class="color-swatch" type="button" title="E04C3F" style="background: #e04c3f;"></button>
+            <button class="color-swatch" type="button" title="E8A13A" style="background: #e8a13a;"></button>
+            <button class="color-swatch" type="button" title="3F9153" style="background: #3f9153;"></button>
+            <button class="color-swatch" type="button" title="3F7AB0" style="background: #3f7ab0;"></button>
+            <button class="color-swatch" type="button" title="8B4FC9" style="background: #8b4fc9;"></button>
+          </div>
+          <input type="color" value="#ffb300">
+          <input class="hex" type="text" maxlength="6" pattern="[0-9a-fA-F]{6}" spellcheck="false" value="FFB300">
+        </div>
+      </div>
+    </div>
+    <div class="entity-row">
+      <div class="icon"><div class="chip" style="background: #7E57C2;"></div></div>
+      <div class="label">Sprachausgabe</div>
+      <div class="value">
+        <div class="colorpicker">
+          <div class="color-swatches">
+            <button class="color-swatch" type="button" title="FFFFFF" style="background: #ffffff;"></button>
+            <button class="color-swatch" type="button" title="FFD9A0" style="background: #ffd9a0;"></button>
+            <button class="color-swatch" type="button" title="5980A6" style="background: #5980a6;"></button>
+            <button class="color-swatch" type="button" title="E04C3F" style="background: #e04c3f;"></button>
+            <button class="color-swatch" type="button" title="E8A13A" style="background: #e8a13a;"></button>
+            <button class="color-swatch" type="button" title="3F9153" style="background: #3f9153;"></button>
+            <button class="color-swatch" type="button" title="3F7AB0" style="background: #3f7ab0;"></button>
+            <button class="color-swatch" type="button" title="8B4FC9" style="background: #8b4fc9;"></button>
+          </div>
+          <input type="color" value="#7e57c2">
+          <input class="hex" type="text" maxlength="6" pattern="[0-9a-fA-F]{6}" spellcheck="false" value="7E57C2">
+        </div>
+      </div>
+    </div>
+    <div class="entity-row">
+      <div class="icon"><div class="chip" style="background: #E53935;"></div></div>
+      <div class="label">Fehler</div>
+      <div class="value">
+        <div class="colorpicker">
+          <div class="color-swatches">
+            <button class="color-swatch" type="button" title="FFFFFF" style="background: #ffffff;"></button>
+            <button class="color-swatch" type="button" title="FFD9A0" style="background: #ffd9a0;"></button>
+            <button class="color-swatch" type="button" title="5980A6" style="background: #5980a6;"></button>
+            <button class="color-swatch" type="button" title="E04C3F" style="background: #e04c3f;"></button>
+            <button class="color-swatch" type="button" title="E8A13A" style="background: #e8a13a;"></button>
+            <button class="color-swatch" type="button" title="3F9153" style="background: #3f9153;"></button>
+            <button class="color-swatch" type="button" title="3F7AB0" style="background: #3f7ab0;"></button>
+            <button class="color-swatch" type="button" title="8B4FC9" style="background: #8b4fc9;"></button>
+          </div>
+          <input type="color" value="#e53935">
+          <input class="hex" type="text" maxlength="6" pattern="[0-9a-fA-F]{6}" spellcheck="false" value="E53935">
+        </div>
+      </div>
+    </div>
+    <div class="entity-row">
+      <div class="icon"><div class="chip" style="background: #6E6E6E;"></div></div>
+      <div class="label">Gedimmt</div>
+      <div class="value">
+        <div class="colorpicker">
+          <div class="color-swatches">
+            <button class="color-swatch" type="button" title="FFFFFF" style="background: #ffffff;"></button>
+            <button class="color-swatch" type="button" title="FFD9A0" style="background: #ffd9a0;"></button>
+            <button class="color-swatch" type="button" title="5980A6" style="background: #5980a6;"></button>
+            <button class="color-swatch" type="button" title="E04C3F" style="background: #e04c3f;"></button>
+            <button class="color-swatch" type="button" title="E8A13A" style="background: #e8a13a;"></button>
+            <button class="color-swatch" type="button" title="3F9153" style="background: #3f9153;"></button>
+            <button class="color-swatch" type="button" title="3F7AB0" style="background: #3f7ab0;"></button>
+            <button class="color-swatch" type="button" title="8B4FC9" style="background: #8b4fc9;"></button>
+          </div>
+          <input type="color" value="#6e6e6e">
+          <input class="hex" type="text" maxlength="6" pattern="[0-9a-fA-F]{6}" spellcheck="false" value="6E6E6E">
+        </div>
+      </div>
+    </div>
+    <div class="entity-row">
+      <div class="icon"><div class="chip" style="background: #26A69A;"></div></div>
+      <div class="label">Timer</div>
+      <div class="value">
+        <div class="colorpicker">
+          <div class="color-swatches">
+            <button class="color-swatch" type="button" title="FFFFFF" style="background: #ffffff;"></button>
+            <button class="color-swatch" type="button" title="FFD9A0" style="background: #ffd9a0;"></button>
+            <button class="color-swatch" type="button" title="5980A6" style="background: #5980a6;"></button>
+            <button class="color-swatch" type="button" title="E04C3F" style="background: #e04c3f;"></button>
+            <button class="color-swatch" type="button" title="E8A13A" style="background: #e8a13a;"></button>
+            <button class="color-swatch" type="button" title="3F9153" style="background: #3f9153;"></button>
+            <button class="color-swatch" type="button" title="3F7AB0" style="background: #3f7ab0;"></button>
+            <button class="color-swatch" type="button" title="8B4FC9" style="background: #8b4fc9;"></button>
+          </div>
+          <input type="color" value="#26a69a">
+          <input class="hex" type="text" maxlength="6" pattern="[0-9a-fA-F]{6}" spellcheck="false" value="26A69A">
+        </div>
+      </div>
+    </div>
+    <div class="entity-row">
+      <div class="icon"><div class="chip" style="background: #43A047;"></div></div>
+      <div class="label">Bestätigung</div>
+      <div class="value">
+        <div class="colorpicker">
+          <div class="color-swatches">
+            <button class="color-swatch" type="button" title="FFFFFF" style="background: #ffffff;"></button>
+            <button class="color-swatch" type="button" title="FFD9A0" style="background: #ffd9a0;"></button>
+            <button class="color-swatch" type="button" title="5980A6" style="background: #5980a6;"></button>
+            <button class="color-swatch" type="button" title="E04C3F" style="background: #e04c3f;"></button>
+            <button class="color-swatch" type="button" title="E8A13A" style="background: #e8a13a;"></button>
+            <button class="color-swatch" type="button" title="3F9153" style="background: #3f9153;"></button>
+            <button class="color-swatch" type="button" title="3F7AB0" style="background: #3f7ab0;"></button>
+            <button class="color-swatch" type="button" title="8B4FC9" style="background: #8b4fc9;"></button>
+          </div>
+          <input type="color" value="#43a047">
+          <input class="hex" type="text" maxlength="6" pattern="[0-9a-fA-F]{6}" spellcheck="false" value="43A047">
+        </div>
+      </div>
+    </div>
+    <div class="entity-row">
+      <div class="icon"><div class="chip" style="background: #FFFFFF;"></div></div>
+      <div class="label">Zifferblatt</div>
+      <div class="value">
+        <div class="colorpicker">
+          <div class="color-swatches">
+            <button class="color-swatch" type="button" title="FFFFFF" style="background: #ffffff;"></button>
+            <button class="color-swatch" type="button" title="FFD9A0" style="background: #ffd9a0;"></button>
+            <button class="color-swatch" type="button" title="5980A6" style="background: #5980a6;"></button>
+            <button class="color-swatch" type="button" title="E04C3F" style="background: #e04c3f;"></button>
+            <button class="color-swatch" type="button" title="E8A13A" style="background: #e8a13a;"></button>
+            <button class="color-swatch" type="button" title="3F9153" style="background: #3f9153;"></button>
+            <button class="color-swatch" type="button" title="3F7AB0" style="background: #3f7ab0;"></button>
+            <button class="color-swatch" type="button" title="8B4FC9" style="background: #8b4fc9;"></button>
+          </div>
+          <input type="color" value="#ffffff">
+          <input class="hex" type="text" maxlength="6" pattern="[0-9a-fA-F]{6}" spellcheck="false" value="FFFFFF">
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="footnote">Helligkeit, Stummschaltung, Wake-Word-Optionen, Diagnose und Neustart stehen in Home Assistant.</div>
+
+</main>
+
+<!-- Das Standbild ist ohne Skript. Auf dem Gerät setzt app.js die Klasse
+     .selected auf die angeklickte Kachel und schickt den Wert ans Gerät. -->
+</body>
+</html>
