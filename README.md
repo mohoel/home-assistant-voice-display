@@ -49,8 +49,8 @@ Statusanzeige statt eines LED-Rings.
 - Drei Sekunden gedrückt halten zeigt IP-Adresse und QR-Code zur
   Weboberfläche
 - Stummschaltung, Wake-Word-Empfindlichkeit und Displayhelligkeit als HA-Entities
-- Weboberfläche unter der Geräte-IP für Ausrichtung, Standby-Seite und die
-  Symbolfarben — ohne Home Assistant und ohne Neubau der Firmware
+- Weboberfläche unter der Geräte-IP für Ausrichtung und Standby-Seite — ohne
+  Home Assistant und ohne Neubau der Firmware
 
 ## Warum nicht das ESPHome-Add-on in Home Assistant?
 
@@ -157,12 +157,12 @@ nach der Standby-Zeit verschwindet die Seite von selbst.
 |---|---|---|
 | Anzeige | **Ausrichtung** | Dreht das Bild in 90-Grad-Schritten (0/90/180/270). Die Touch-Koordinaten dreht LVGL mit. 45 Grad gibt die Grafikbibliothek nicht her. |
 | Anzeige | **Standby-Seite** | Welche Seite im Standby erscheint: **Uhr** (große Uhrzeit mit Datum) oder **Zifferblatt** (Strichkranz mit Ziffern, ohne Zeiger). Die Umschaltung wirkt sofort, wenn das Gerät gerade im Standby steht. |
-| Farben | **Farbe Zuhören / Verarbeitung / Sprachausgabe / Fehler / gedimmt / Timer / Bestätigung / Zifferblatt** | Farbe des jeweiligen Elements, als sechsstelliger Hex-Wert ohne Präfix (z. B. `03A9F4`). „Timer" färbt Ring und Glocke, „Bestätigung" den Haken, „Zifferblatt" die hervorgehobene Stunde und Minutenmarke. Ungültige Eingaben werden ignoriert. |
 
-Alle Einstellungen überstehen einen Neustart. Die Werte in
-`assist-satellit.yaml` sind nur die Voreinstellung ab Werk — was hier gesetzt
-wird, hat Vorrang. Darunter zeigt dieselbe Seite die üblichen Entities
-(Helligkeit, Stummschaltung, Wake-Word-Optionen, Diagnose, Neustart).
+Beide Einstellungen überstehen einen Neustart. Darunter zeigt dieselbe Seite
+die üblichen Entities (Helligkeit, Stummschaltung, Wake-Word-Optionen,
+Diagnose, Neustart). Die Symbolfarben sind fest in `assist-satellit.yaml`
+hinterlegt und nicht über die Weboberfläche einstellbar — eine Änderung
+braucht einen Neubau der Firmware.
 
 Die Seite ist **ohne Passwort** im lokalen Netz erreichbar. Wer das nicht will,
 ergänzt in `packages/web.yaml` einen `auth:`-Block mit Zugangsdaten aus
@@ -192,14 +192,14 @@ git checkout v0.1.0 && esphome run assist-satellit.yaml --device assist-satellit
 | `packages/hardware.yaml` | I2C, QSPI-Display, Touch, I2S-Audio, Codecs, Media Player |
 | `packages/voice.yaml` | Wake Word, Voice Assistant, Selects, Mute, Text-Sensoren |
 | `packages/ui.yaml` | Fonts, LVGL-Seiten, Phasen-Animationen, Standby-Uhr, Zifferblatt |
-| `packages/web.yaml` | Weboberfläche: Ausrichtung, Standby-Seite, Symbolfarben |
+| `packages/web.yaml` | Weboberfläche: Ausrichtung, Standby-Seite |
 | `sounds/` | Klingel- und Bestätigungston, direkt in die Firmware eingebettet (Herkunft und Lizenz stehen dort) |
 
 Farben, Phasen-IDs und Standby-Zeiten stehen als Substitutions in
 `assist-satellit.yaml` — dort anpassen, nicht in den Packages. Wie lange der
 Bildschirm nach der letzten Berührung anbleibt, ist `standby_timeout` (30 s);
-danach ist er aus. Bei den Farben ist es allerdings nur die Voreinstellung: sobald eine Farbe über
-die Weboberfläche gesetzt wurde, gilt der gespeicherte Wert.
+danach ist er aus. Farben sind reine Compile-Zeit-Werte, eine Änderung braucht
+also einen Neubau der Firmware.
 
 ## Hardware-Referenz
 

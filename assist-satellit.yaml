@@ -139,9 +139,7 @@ substitutions:
   dial_radius: "218"
   dial_mark_len: "20"
   dial_num_radius: "168"
-  # Akzentfarbe des Zifferblatts. Wie die Symbolfarben nur der
-  # Auslieferungszustand: zur Laufzeit gilt das Global col_dial aus
-  # packages/web.yaml. Der Wert stammt aus dem Design-Mockup.
+  # Akzentfarbe des Zifferblatts. Der Wert stammt aus dem Design-Mockup.
   color_dial: "0xFF9F4D"
 
   # Gedrueckthalten oeffnet die Konfigurationsseite (IP + QR-Code). Gemessen

@@ -59,13 +59,10 @@ nicht devices.esphome.io.
 
 ## Aufbau
 
-Geräte-YAML + Packages. **Phasen-IDs und Timings stehen als Substitutions in
-`assist-satellit.yaml`** — dort ändern, nicht in den Packages. Für die
-**Symbolfarben** gilt das nur noch halb: die Substitutions sind der
-Auslieferungszustand und dienen als `initial_value` der Globals `col_*` in
-`web.yaml`; zur Laufzeit gilt, was auf der Web-Bedienseite eingestellt und per
-`restore_value` gespeichert ist. Eine Farbänderung in `assist-satellit.yaml`
-wirkt daher nur auf einem Gerät, das diese Farbe noch nie gesetzt bekommen hat.
+Geräte-YAML + Packages. **Phasen-IDs, Symbolfarben und Timings stehen als
+Substitutions in `assist-satellit.yaml`** — dort ändern, nicht in den
+Packages. Farben sind reine Compile-Zeit-Werte, es gibt keine
+Laufzeit-Einstellung dafür: eine Änderung braucht immer einen Neubau.
 
 | Datei | Inhalt |
 |---|---|
@@ -73,7 +70,7 @@ wirkt daher nur auf einem Gerät, das diese Farbe noch nie gesetzt bekommen hat.
 | `packages/hardware.yaml` | I2C, QSPI-Display, Touch, I2S, ES7210/ES8311, Media Player |
 | `packages/voice.yaml` | Wake Word, Voice Assistant, Engine-Umschaltung, Mute |
 | `packages/ui.yaml` | Fonts, LVGL-Seiten, Phasen-Animationen, Standby-Uhr, Zifferblatt, Timer-Ring |
-| `packages/web.yaml` | Web-Bedienseite: Webserver, Ausrichtung, Standby-Seite, Symbolfarben |
+| `packages/web.yaml` | Web-Bedienseite: Webserver, Ausrichtung, Standby-Seite |
 | `sounds/` | Klingel- und Bestätigungston als FLAC, eingebettet über `files:` am Media Player |
 
 Die Voice-Assistant-Logik folgt `esphome/wake-word-voice-assistants`
@@ -94,11 +91,8 @@ Querverbindungen:
 | `ui.yaml` → Standby-Uhr | `ha_time` | `core.yaml` |
 | `ui.yaml` → Helligkeit | `light: display_brightness` | `hardware.yaml` |
 | `core.yaml` → `on_boot` | `script: update_ui` | `ui.yaml` |
-| `core.yaml` → `on_boot` | `script: apply_rotation`, `sync_color_texts`, `global: boot_done` | `web.yaml` |
-| `core.yaml` → `on_boot` | `script: apply_colors` | `ui.yaml` |
+| `core.yaml` → `on_boot` | `script: apply_rotation`, `global: boot_done` | `web.yaml` |
 | `core.yaml` → `ha_time.on_time` | `script: update_clock`, `lbl_clock`, `lbl_date` | `ui.yaml` |
-| `web.yaml` → jede Farbeingabe | `script: apply_colors` | `ui.yaml` |
-| `ui.yaml` → `update_ui`, `apply_colors` | `globals: col_*` | `web.yaml` |
 | `ui.yaml` → `show_standby_page` | `select: sel_standby_page` | `web.yaml` |
 | `ui.yaml` → `on_screen_touch` | `script: abort_session` | `voice.yaml` |
 | `hardware.yaml` → `touchscreen.on_touch/on_release` | `script: detect_long_press` | `ui.yaml` |
@@ -107,13 +101,11 @@ Querverbindungen:
 | `voice.yaml` → Klingel- und Bestätigungston | `media_player: media_out`, `files: snd_timer/snd_confirm` | `hardware.yaml` |
 | `ui.yaml` → `on_screen_touch`, `update_timer_ui`, `update_clock` | `globals: timer_*` | `voice.yaml` |
 | `ui.yaml` → `update_ui` | `globals: result_*`, `error_kind`, `is_followup` | `voice.yaml` |
-| `ui.yaml` → `update_ui`, `apply_colors` | `globals: col_timer`, `col_result` | `web.yaml` |
 | `core.yaml` → `api.actions.zeige_hinweis` | `script: show_hint` | `ui.yaml` |
 | `core.yaml` → `ha_time.on_time` | `lbl_timer` | `ui.yaml` |
 | `core.yaml` → `ha_time.on_time` | `script: update_dial` | `ui.yaml` |
 | `hardware.yaml` → `display_brightness.on_turn_on` | `script: show_standby_page`, `standby_return`, `page_off` | `ui.yaml` |
 | `hardware.yaml` → `display_brightness.on_turn_on` | `global: boot_done` | `web.yaml` |
-| `ui.yaml` → `update_dial`, `apply_colors` | `global: col_dial` | `web.yaml` |
 | `web.yaml` → `sel_standby_page.on_value` | `script: show_standby_page`, `page_standby`, `page_dial` | `ui.yaml` |
 | `web.yaml` → `sel_standby_page.on_value` | `global: boot_done` | `web.yaml` |
 
@@ -135,8 +127,8 @@ Die Skripte sind die Bedienoberfläche der Logik, nicht die Handler selbst:
   `timer_ring_sound`, `timer_ring_guard`, `timer_stop_ringing`
 - `ui.yaml`: `update_ui`, `wake_display`, `sleep_display`, `standby_return`,
   `show_standby_page`, `show_config_page`, `detect_long_press`, `update_clock`,
-  `update_dial`, `apply_colors`, `update_timer_ui`, `show_hint`
-- `web.yaml`: `apply_rotation`, `sync_color_texts`
+  `update_dial`, `update_timer_ui`, `show_hint`
+- `web.yaml`: `apply_rotation`
 
 **Alles mit `delay:` oder `wait_until:` gehört in ein Skript mit `mode: restart`,
 nie direkt in einen Trigger.** Ein Trigger ist eine Aktionsliste ohne
@@ -324,9 +316,9 @@ ohne dass Fremde erst Automationen anlegen müssen.
 
 Substitutions aus `assist-satellit.yaml` werden auch **innerhalb von Lambdas**
 als `${phase_listening}` eingesetzt (Textersetzung vor dem YAML-Parsing) — daher
-`switch/case` über Phasen statt Enums. Für Farben gilt das nicht mehr: in
-Lambdas steht `lv_color_hex((uint32_t) id(col_listening))`, die Substitution
-`${color_listening}` taucht nur noch als `initial_value` des Globals auf.
+`switch/case` über Phasen statt Enums. Das gilt genauso für Farben: in Lambdas
+steht `lv_color_hex(${color_listening})` bzw. `farbe = ${color_listening};`,
+nie ein Global.
 
 ## Design-Referenz
 
@@ -360,8 +352,8 @@ LVGL-Widgets in `ui.yaml`; das Mockup selbst bleibt reine Vorlage, nicht Code.
   Schicht statt vier, **kein** Glow, **keine** Deckkraftanimation, und eine
   Wertänderung **einmal pro Sekunde** statt 25-mal. Wer ihn anfasst, muss
   diese vier Punkte halten — insbesondere darf `update_timer_ui` pro Durchlauf
-  nicht auch noch Farben setzen (das macht `apply_colors`, und nur wenn sich
-  wirklich eine Farbe geändert hat).
+  nicht auch noch die Farbe setzen: die steht fest als `${color_timer}` in der
+  Widget-Definition und ändert sich nie zur Laufzeit.
   Zwei LVGL-Eigenheiten stecken darin: `start_angle: 270` / `end_angle: 269`
   ist der übliche Weg zu einem Vollkreis ab zwölf Uhr (`start == end` wäre
   entartet und ergäbe gar keinen Bogen, und Werte über 360 normalisiert LVGL
@@ -474,10 +466,11 @@ LVGL-Widgets in `ui.yaml`; das Mockup selbst bleibt reine Vorlage, nicht Code.
   war mit der Sprachausgabe-Animation einmal entfallen und ist mit der
   Bestätigungsanzeige zurückgekommen.
   Die Farbcodierung läuft seit dem Wegfall des Phasen-Rings über die
-  **Icon-Farbe**: Error → `col_error`, „nicht verstanden“ → `col_thinking`,
-  Muted / Not Ready / „HA nicht erreichbar“ → `col_dim`, Bestätigung →
-  `col_result`, Timer → `col_timer` (Globals aus `web.yaml`, vorbelegt aus den
-  gleichnamigen Substitutions).
+  **Icon-Farbe**: Error → `${color_error}`, „nicht verstanden“ →
+  `${color_thinking}`, Muted / Not Ready / „HA nicht erreichbar“ →
+  `${color_text_dim}`, Bestätigung → `${color_result}`, Timer →
+  `${color_timer}` — feste Substitutions aus `assist-satellit.yaml`, keine zur
+  Laufzeit einstellbaren Werte.
   Dass ein Glyph mehrfach vorkommt, ist Absicht: `question_mark` steht für
   „nicht verstanden“ (`error_kind == 1`, amber) **und** für die Rückfrage
   (`is_followup` beim Zuhören, blau und atmend), `wifi_off` für „not ready“

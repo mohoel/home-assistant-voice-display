@@ -734,51 +734,6 @@ script:
       - lambda: id(hint_active) = false;
       - script.execute: update_ui
 
-  # ------------------------------------------------------ Symbolfarben setzen
-  # Traegt die Farb-Globals aus packages/web.yaml in die Widgets ein. Die
-  # bg_color-Angaben oben sind damit nur noch der Zustand bis zum ersten Lauf
-  # (on_boot, priority -100) - danach gilt, was in den Globals steht.
-  #
-  # Nur die statischen Farben stehen hier; die Icon-Farbe haengt an der Phase
-  # und kommt aus update_ui, das deshalb am Ende laeuft. Die Animationstakte am
-  # Dateiende fassen nur Deckkraft, Groesse und Position an, keine Farbe.
-  #
-  # Muss idempotent sein: sync_color_texts loest beim Boot ueber das on_value
-  # der Textfelder einen zweiten Durchlauf mit denselben Werten aus.
-  - id: apply_colors
-    mode: restart
-    then:
-      - lambda: |-
-          lv_obj_t *const dots[3] = {id(dot_1), id(dot_2), id(dot_3)};
-          for (uint8_t i = 0; i < 3; i++)
-            lv_obj_set_style_bg_color(
-                dots[i], lv_color_hex((uint32_t) id(col_thinking)), LV_PART_MAIN);
-          lv_obj_t *const bars[5] = {id(bar_1), id(bar_2), id(bar_3),
-                                     id(bar_4), id(bar_5)};
-          for (uint8_t i = 0; i < 5; i++)
-            lv_obj_set_style_bg_color(
-                bars[i], lv_color_hex((uint32_t) id(col_replying)), LV_PART_MAIN);
-          // Der Timer-Ring bekommt seine Farbe nur hier und nicht im
-          // Sekundentakt von update_timer_ui - sie aendert sich ja nur, wenn
-          // jemand auf der Bedienseite daran dreht, und das ruft apply_colors.
-          lv_obj_set_style_arc_color(
-              id(ring_timer), lv_color_hex((uint32_t) id(col_timer)),
-              LV_PART_INDICATOR);
-          // Zifferblatt: Minutenmarke und die beiden Weichzeichner-Kreise.
-          // Die Stundenziffer faerbt update_dial, das gleich darunter laeuft;
-          // die 60 festen Striche bleiben weiss und sind nicht einstellbar.
-          lv_obj_set_style_line_color(
-              id(dial_active)->obj, lv_color_hex((uint32_t) id(col_dial)),
-              LV_PART_MAIN);
-          lv_obj_set_style_shadow_color(
-              id(dial_glow_tick), lv_color_hex((uint32_t) id(col_dial)),
-              LV_PART_MAIN);
-          lv_obj_set_style_shadow_color(
-              id(dial_glow_num), lv_color_hex((uint32_t) id(col_dial)),
-              LV_PART_MAIN);
-      - script.execute: update_dial
-      - script.execute: update_ui
-
   # --------------------------------------------------- Statusanzeige updaten
   - id: update_ui
     mode: restart
@@ -820,11 +775,10 @@ script:
           }
 
           // Glyph und Farbe des Statusicons. Seit dem Wegfall des Rings traegt
-          // das Icon die Farbcodierung; die Farben kommen als Globals aus
-          // packages/web.yaml und sind damit zur Laufzeit einstellbar, die
-          // Phasen bleiben Substitutions.
+          // das Icon die Farbcodierung; Farben und Phasen sind beide feste
+          // Substitutions aus assist-satellit.yaml.
           const char *glyph = nullptr;
-          int farbe = id(col_dim);
+          int farbe = ${color_text_dim};
 
           switch (id(voice_assistant_phase)) {
             case ${phase_thinking}:
@@ -849,13 +803,13 @@ script:
                 lv_obj_remove_flag(id(lbl_unit), LV_OBJ_FLAG_HIDDEN);
               } else {
                 glyph = "\U0000E668";  // check
-                farbe = id(col_result);
+                farbe = ${color_result};
               }
               break;
 
             case ${phase_timer_ringing}:
               glyph = "\U0000E7F7";  // notifications_active
-              farbe = id(col_timer);
+              farbe = ${color_timer};
               break;
 
             case ${phase_listening}:
@@ -865,7 +819,7 @@ script:
               // auf einen neuen Befehl. Beide Glyphen atmen (interval: am
               // Dateiende).
               glyph = id(is_followup) ? "\U0000EB8B" : "\U0000E31D";
-              farbe = id(col_listening);
+              farbe = ${color_listening};
               break;
 
             case ${phase_error}:
@@ -874,13 +828,13 @@ script:
               // echter Fehler.
               if (id(error_kind) == 1) {
                 glyph = "\U0000EB8B";  // question_mark
-                farbe = id(col_thinking);
+                farbe = ${color_thinking};
               } else if (id(error_kind) == 2) {
                 glyph = "\U0000E648";  // wifi_off
-                farbe = id(col_dim);
+                farbe = ${color_text_dim};
               } else {
                 glyph = "\U0000F083";  // warning
-                farbe = id(col_error);
+                farbe = ${color_error};
               }
               break;
 
@@ -1236,8 +1190,7 @@ script:
 
   # ------------------------------------------------------------ Zifferblatt
   # Gegenstueck zu update_clock fuer page_dial. Laeuft beim Betreten des
-  # Standbys, danach im Minutentakt aus core.yaml und einmal nach jeder
-  # Farbaenderung (apply_colors).
+  # Standbys und danach im Minutentakt aus core.yaml.
   #
   # Es sind genau drei Dinge zu tun: die Minutenmarke auf den gueltigen Strich
   # legen, die Stundenziffer einfaerben und die vorige zuruecksetzen. Die 60
@@ -1302,14 +1255,8 @@ script:
               id(dial_n05), id(dial_n06), id(dial_n07), id(dial_n08),
               id(dial_n09), id(dial_n10), id(dial_n11), id(dial_n12)};
 
-          // Die vorige Ziffer bekommt den Kranzstil zurueck. Der steht als
-          // Zahl hier statt als Global, weil er nicht einstellbar ist -
-          // einstellbar ist nur der Akzent (col_dial). 204 ist das
+          // Die vorige Ziffer bekommt den Kranzstil zurueck. 204 ist das
           // text_opa: 80% aus dial_st_num.
-          //
-          // Der Zweig laeuft auch, wenn sich die Stunde gar nicht geaendert
-          // hat: dann kommt der Aufruf von apply_colors, und die Ziffer muss
-          // die neue Akzentfarbe bekommen.
           static int8_t vorige = -1;
           if (vorige >= 1 && vorige <= 12) {
             lv_obj_set_style_text_color(zahlen[vorige - 1],
@@ -1318,7 +1265,7 @@ script:
                                       LV_PART_MAIN);
           }
           lv_obj_set_style_text_color(
-              zahlen[stunde - 1], lv_color_hex((uint32_t) id(col_dial)),
+              zahlen[stunde - 1], lv_color_hex(${color_dial}),
               LV_PART_MAIN);
           lv_obj_set_style_text_opa(zahlen[stunde - 1], LV_OPA_COVER,
                                     LV_PART_MAIN);
