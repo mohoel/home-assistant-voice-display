@@ -70,8 +70,9 @@ Laufzeit-Einstellung dafür: eine Änderung braucht immer einen Neubau.
 | `packages/hardware.yaml` | I2C, QSPI-Display, Touch, I2S, ES7210/ES8311, Media Player |
 | `packages/voice.yaml` | Wake Word, Voice Assistant, Engine-Umschaltung, Mute |
 | `packages/ui.yaml` | Fonts, LVGL-Seiten, Phasen-Animationen, Standby-Uhr, Zifferblatt, Gesicht, Timer-Ring |
-| `packages/web.yaml` | Web-Bedienseite: Webserver, Ausrichtung, Standby-Seite |
+| `packages/web.yaml` | Web-Bedienseite: Webserver, Ausrichtung, Standby-Seite, PV-Schalter |
 | `sounds/` | Klingel- und Bestätigungston als FLAC, eingebettet über `files:` am Media Player |
+| `web/` | Die Bedienseite selbst: `app.js`, `app.css`, dazu `mockup.py` und das erzeugte Standbild `mockup.html` für die Gestaltung |
 
 Die Voice-Assistant-Logik folgt `esphome/wake-word-voice-assistants`
 (esp32-s3-box-3) und `esphome/home-assistant-voice-pe`. Bei neuen Features zuerst
@@ -166,6 +167,51 @@ Punkte, die man beim Ändern leicht übersieht:
   solange `boot_done` false ist; gesetzt wird es in `core.yaml` im `on_boot`
   mit priority `-100`. Nicht mit `init_in_progress` verwechseln — das hängt an
   der API-Verbindung und käme für die Ausrichtung viel zu spät.
+- **Die Weboberfläche ist eigener Code, nicht das ESPHome-Dashboard.**
+  `web/app.js` und `web/app.css` hängen über `css_include`/`js_include` in der
+  Index-Seite, die ESPHome selbst baut; ohne geladenes Standard-Bundle bleibt
+  `<esp-app>` ein leeres Element und unser Modul baut die Seite an seiner
+  Stelle auf. Drei Fallstricke, alle in `web/README.md` ausgeführt: **`local:
+  true` muss weg** (sonst liefert das Gerät für `/` das eingebaute Frontend,
+  `web_server.cpp:431`, und `/0.js` wird nie geladen), **`js_url: ""`**
+  unterdrückt das Nachladen vom CDN, und die Pfade sind relativ zu
+  `assist-satellit.yaml`. Die Seite spricht nur `GET /events`,
+  `POST /select/<entity>/set?option=`, `POST /text/<entity>/set?value=` und
+  `POST /switch/<entity>/turn_on|turn_off` — ein ESPHome-Update kann sie nicht
+  brechen, solange die vier bleiben. Zum
+  Ausprobieren ohne Flash gibt es keinen festen Mock im Repo; einer ist schnell
+  gebaut, weil die Ereignisformate in `web_server.cpp` stehen.
+  **`app.js` kennt keine Entity beim Namen.** Es zeigt, was eine
+  `sorting_group` hat, in der Reihenfolge, in der das Gerät sie meldet (also
+  YAML-Reihenfolge — `sorting_weight` ist überall gleich). Die Art der Zeile
+  entscheidet die *Domain* bzw. die Form des Werts, nie der Name: `select`
+  wird zur Kachelreihe, `switch` zum Kippschalter, und eine Farbe wäre ein
+  `text` mit `max_length == 6` und hexartigem Wert. Eine neue Einstellung in
+  `web.yaml` erscheint damit von selbst.
+  **Der Farbzweig ist tot, aber absichtlich da**: die Farbfelder sind in
+  `3f6b9bc` entfallen, Symbolfarben sind Compile-Zeit-Werte. Der Code hängt an
+  keiner Entity und kostet nur ein paar Zeilen im Flash — er bleibt als
+  Rückweg, falls je wieder eine Textfarbe dazukommt.
+  **Der Kippschalter schickt `turn_on`/`turn_off`, nie `toggle`.** Ein Toggle
+  bezieht sich auf den Zustand im Gerät, der Klick aber auf den angezeigten;
+  laufen die auseinander, schaltet ein Toggle in die falsche Richtung.
+  **Umlaute in Entity-Namen sind unbedenklich**: der Webserver adressiert über
+  den Namen, nicht über die `object_id` (`web_server.cpp:549`), und dekodiert
+  den Pfad vorher (`web_server_idf.cpp:324`). Sie ändern aber die abgeleitete
+  `object_id` — eine bestehende HA-Integration legt danach neue Entities an und
+  lässt die alten als Waisen zurück (betrifft „PV Übersicht").
+- **Alles außerhalb von `web.yaml` trägt `disabled_by_default: true`.** Das ist
+  der zweite Teil derselben Entscheidung: `web_server` kennt **kein** „nur im
+  Web verstecken" (die Per-Entity-Optionen sind ausschließlich
+  `sorting_weight` und `sorting_group_id`), und `internal: true` nähme die
+  Entities auch Home Assistant weg. Für unsere eigene Seite wäre der Schalter
+  streng genommen nicht mehr nötig — sie filtert ohnehin über die
+  Sortiergruppe —, aber er hält die Entities auch im HA-Gerätebild
+  zusammengeräumt und ist der Rückfallpfad, falls jemand auf das
+  Standard-Frontend zurückgeht. Der Preis: eine **frisch** eingerichtete
+  HA-Integration legt sie deaktiviert an, Displayhelligkeit und Media Player
+  müssen dort einmal eingeschaltet werden — sonst fehlen der
+  `on_turn_on`-Weg in den Standby und die Announcements.
 - **Ein Tippen bricht den laufenden Sprachvorgang ab.** `on_screen_touch`
   verzweigt nach Phase: Zuhören/Verarbeitung/Sprachausgabe → `abort_session`,
   sonst wie bisher Display wecken bzw. nur aufhellen. `abort_session` ruft
@@ -442,6 +488,38 @@ Claude-Design-Projekt "Voice Assistant UI Design") erweitert das um die drei
 fehlenden Zustände **Error, Muted, Not Ready** und ersetzt den Phasentext auf
 `page_main` durch Statusicons (Material Symbols, siehe unten). Umgesetzt mit
 LVGL-Widgets in `ui.yaml`; das Mockup selbst bleibt reine Vorlage, nicht Code.
+
+Ein viertes Mockup betrifft **nicht** das Display, sondern die Weboberfläche:
+`uploads/file-1786186211037-nedf.html` im Claude-Design-Projekt
+„Konfigurationsseite". Es ist als einziges kein HTML/CSS-Entwurf, sondern ein
+**angepasster Build des ESPHome-Frontends** — 232 kB minifiziertes JavaScript.
+Übernommen sind Palette, Typografie (Barlow / Barlow Condensed), die Eckmarken
+an den Containern, das dunkle Kopfband und die Vorschaukachel neben den
+Auswahlfeldern. Nicht übernommen ist der Fork selbst: Er wäre bei jedem
+ESPHome-Update neu zu bauen und von Hand nicht zu pflegen. `web/app.js` setzt
+den Entwurf stattdessen als eigene Seite um (Begründung in `web/README.md`).
+Deshalb fehlen dort auch Logansicht, OTA-Formular und der
+„Entwicklerwerkzeuge"-Knopf des Entwurfs.
+
+Ein fünftes Mockup betrifft dieselbe Weboberfläche und **löst das vierte ab**:
+`uploads/mockup.html` im Claude-Design-Projekt „Bedienseite". Es ist kein
+fremder Entwurf, sondern der Rücklauf unseres eigenen Standbilds — dunkle
+Fläche in oklch (alle Töne auf Farbwinkel 264), Manrope und Roboto Mono statt
+Barlow, Zeilen als Kacheln in einem zweispaltigen Raster, und die Dropdowns
+ersetzt durch klickbare Vorschaukacheln je Option. Vom vierten Mockup bleiben
+der Seitenaufbau und die Eckmarken — letztere sind mit `display: none`
+abgeschaltet, weil der Gruppenblock keinen Rahmen mehr hat, um den sie stehen
+könnten; Regeln und Markup bleiben als Ein-Zeilen-Rückweg.
+
+Der Weg dorthin ist der Grund, warum `web/mockup.py` existiert: Die Seite baut
+ihr Markup erst zur Laufzeit, ein Entwurf braucht aber etwas, das ohne Gerät
+rendert. Das Skript erzeugt `web/mockup.html` — dasselbe Markup mit
+Beispielwerten und eingebettetem `app.css` — und dieses Standbild geht nach
+Claude Design. **Es ist eine Ableitung und muss nach jeder Änderung an
+`app.css` oder `app.js` neu erzeugt werden**, sonst gestaltet der nächste
+Durchgang an einem veralteten Bild. Sein Kopfkommentar führt die Klassennamen
+auf, die `app.js` und `app.css` teilen; wer dort umbenennt, muss beide Seiten
+mitziehen.
 
 ## Bekannte Einschränkungen
 

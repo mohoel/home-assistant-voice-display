@@ -160,6 +160,11 @@ direkt unter seiner IP). Sie funktioniert unabhängig von Home Assistant und
 braucht keinen Internetzugang — Oberfläche und Stylesheet liegen im Flash. Auf
 dem Touchscreen selbst gibt es bewusst keine Bedienelemente.
 
+Die Seite ist **nicht** das ESPHome-Standard-Dashboard, sondern eigener Code
+(`web/app.js`, `web/app.css`) nach einem eigenen Entwurf. Sie zeigt genau die
+beiden Gruppen unten und sonst nichts. Warum das so ist und was beim
+Aktualisieren zu beachten wäre, steht in [web/README.md](web/README.md).
+
 Wer die Adresse nicht zur Hand hat: **drei Sekunden auf das Display drücken**.
 Das Gerät zeigt dann unter der Überschrift „Konfiguration" seine IP-Adresse und
 einen QR-Code, der direkt auf diese Seite führt. Ein Tippen führt zurück, und
@@ -169,12 +174,22 @@ nach der Standby-Zeit verschwindet die Seite von selbst.
 |---|---|---|
 | Anzeige | **Ausrichtung** | Dreht das Bild in 90-Grad-Schritten (0/90/180/270). Die Touch-Koordinaten dreht LVGL mit. 45 Grad gibt die Grafikbibliothek nicht her. |
 | Anzeige | **Standby-Seite** | Welche Seite im Standby erscheint: **Uhr** (große Uhrzeit mit Datum), **Zifferblatt** (Strichkranz mit Ziffern, ohne Zeiger) oder **Gesicht** (zwei Augen und ein Mund). Die Umschaltung wirkt sofort, wenn das Gerät gerade im Standby steht. Das **Gesicht** ersetzt zusätzlich die Phasenanimationen — siehe oben. |
+| Anzeige | **PV Übersicht** | Blendet die PV-Seite ein (Ring aus Erzeugung, Batterie und Netz). Sie bleibt stehen, bis der Schalter wieder aus ist oder jemand das Display antippt. |
 
-Beide Einstellungen überstehen einen Neustart. Darunter zeigt dieselbe Seite
-die üblichen Entities (Helligkeit, Stummschaltung, Wake-Word-Optionen,
-Diagnose, Neustart). Die Symbolfarben sind fest in `assist-satellit.yaml`
-hinterlegt und nicht über die Weboberfläche einstellbar — eine Änderung
-braucht einen Neubau der Firmware.
+Die Seite ist **eigener Code** (`web/app.js`, `web/app.css`), nicht das
+ESPHome-Dashboard: dunkle Fläche, Kacheln, und die beiden Auswahlfelder sind
+keine Dropdowns, sondern je eine Miniatur des runden Displays pro Option. Die
+angeklickte Kachel wird hervorgehoben, sobald das Gerät den Wert bestätigt hat.
+
+Alle Einstellungen überstehen einen Neustart. Mehr zeigt die Seite nicht:
+Helligkeit, Stummschaltung, Wake-Word-Optionen, Diagnose und Neustart stehen in
+Home Assistant. Die Symbolfarben sind fest in `assist-satellit.yaml` hinterlegt
+und bewusst nicht über die Weboberfläche einstellbar — eine Änderung braucht
+einen Neubau der Firmware.
+
+Wer das Gerät neu in Home Assistant einrichtet, findet die übrigen Entities
+dort zunächst **deaktiviert** und muss sie einmal einschalten. Bei einem
+bereits eingebundenen Gerät ändert sich nichts.
 
 Die Seite ist **ohne Passwort** im lokalen Netz erreichbar. Wer das nicht will,
 ergänzt in `packages/web.yaml` einen `auth:`-Block mit Zugangsdaten aus
@@ -203,8 +218,9 @@ git checkout v0.1.0 && esphome run assist-satellit.yaml --device assist-satellit
 | `packages/core.yaml` | SoC, PSRAM, WLAN, API, OTA, Zeit, Diagnose |
 | `packages/hardware.yaml` | I2C, QSPI-Display, Touch, I2S-Audio, Codecs, Media Player |
 | `packages/voice.yaml` | Wake Word, Voice Assistant, Selects, Mute, Text-Sensoren |
-| `packages/ui.yaml` | Fonts, LVGL-Seiten, Phasen-Animationen, Standby-Uhr, Zifferblatt, Gesicht |
-| `packages/web.yaml` | Weboberfläche: Ausrichtung, Standby-Seite |
+| `packages/ui.yaml` | Fonts, LVGL-Seiten, Phasen-Animationen, Standby-Uhr, Zifferblatt, Gesicht, PV-Übersicht |
+| `packages/web.yaml` | Weboberfläche: Webserver, Ausrichtung, Standby-Seite, PV-Schalter |
+| `web/` | Die Weboberfläche selbst — eigene Seite statt ESPHome-Dashboard (Aufbau und Pflege stehen dort) |
 | `sounds/` | Klingel- und Bestätigungston, direkt in die Firmware eingebettet (Herkunft und Lizenz stehen dort) |
 
 Farben, Phasen-IDs und Standby-Zeiten stehen als Substitutions in

@@ -75,6 +75,9 @@ light:
   - platform: monochromatic
     id: display_brightness
     name: "Displayhelligkeit"
+    # Nicht auf der Weboberflaeche des Geraets - siehe Kommentar bei sensor: in
+    # packages/core.yaml. In HA wird die Entity gebraucht (on_turn_on unten).
+    disabled_by_default: true
     output: out_brightness
     restore_mode: ALWAYS_ON
     default_transition_length: 300ms
@@ -178,6 +181,7 @@ media_player:
   - platform: speaker
     id: media_out
     name: None
+    disabled_by_default: true
     volume_min: 0.4
     volume_max: 0.85
     announcement_pipeline:

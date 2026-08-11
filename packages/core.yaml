@@ -141,18 +141,30 @@ time:
 debug:
   update_interval: 60s
 
+# disabled_by_default bei allem, was nicht zur Anzeige gehoert: Die
+# Weboberflaeche des Geraets (packages/web.yaml) soll nur noch die
+# Display-Einstellungen zeigen. Das ESPHome-v3-Frontend blendet genau diese
+# Entities aus - sie stehen dort nur noch hinter "Show All". In Home Assistant
+# bleiben sie erreichbar; einmal registrierte Entities bleiben aktiviert, eine
+# frisch eingerichtete Integration legt sie deaktiviert an und sie muessen dort
+# einmal eingeschaltet werden. Ein "nur im Web verstecken" kennt web_server
+# nicht - der einzige andere Hebel waere internal: true, und das nimmt sie auch
+# HA weg.
 sensor:
   - platform: debug
     free:
       name: "Freier Heap"
       entity_category: diagnostic
+      disabled_by_default: true
     psram:
       name: "Freier PSRAM"
       entity_category: diagnostic
+      disabled_by_default: true
   - platform: wifi_signal
     name: "WLAN-Signal"
     update_interval: 60s
     entity_category: diagnostic
+    disabled_by_default: true
 
   # PV-Uebersicht (page_power in packages/ui.yaml): reine Importe bereits
   # bestehender Home-Assistant-Sensoren, analog zu ha_time weiter oben - das
@@ -191,6 +203,7 @@ text_sensor:
   - platform: version
     name: "ESPHome-Version"
     entity_category: diagnostic
+    disabled_by_default: true
 
   # Quelle fuer die Konfigurationsseite auf dem Display (show_config_page in
   # packages/ui.yaml). Ueber die wifi_info-Plattform statt per Lambda, weil
@@ -208,3 +221,4 @@ button:
   - platform: restart
     name: "Neustart"
     entity_category: config
+    disabled_by_default: true
