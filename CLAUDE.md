@@ -99,6 +99,7 @@ Querverbindungen:
 | `ui.yaml` → `show_config_page` | `text_sensor: device_ip` | `core.yaml` |
 | `voice.yaml` → jedes `on_timer_*` | `script: update_timer_ui` | `ui.yaml` |
 | `voice.yaml` → Klingel- und Bestätigungston | `media_player: media_out`, `files: snd_timer/snd_confirm` | `hardware.yaml` |
+| `hardware.yaml` → `media_out.on_announcement` | `script: announcement_guard`, `global: voice_assistant_phase` | `voice.yaml` |
 | `ui.yaml` → `on_screen_touch`, `update_timer_ui`, `update_clock` | `globals: timer_*` | `voice.yaml` |
 | `ui.yaml` → `update_ui` | `globals: result_*`, `error_kind`, `is_followup` | `voice.yaml` |
 | `core.yaml` → `api.actions.zeige_hinweis` | `script: show_hint` | `ui.yaml` |
@@ -124,9 +125,9 @@ aufzurufen** — `update_ui` schaltet nicht nur die Widgets der Mitte, es entsch
 Die Skripte sind die Bedienoberfläche der Logik, nicht die Handler selbst:
 
 - `voice.yaml`: `start_wake_word`, `stop_wake_word`, `set_idle_or_muted`,
-  `end_session`, `clear_error`, `abort_session`, `timer_start_ringing`,
-  `timer_ring_sound`, `timer_ring_guard`, `timer_stop_ringing`,
-  `timer_ring_release`
+  `end_session`, `clear_error`, `abort_session`, `announcement_guard`,
+  `timer_start_ringing`, `timer_ring_sound`, `timer_ring_guard`,
+  `timer_stop_ringing`, `timer_ring_release`
 - `ui.yaml`: `update_ui`, `wake_display`, `sleep_display`, `standby_return`,
   `show_standby_page`, `show_config_page`, `detect_long_press`, `update_clock`,
   `update_dial`, `update_timer_ui`, `ring_fade_out`, `show_hint`
@@ -230,6 +231,88 @@ Punkte, die man beim Ändern leicht übersieht:
   dessen `end_session` macht das selbst. Der Preis des einen Busses: solange
   es klingelt, hört das Gerät kein Wake Word. Beenden geht per Tippen, und
   nach `timer_ring_timeout` gibt `timer_ring_guard` von selbst Ruhe.
+  **Dasselbe gilt für Ansagen aus Home Assistant** (`tts.speak`,
+  `assist_satellite.announce`, `assist_satellite.ask_question`): sie treffen
+  das Gerät im Leerlauf, also mitten im Lauschen, und blieben deshalb komplett
+  stumm. `media_out.on_announcement` (`hardware.yaml`) ruft dafür
+  `announcement_guard` — **ohne Phasenprüfung**, und das ist der Kern: dort
+  stand zuerst eine auf `phase_idle`/`phase_muted`, und der Guard lief deshalb
+  nie. `on_announce` feuert nämlich **zuerst** den TTS-Start-Trigger
+  (`voice_assistant.cpp:1056`) und schickt die Ansage erst danach an den Media
+  Player; die Phase steht also längst auf `phase_replying`. Sichtbar war das
+  als „fünf Balken, aber kein Ton".
+  Das Gerät räumt den Bus auch nicht selbst: `on_announce` geht nur
+  `if (this->continuous_)` nach `STOP_MICROPHONE` (`voice_assistant.cpp:1070`),
+  also allein in der HA-Engine. Das lokale `micro_wake_word` läuft unabhängig
+  weiter und hält das Mikrofon.
+  Der Guard fasst deshalb **nur `micro_wake_word` an**, nie `stop_wake_word`:
+  dessen `voice_assistant.stop` würde die Ansage abwürgen, die ja gerade aus
+  der Pipeline kommt. Scharf gestellt wird eine Sekunde nach dem letzten Ton
+  und nur, wenn weder die Pipeline noch `micro_wake_word` schon wieder laufen
+  — nach einer Rückfrage nimmt HA sofort auf, nach einer gewöhnlichen Antwort
+  hat `end_session` es selbst getan. Ohne all das hing `ask_question` fest: HA
+  wartet auf das Ende der Frage, die nie zu hören war.
+- **`on_end` heißt bei einer Ansage nicht „fertig", sondern „losgegangen".**
+  `on_announce` feuert `end_trigger_` **sofort beim Start** der Ansage
+  (`voice_assistant.cpp:1080`), nicht an ihrem Ende. `end_session` läuft also
+  die ganze Ansage lang mit und räumte danach unbesehen auf — bei
+  `assist_satellite.ask_question` genau falsch: die Pipeline geht nach der
+  Frage von selbst nach `START_MICROPHONE` weiter
+  (`voice_assistant.cpp:513`), und das `voice_assistant.stop` aus
+  `start_wake_word` drehte ihr das ab. Sichtbar als: Frage kommt, danach
+  sofort Standby, kein Fragezeichen.
+  Deshalb `pipeline_session` — gesetzt in `on_listening`, geprüft in
+  `end_session`. War kein Sprachvorgang im Spiel, wartet `end_session` zwei
+  Sekunden, bevor es aufräumt. Abgebrochen wird es in dieser Zeit nicht von
+  sich selbst, sondern von `on_listening` (`script.stop: end_session`), sobald
+  Home Assistant wirklich aufnimmt. Ein `voice_assistant.is_running` als
+  Abbruchbedingung schiede aus: die Condition ist mit
+  `|| is_continuous()` in der HA-Engine immer wahr
+  (`voice_assistant.h:383`).
+  **Der Bestätigungston braucht dieselben 500 ms.** `speaker.is_playing` wird
+  false, sobald die letzten Samples abgegeben sind; den Bus gibt der
+  Lautsprechertask erst danach frei. Ohne die Pause vor `start_wake_word`
+  scheiterte `micro_wake_word` am Mikrofon — und weil danach nichts mehr
+  nachfasst, blieb das Gerät nach einem still ausgeführten Befehl taub.
+- **Nach der Antwort gehört die Bühne noch der Pipeline.** Home Assistant
+  meldet eine offene Rückfrage im **`INTENT_END`**-Ereignis als
+  `continue_conversation` (`esphome/assist_satellite.py`); gesetzt wird es,
+  sobald die Antwort mit einem Fragezeichen endet
+  (`conversation/chat_log.py` — auch griechisches `;` und vollbreites `？`).
+  Die Komponente merkt es sich und wertet es erst nach dem Ton aus:
+  `RESPONSE_FINISHED` geht dann nach `START_MICROPHONE` statt nach `IDLE`
+  (`voice_assistant.cpp:513`).
+  Zwischen „Ton fertig" und dieser Auswertung liegen rund 100 ms — und genau
+  dort lag `start_wake_word`, dessen `voice_assistant.stop` den Merker
+  **bedingungslos** löscht (`voice_assistant.cpp:692`). Das Gerät räumte sich
+  also seine eigene Rückfrage ab, und im Log stand `RESPONSE_FINISHED → IDLE`.
+  Deshalb wartet `end_session` vor dem Scharfstellen, bis
+  `voice_assistant.is_running` false ist (Timeout 5 s, nur in der lokalen
+  Engine — in der HA-Engine ist die Condition wegen `|| is_continuous()`
+  immer wahr). Läuft die Rückfrage weiter, bricht `on_listening` das Skript
+  ohnehin ab.
+  **Merke: jedes `voice_assistant.stop` ist auch ein „vergiss die
+  Rückfrage".** Wer eines hinzufügt, muss prüfen, ob an der Stelle eine offene
+  Rückfrage möglich ist.
+- **Ein Wachhund hält das Wake Word am Leben.** `interval: 30s` am Ende von
+  `voice.yaml`: steht das Gerät im Leerlauf, ist nicht stumm, läuft die lokale
+  Engine, spielt nichts — und `micro_wake_word` läuft trotzdem nicht —, dann
+  startet er es neu und schreibt eine `WARN`-Zeile. Der Grund für dieses Netz
+  ist, dass sämtliche Bus-Fehler dieses Projekts dasselbe Muster haben: ein
+  fehlgeschlagener Mikrofonstart wird von niemandem wiederholt, und das Gerät
+  steht danach still da und hört nichts mehr — ohne jede Meldung. Die
+  Einzelstellen sind repariert (500 ms nach dem Bestätigungston,
+  `announcement_guard`, `pipeline_session`); der Wachhund fängt die nächste.
+  **Die `WARN`-Zeile darf nicht wegoptimiert werden** — schlägt er regelmäßig
+  an, ist eine der Einzelkorrekturen unvollständig, und ohne die Zeile fällt
+  genau das nie auf, weil er es ja repariert.
+- **Eine Fehleranzeige gehört `clear_error`.** Viele Fehler lösen *beides* aus,
+  erst `on_error` und gleich danach `on_end`. Ohne einen Guard räumte
+  `end_session` das Fragezeichen nach Sekundenbruchteilen wieder weg, obwohl
+  `clear_error` es drei Sekunden stehen lassen wollte — von außen ein
+  Aufblitzen. Der abschließende `set_idle_or_muted` + `update_ui` in
+  `end_session` läuft deshalb nur, solange die Phase **nicht** `phase_error`
+  ist.
 - **Die Balken enden mit dem Ton, die Ergebnisanzeige nicht.** `end_session`
   wartet auf das Ende der Sprachausgabe und setzt danach sofort
   `set_idle_or_muted` + `update_ui`, **falls** die Phase noch
@@ -413,8 +496,10 @@ Punkte, die man beim Ändern leicht übersieht:
   Label wanderte deshalb mit jeder Sekunde hin und her. Anker ist der letzte
   Doppelpunkt; nur über einer Stunde rückt die Gruppe um
   `${timer_hour_shift}` nach rechts, sonst stieße `1:23` links über den runden
-  Rand. Geschrieben wird mit `lv_obj_set_style_x`, weil der Codegen `x:` als
-  Style-Property anlegt.
+  Rand — und ab zehn Stunden um `${timer_hour_shift2}` weiter, weil links eine
+  Ziffer dazukommt und die Box nach links wächst (die halbe Ziffernbreite,
+  rund 30 px bei `timer_font_size: 110`). Geschrieben wird mit
+  `lv_obj_set_style_x`, weil der Codegen `x:` als Style-Property anlegt.
 - **Die Ergebnisanzeige ist Icon, Zahl und Einheit.** Zahl und Einheit stehen
   nebeneinander in `box_result` (Flex, `flex_align_cross: END` als Ersatz für
   eine Grundlinie, die LVGL nicht kennt), darüber `lbl_result_icon`. Die feste
@@ -423,7 +508,12 @@ Punkte, die man beim Ändern leicht übersieht:
   Codegen nicht, der Abstand ist ein `pad_left` an der Einheit.
   **Welches Icon, entscheidet allein die Einheit** — mehr weiß das Gerät
   nicht, `on_intent_end` hat eine leere Parameterliste. Unbekanntes bekommt
-  das Thermometer, weil Temperatur der häufigste Fall ist.
+  das Thermometer, weil Temperatur der häufigste Fall ist. **Prozent bekommt
+  als einzige Einheit gar kein Icon**: das Zeichen steht schon hinter der
+  Zahl, das Prozent-Icon darüber sagte dasselbe zweimal — `ico` ist dann
+  `nullptr` und `lbl_result_icon` bleibt versteckt. Die Einheit **„Uhr" ist
+  entfallen**: Home Assistant antwortet „Es ist 22:26" ohne Einheit hinter der
+  Zahl, die Erkennung hätte also nie gegriffen (mit ihr das `schedule`-Icon).
 - **Die Glocke des abgelaufenen Timers pulsiert am Mikrofon-Takt.** Es ist
   dasselbe Widget (`lbl_icon`) in derselben Größe, also braucht es keinen
   zweiten `interval:` — der Takt prüft auf `phase_listening` **oder**
@@ -450,10 +540,22 @@ Antwortsatzes umgehen wollen.
 Was daraus folgt: Die Klassifikation in `on_tts_start` ist bewusst eine
 **Heuristik über den Antwortsatz** mit genau drei Ausgängen — Messwert
 (`result_kind == 1`), Bestätigung (`== 2`) und alles Übrige (`phase_replying`,
-also die fünf Balken wie bisher). Sie greift nur bei Antworten bis 80 Zeichen,
-erkennt eine Zahl nur mit Einheit aus einer festen Liste und eine Bestätigung
-nur als Satzanfang aus einer festen Wortliste. Erkennt sie nichts, bleibt alles
-beim Alten — das ist der Rückfallpfad, nicht ein Fehlerfall.
+also die fünf Balken wie bisher). Sie greift nur bei Antworten bis 80 Zeichen
+und erkennt eine Zahl nur mit Einheit aus einer festen Liste. Erkennt sie
+nichts, bleibt alles beim Alten — das ist der Rückfallpfad, nicht ein
+Fehlerfall.
+
+Die Bestätigung wird als Wort aus einer festen Liste **irgendwo** im Satz
+gesucht, begrenzt auf 45 Zeichen, und sie wird **vor** dem Messwert geprüft:
+„Rollo auf 50 Prozent gestellt" enthält eine Zahl mit Einheit, ist aber die
+Rückmeldung zu einem Befehl. Eine Bestätigung schlägt deshalb eine Zahl im
+selben Satz — der Preis ist, dass „Die Heizung ist auf 21 Grad eingestellt"
+den Haken statt der Zahl zeigt. Befehle sind der häufigere Fall. Der frühere Test auf den *Satzanfang* traf
+nur die knappste Form („Eingeschaltet.") — antwortete Home Assistant mit „Das
+Licht wurde eingeschaltet", liefen die fünf Balken, obwohl gar nichts
+gesprochen wurde. Die Längengrenze ist der Preis dafür: sie hält Sätze
+draußen, die das Wort nur beiläufig enthalten („Im Wohnzimmer sind drei von
+fünf Lampen eingeschaltet").
 
 **Ein LLM-Agent als Konversationsagent hebelt die Heuristik aus.** Läuft in
 Home Assistant statt der eingebauten Intent-Erkennung ein Sprachmodell, sind die
@@ -468,6 +570,15 @@ Wer echte Domain-Icons will, hat den Haken `api: actions: zeige_hinweis`
 Aufruf aus HA passiert nichts, und der Normalbetrieb kommt ohne jede Automation
 aus. Das ist eine Produktentscheidung — die Firmware soll weitergebbar sein,
 ohne dass Fremde erst Automationen anlegen müssen.
+
+**Sein `icon` ist ein Name, kein `mdi:`-Slug.** Der Font trägt sieben Glyphen,
+und ein nicht eingebetteter Codepoint ergab bisher das leere Kästchen des
+Fonts — was aus HA heraus wie ein Fehler aussieht, weil `mdi:bell` dort
+überall sonst funktioniert. `show_hint` übersetzt deshalb selbst:
+`mikrofon`, `stumm`, `warnung`, `offline`, `frage`, `haken`, `glocke`. Ein
+unbekannter Name zeigt **nur den Text** (`hint_text_only`, das `update_ui`
+beim Wiederaufbau nach einem Sprachvorgang mitlesen muss); ein roher
+Codepoint geht weiterhin durch, erkannt an einem Byte ≥ 0x80.
 
 Substitutions aus `assist-satellit.yaml` werden auch **innerhalb von Lambdas**
 als `${phase_listening}` eingesetzt (Textersetzung vor dem YAML-Parsing) — daher

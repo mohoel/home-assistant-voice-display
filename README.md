@@ -20,10 +20,17 @@ Statusanzeige statt eines LED-Rings.
   Icon
 - **Timer** mit Ring am Bildschirmrand, der sich leert und auf jeder Seite
   sichtbar bleibt — auch im Standby, wo der Countdown an die Stelle der Uhr
-  tritt. Am Ende klingelt es und eine Glocke erscheint; Antippen beendet beides
+  tritt. Am Ende klingelt es und eine Glocke erscheint; Antippen beendet beides.
+  Sauber dargestellt wird der Countdown **bis zehn Stunden** — darüber steht er
+  sichtbar aus der Mitte gerückt, weil die Ziffern links über den runden Rand
+  hinauswachsen. Abbrechen geht per Sprache („Timer abbrechen"), nicht am
+  Gerät: ESPHome hat dafür keine Aktion, der Timer selbst lebt in Home
+  Assistant
 - **Messwerte** („Wie warm ist es im Bad?") erscheinen als große Zahl mit
   Einheit daneben und einem passenden Symbol darüber — Thermometer, Blitz,
-  Prozentzeichen —, kurze Bestätigungen („Eingeschaltet") als Haken.
+  Lineal —, kurze Bestätigungen („Eingeschaltet") als Haken. Enthält die
+  Antwort ein Bestätigungswort, gewinnt der Haken: „Rollo auf 50 Prozent
+  gestellt" ist die Rückmeldung zu einem Befehl und kein Messwert.
   Das setzt die eingebaute Intent-Erkennung von Home Assistant voraus — wer ein
   Sprachmodell als Konversationsagenten nutzt, bekommt ausformulierte Antworten
   und damit weiterhin die Balken
