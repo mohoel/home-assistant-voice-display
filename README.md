@@ -39,11 +39,23 @@ Statusanzeige statt eines LED-Rings.
 - **Standby heißt aus:** 30 Sekunden ohne Berührung, dann schaltet sich der
   Bildschirm komplett ab — leere schwarze Seite und Helligkeit 0. Eine
   gedimmte Zwischenstufe gibt es nicht
+- **Volle Helligkeit nur beim Zuhören:** ein sichtbarer Bildschirm läuft
+  normalerweise auf 80 %, das Wake Word hebt auf 100 % — der Sprung ist selbst
+  das Zeichen, dass das Gerät jetzt zuhört
 - Antippen weckt das Display und zeigt wahlweise eine **Uhr** mit Datum
-  („Dienstag, 4. August") oder ein **Zifferblatt** ohne Zeiger, auf dem die
-  aktuelle Stunde als leuchtende Ziffer und die Minute als leuchtender Strich
-  im Kranz stehen; umschaltbar auf der Weboberfläche. Nach 30 Sekunden geht
-  der Bildschirm wieder aus
+  („Dienstag, 4. August"), ein **Zifferblatt** ohne Zeiger, auf dem die
+  aktuelle Stunde als farbig hervorgehobene Ziffer und die Minute als längerer,
+  ebenso hervorgehobener Strich im Kranz stehen, oder ein **Gesicht**, das
+  wartend umherblickt, blinzelt und gelegentlich die Zunge herausstreckt;
+  umschaltbar auf der Weboberfläche.
+  Nach 30 Sekunden geht der Bildschirm wieder aus
+- **Das Gesicht ist mehr als eine Standby-Seite.** Ist es gewählt, übernimmt es
+  auch Zuhören, Verarbeiten und Antworten: die Augen richten sich auf, blicken
+  beim Nachdenken schräg nach oben — das Fragezeichen steht dabei auf der
+  Gegenseite, dort, wo die Augen gerade *nicht* hinsehen — und beim Sprechen
+  bewegt sich der Mund. Die Bewegung läuft dabei durch — bei jedem
+  Phasenwechsel biegen die Augen ab, statt zu springen. Bei Uhr und
+  Zifferblatt bleibt es unverändert bei Mikrofon, Punkten und Balken
 - Antippen bricht außerdem einen laufenden Sprachvorgang ab (Zuhören,
   Verarbeitung oder Sprachausgabe)
 - Drei Sekunden gedrückt halten zeigt IP-Adresse und QR-Code zur
@@ -156,7 +168,7 @@ nach der Standby-Zeit verschwindet die Seite von selbst.
 | Gruppe | Einstellung | Wirkung |
 |---|---|---|
 | Anzeige | **Ausrichtung** | Dreht das Bild in 90-Grad-Schritten (0/90/180/270). Die Touch-Koordinaten dreht LVGL mit. 45 Grad gibt die Grafikbibliothek nicht her. |
-| Anzeige | **Standby-Seite** | Welche Seite im Standby erscheint: **Uhr** (große Uhrzeit mit Datum) oder **Zifferblatt** (Strichkranz mit Ziffern, ohne Zeiger). Die Umschaltung wirkt sofort, wenn das Gerät gerade im Standby steht. |
+| Anzeige | **Standby-Seite** | Welche Seite im Standby erscheint: **Uhr** (große Uhrzeit mit Datum), **Zifferblatt** (Strichkranz mit Ziffern, ohne Zeiger) oder **Gesicht** (zwei Augen und ein Mund). Die Umschaltung wirkt sofort, wenn das Gerät gerade im Standby steht. Das **Gesicht** ersetzt zusätzlich die Phasenanimationen — siehe oben. |
 
 Beide Einstellungen überstehen einen Neustart. Darunter zeigt dieselbe Seite
 die üblichen Entities (Helligkeit, Stummschaltung, Wake-Word-Optionen,
@@ -191,7 +203,7 @@ git checkout v0.1.0 && esphome run assist-satellit.yaml --device assist-satellit
 | `packages/core.yaml` | SoC, PSRAM, WLAN, API, OTA, Zeit, Diagnose |
 | `packages/hardware.yaml` | I2C, QSPI-Display, Touch, I2S-Audio, Codecs, Media Player |
 | `packages/voice.yaml` | Wake Word, Voice Assistant, Selects, Mute, Text-Sensoren |
-| `packages/ui.yaml` | Fonts, LVGL-Seiten, Phasen-Animationen, Standby-Uhr, Zifferblatt |
+| `packages/ui.yaml` | Fonts, LVGL-Seiten, Phasen-Animationen, Standby-Uhr, Zifferblatt, Gesicht |
 | `packages/web.yaml` | Weboberfläche: Ausrichtung, Standby-Seite |
 | `sounds/` | Klingel- und Bestätigungston, direkt in die Firmware eingebettet (Herkunft und Lizenz stehen dort) |
 
@@ -256,8 +268,17 @@ die Select-Entity erhöhen.
   nur Tippen (wecken, Sprachvorgang abbrechen) und Gedrückthalten
   (Konfigurationsseite). Alles Einstellbare liegt auf der Weboberfläche und in
   Home Assistant. Lautstärke und Stummschaltung bleiben HA-Entities.
-- **Weitere Standby-Seiten.** Zur Auswahl stehen Uhr und Zifferblatt; Seiten
-  mit Sensorwerten aus Home Assistant fehlen noch.
+- **Weitere Standby-Seiten.** Zur Auswahl stehen Uhr, Zifferblatt und
+  Gesicht; Seiten mit Sensorwerten aus Home Assistant fehlen noch.
+- **Das Gesicht deckt nur die vier Grundzustände ab.** Warten, Zuhören, Denken
+  und Reden hat es; Messwerte, Bestätigungen, Fehler, Stummschaltung und der
+  klingelnde Timer greifen auch im Gesichtsmodus auf die gewohnte Anzeige mit
+  Zahl bzw. Icon zurück — dafür kennt der Entwurf keine Miene, und ein
+  Messwert ist als Zahl schlicht nützlicher.
+- **Nach dem Antworten verschwindet das Gesicht sofort.** Es geht dann wie
+  jede andere Seite in den Standby, der Bildschirm wird also schwarz statt in
+  ein wartendes Gesicht zurückzufallen. Das ist dasselbe Verhalten wie bei Uhr
+  und Zifferblatt; ein Nachlauf müsste `standby_timeout` für alle drei ändern.
 - **Kein Countdown auf dem Zifferblatt.** Läuft ein Timer, zeigt das
   Zifferblatt nur den Ring am Bildschirmrand — die Restzeit in Ziffern gibt es
   weiterhin nur auf der Standby-Uhr.

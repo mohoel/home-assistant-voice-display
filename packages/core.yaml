@@ -118,9 +118,11 @@ time:
       # (sleep_display in ui.yaml) - laenger als standby_timeout steht kein
       # Standbild mehr auf dem Schirm, und page_off leuchtet ueberhaupt nicht.
       #
-      # Achtung: Es gibt einen Zweig je Standby-Seite. Sobald
-      # show_standby_page (ui.yaml) eine weitere schaltet, muss hier einer
-      # dazukommen - sonst laeuft der Minutentakt auf ihr gar nicht.
+      # Achtung: Es gibt einen Zweig je Standby-Seite, *die Zeit anzeigt*.
+      # Sobald show_standby_page (ui.yaml) eine weitere schaltet, muss hier
+      # einer dazukommen - sonst laeuft der Minutentakt auf ihr gar nicht.
+      # page_face braucht deshalb keinen: das Gesicht kennt keine Uhrzeit, und
+      # seine Bewegung haengt an einem eigenen interval in ui.yaml.
       - seconds: 0
         then:
           - if:
