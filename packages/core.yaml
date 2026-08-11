@@ -17,7 +17,7 @@ esphome:
       then:
         # Erst ab hier steht LVGL. boot_done gibt apply_rotation frei (der
         # restaurierte Wert von sel_rotation hat sein on_value schon lange
-        # vorher gefeuert, siehe packages/web.yaml) und wird dann einmal
+        # vorher gefeuert, siehe packages/settings.yaml) und wird dann einmal
         # bewusst angewendet - vor update_ui, damit die Oberflaeche gleich in
         # der richtigen Ausrichtung gezeichnet wird.
         - globals.set:
@@ -141,76 +141,38 @@ time:
 debug:
   update_interval: 60s
 
-# disabled_by_default bei allem, was nicht zur Anzeige gehoert: Die
-# Weboberflaeche des Geraets (packages/web.yaml) soll nur noch die
-# Display-Einstellungen zeigen. Das ESPHome-v3-Frontend blendet genau diese
-# Entities aus - sie stehen dort nur noch hinter "Show All". In Home Assistant
-# bleiben sie erreichbar; einmal registrierte Entities bleiben aktiviert, eine
-# frisch eingerichtete Integration legt sie deaktiviert an und sie muessen dort
-# einmal eingeschaltet werden. Ein "nur im Web verstecken" kennt web_server
-# nicht - der einzige andere Hebel waere internal: true, und das nimmt sie auch
-# HA weg.
+# Alles hier trug einmal disabled_by_default: true. Der Grund war die eigene
+# Bedienseite des Geraets (packages/web.yaml, entfallen) - sie sollte nur die
+# Display-Einstellungen zeigen, und web_server kennt kein "nur im Web
+# verstecken". Ohne Weboberflaeche gibt es diesen Grund nicht mehr, und die
+# Kehrseite ist teuer: eine frisch eingerichtete HA-Integration legt
+# deaktivierte Entities an, und wer Displayhelligkeit oder Media Player dort
+# vergisst, verliert den Standby-Weg und die Announcements. entity_category
+# sortiert sie in Home Assistant ohnehin nach Diagnose bzw. Konfiguration.
 sensor:
   - platform: debug
     free:
       name: "Freier Heap"
       entity_category: diagnostic
-      disabled_by_default: true
     psram:
       name: "Freier PSRAM"
       entity_category: diagnostic
-      disabled_by_default: true
   - platform: wifi_signal
     name: "WLAN-Signal"
     update_interval: 60s
     entity_category: diagnostic
-    disabled_by_default: true
-
-  # PV-Uebersicht (page_power in packages/ui.yaml): reine Importe bereits
-  # bestehender Home-Assistant-Sensoren, analog zu ha_time weiter oben - das
-  # Geraet misst selbst nichts. internal: true wie bei device_ip, damit keine
-  # doppelten Entities entstehen (die Werte stehen schon in HA).
-  #
-  # Alle vier in Watt; update_power_flow (ui.yaml) rechnet ab 1000 W selbst
-  # auf kW um. Ein fehlender oder negativer Wert (Batterie laedt, Netz speist
-  # ein) wird dort wie 0 behandelt, nicht hier - deshalb kein weiterer Filter.
-  - platform: homeassistant
-    id: ha_pv_power
-    entity_id: sensor.pv_anlage_solar_power
-    internal: true
-    on_value:
-      - script.execute: update_power_flow
-  - platform: homeassistant
-    id: ha_batt_power
-    entity_id: sensor.pv_anlage_battery_power
-    internal: true
-    on_value:
-      - script.execute: update_power_flow
-  - platform: homeassistant
-    id: ha_netz_power
-    entity_id: sensor.pv_anlage_grid_power
-    internal: true
-    on_value:
-      - script.execute: update_power_flow
-  - platform: homeassistant
-    id: ha_haus_power
-    entity_id: sensor.pv_anlage_home_power
-    internal: true
-    on_value:
-      - script.execute: update_power_flow
 
 text_sensor:
   - platform: version
     name: "ESPHome-Version"
     entity_category: diagnostic
-    disabled_by_default: true
 
   # Quelle fuer die Konfigurationsseite auf dem Display (show_config_page in
   # packages/ui.yaml). Ueber die wifi_info-Plattform statt per Lambda, weil
   # IPAddress::str() ab 2026.8.0 entfaellt und der Listener die Adresse nach
   # jedem Reconnect von selbst nachzieht.
   #
-  # internal: true - HA und die Weboberflaeche zeigen die Adresse ohnehin am
+  # internal: true - Home Assistant zeigt die Adresse ohnehin am
   # Geraeteeintrag, eine zusaetzliche Entity waere nur Rauschen.
   - platform: wifi_info
     ip_address:
@@ -221,4 +183,3 @@ button:
   - platform: restart
     name: "Neustart"
     entity_category: config
-    disabled_by_default: true

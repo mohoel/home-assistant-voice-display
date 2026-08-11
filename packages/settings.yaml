@@ -1,0 +1,127 @@
+# Einstellungen des Geraets: Ausrichtung und Standby-Seite.
+#
+# Beides sind Template-Entities ohne eigene Hardware - sie entstehen von selbst
+# in Home Assistant, sobald das Geraet dort eingebunden ist, und brauchen
+# keinen vorab angelegten Helfer. Bedient wird ausschliesslich ueber Home
+# Assistant; eine eigene Bedienseite auf dem Geraet gab es einmal
+# (packages/web.yaml plus web/app.js und web/app.css) und sie ist ersatzlos
+# entfallen. Damit ist auch web_server weg - das Geraet beantwortet keine
+# HTTP-Anfragen mehr ausser dem captive_portal im AP-Fallback.
+#
+# Farben sind keine Einstellung: Symbol- und Akzentfarben stehen als
+# Substitutions in assist-satellit.yaml und sind reine Compile-Zeit-Werte. Eine
+# Aenderung braucht immer einen Neubau - genau deshalb kam die Bedienseite ohne
+# Farbfelder aus und war am Ende nur noch eine zweite Oberflaeche fuer diese
+# beiden Selects.
+
+globals:
+  # Merker, dass on_boot durch ist. Ein Template-Select veroeffentlicht seinen
+  # restore_value beim Setup - das feuert on_value, bevor LVGL steht.
+  # apply_rotation steigt deshalb aus, solange dieser Merker false ist; gesetzt
+  # wird er in core.yaml im on_boot mit priority -100, direkt gefolgt vom
+  # ersten bewussten apply_rotation.
+  #
+  # Nicht mit init_in_progress aus voice.yaml verwechseln: das haengt an der
+  # API-Verbindung, die Rotation muss lange davor sitzen.
+  - id: boot_done
+    type: bool
+    restore_value: false
+    initial_value: "false"
+
+select:
+  # Geraeteausrichtung. 45-Grad-Schritte gibt der Stack nicht her:
+  # rotation_degrees ist cv.one_of(0, 90, 180, 270), und
+  # LvglComponent::set_rotation(int) verlangt ein Vielfaches von 90.
+  # Die Touch-Koordinaten dreht LVGL selbst mit.
+  - platform: template
+    id: sel_rotation
+    name: "Ausrichtung"
+    icon: mdi:screen-rotation
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    options:
+      - "0°"
+      - "90°"
+      - "180°"
+      - "270°"
+    initial_option: "0°"
+    on_value:
+      - script.execute: apply_rotation
+
+  # Standby-Seite. Ausgewertet von show_standby_page in ui.yaml, und zwar
+  # ueber den Index: "Uhr" ist 0, "Zifferblatt" ist 1, "Gesicht" ist 2. Wer
+  # hier eine Option einschiebt statt anhaengt, verschiebt damit die Zuordnung.
+  #
+  # "Gesicht" ist mehr als eine Standby-Seite: die Auswahl ersetzt zusaetzlich
+  # die drei Phasenanimationen auf page_main (Mikrofon, Punkte, Balken) durch
+  # dasselbe Gesicht. Bei "Uhr" und "Zifferblatt" bleibt es bei den bisherigen
+  # Animationen. Ausgewertet wird das in wake_display (packages/ui.yaml).
+  #
+  # Solange ein Timer laeuft, sticht der Countdown alle drei aus - dann zeigt
+  # der Standby immer page_standby, siehe show_standby_page.
+  #
+  # Das on_value schaltet sofort um, wenn gerade eine Standby-Seite vorne
+  # liegt - sonst saehe man die Auswahl erst nach dem naechsten Standby. Die
+  # beiden Guards sind noetig, weil ein Template-Select seinen restaurierten
+  # Wert schon beim Setup veroeffentlicht und dabei on_value feuert: boot_done
+  # haelt den Aufruf so lange zurueck, bis LVGL steht (gesetzt in core.yaml im
+  # on_boot mit priority -100), und erst danach darf die Seitenpruefung
+  # ueberhaupt laufen. Deshalb zwei geschachtelte if statt einer and-Bedingung
+  # - die Auswertungsreihenfolge ist so nicht nur wahrscheinlich, sondern
+  # sichtbar.
+  #
+  # Die Phasenpruefung im inneren if kam mit dem Gesicht dazu: page_face liegt
+  # anders als die beiden Uhren auch waehrend eines Sprachvorgangs vorne. Ohne
+  # sie schoebe ein Umschalten mitten im Antworten die Uhr ins Bild.
+  - platform: template
+    id: sel_standby_page
+    name: "Standby-Seite"
+    icon: mdi:monitor-dashboard
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    options:
+      - "Uhr"
+      - "Zifferblatt"
+      - "Gesicht"
+    initial_option: "Uhr"
+    on_value:
+      - if:
+          condition:
+            lambda: return id(boot_done);
+          then:
+            - if:
+                condition:
+                  and:
+                    - or:
+                        - lvgl.page.is_showing: page_standby
+                        - lvgl.page.is_showing: page_dial
+                        - lvgl.page.is_showing: page_face
+                    - lambda: |-
+                        return id(voice_assistant_phase) == ${phase_idle}
+                            || id(voice_assistant_phase) == ${phase_muted};
+                then:
+                  - script.execute: show_standby_page
+
+script:
+  # Uebertraegt den Select-Wert an LVGL. lvgl.display.set_rotation nimmt einen
+  # Laufzeitwert an: der Parameter geht durch LValidator, der eine Lambda mit
+  # Rueckgabetyp int akzeptiert (lv_validation.py:344, defines.py:226).
+  # Damit entfaellt ein vierfacher if-Baum - aber auch die YAML-Pruefung auf
+  # 0/90/180/270, die das Lambda hier selbst garantiert (default: 0).
+  - id: apply_rotation
+    mode: restart
+    then:
+      - if:
+          condition:
+            lambda: return id(boot_done);
+          then:
+            - lvgl.display.set_rotation:
+                rotation: !lambda |-
+                  switch (id(sel_rotation).active_index().value_or(0)) {
+                    case 1: return 90;
+                    case 2: return 180;
+                    case 3: return 270;
+                    default: return 0;
+                  }

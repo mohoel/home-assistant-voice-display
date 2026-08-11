@@ -70,9 +70,8 @@ Laufzeit-Einstellung dafür: eine Änderung braucht immer einen Neubau.
 | `packages/hardware.yaml` | I2C, QSPI-Display, Touch, I2S, ES7210/ES8311, Media Player |
 | `packages/voice.yaml` | Wake Word, Voice Assistant, Engine-Umschaltung, Mute |
 | `packages/ui.yaml` | Fonts, LVGL-Seiten, Phasen-Animationen, Standby-Uhr, Zifferblatt, Gesicht, Timer-Ring |
-| `packages/web.yaml` | Web-Bedienseite: Webserver, Ausrichtung, Standby-Seite, PV-Schalter |
+| `packages/settings.yaml` | Ausrichtung und Standby-Seite als HA-Entities |
 | `sounds/` | Klingel- und Bestätigungston als FLAC, eingebettet über `files:` am Media Player |
-| `web/` | Die Bedienseite selbst: `app.js`, `app.css`, dazu `mockup.py` und das erzeugte Standbild `mockup.html` für die Gestaltung |
 
 Die Voice-Assistant-Logik folgt `esphome/wake-word-voice-assistants`
 (esp32-s3-box-3) und `esphome/home-assistant-voice-pe`. Bei neuen Features zuerst
@@ -92,9 +91,9 @@ Querverbindungen:
 | `ui.yaml` → Standby-Uhr | `ha_time` | `core.yaml` |
 | `ui.yaml` → Helligkeit | `light: display_brightness` | `hardware.yaml` |
 | `core.yaml` → `on_boot` | `script: update_ui` | `ui.yaml` |
-| `core.yaml` → `on_boot` | `script: apply_rotation`, `global: boot_done` | `web.yaml` |
+| `core.yaml` → `on_boot` | `script: apply_rotation`, `global: boot_done` | `settings.yaml` |
 | `core.yaml` → `ha_time.on_time` | `script: update_clock`, `lbl_clock`, `lbl_date` | `ui.yaml` |
-| `ui.yaml` → `show_standby_page` | `select: sel_standby_page` | `web.yaml` |
+| `ui.yaml` → `show_standby_page`, `update_timer_ui` | `select: sel_standby_page` | `settings.yaml` |
 | `ui.yaml` → `on_screen_touch` | `script: abort_session` | `voice.yaml` |
 | `hardware.yaml` → `touchscreen.on_touch/on_release` | `script: detect_long_press` | `ui.yaml` |
 | `ui.yaml` → `show_config_page` | `text_sensor: device_ip` | `core.yaml` |
@@ -105,14 +104,11 @@ Querverbindungen:
 | `core.yaml` → `api.actions.zeige_hinweis` | `script: show_hint` | `ui.yaml` |
 | `core.yaml` → `ha_time.on_time` | `script: update_dial` | `ui.yaml` |
 | `hardware.yaml` → `display_brightness.on_turn_on` | `script: show_standby_page`, `standby_return`, `page_off` | `ui.yaml` |
-| `hardware.yaml` → `display_brightness.on_turn_on` | `global: boot_done` | `web.yaml` |
-| `web.yaml` → `sel_standby_page.on_value` | `script: show_standby_page`, `page_standby`, `page_dial`, `page_face` | `ui.yaml` |
-| `web.yaml` → `sel_standby_page.on_value` | `global: voice_assistant_phase` | `voice.yaml` |
-| `ui.yaml` → `wake_display` | `select: sel_standby_page` | `web.yaml` |
-| `web.yaml` → `sel_standby_page.on_value` | `global: boot_done` | `web.yaml` |
-| `core.yaml` → `ha_pv_power`/`ha_batt_power`/`ha_netz_power`/`ha_haus_power` (HA-Importe) | `script: update_power_flow` | `ui.yaml` |
-| `web.yaml` → `sw_pv_overview.on_turn_on/on_turn_off` | `script: update_power_flow`, `update_ui`, `standby_return`, `page_power` | `ui.yaml` |
-| `ui.yaml` → `on_screen_touch`, `on_idle` | `switch: sw_pv_overview`, `page_power` | `web.yaml` |
+| `hardware.yaml` → `display_brightness.on_turn_on` | `global: boot_done` | `settings.yaml` |
+| `settings.yaml` → `sel_standby_page.on_value` | `script: show_standby_page`, `page_standby`, `page_dial`, `page_face` | `ui.yaml` |
+| `settings.yaml` → `sel_standby_page.on_value` | `global: voice_assistant_phase` | `voice.yaml` |
+| `ui.yaml` → `wake_display` | `select: sel_standby_page` | `settings.yaml` |
+| `settings.yaml` → `sel_standby_page.on_value` | `global: boot_done` | `settings.yaml` |
 
 Der Minutentakt für Uhr und Zifferblatt liegt bewusst in `core.yaml` am
 `time:`-Block und nicht bei den Widgets: ESPHome führt **Plattform-Listen wie
@@ -139,7 +135,7 @@ Die Skripte sind die Bedienoberfläche der Logik, nicht die Handler selbst:
 `update_ui`. Das ist der einzige Ort, an dem der Gesichtsmodus hängt (siehe
 unten); `update_ui` füllt weiterhin nur die Widgets von `page_main` und weiß
 nichts von Seiten.
-- `web.yaml`: `apply_rotation`
+- `settings.yaml`: `apply_rotation`
 
 **Alles mit `delay:` oder `wait_until:` gehört in ein Skript mit `mode: restart`,
 nie direkt in einen Trigger.** Ein Trigger ist eine Aktionsliste ohne
@@ -161,57 +157,30 @@ Punkte, die man beim Ändern leicht übersieht:
 - **`init_in_progress`** unterdrückt Fehler-Anzeigen und das `on_value` des
   Selects, bis die API-Verbindung steht (`on_client_connected` setzt es auf
   `false`). Neue Boot-Zeit-Logik muss diesen Guard mitprüfen.
-- **`boot_done`** (`web.yaml`) ist der zweite, unabhängige Guard: ein
+- **`boot_done`** (`settings.yaml`) ist der zweite, unabhängige Guard: ein
   Template-Select veröffentlicht seinen restaurierten Wert schon beim Setup und
   feuert `on_value`, bevor LVGL steht. `apply_rotation` steigt deshalb aus,
   solange `boot_done` false ist; gesetzt wird es in `core.yaml` im `on_boot`
   mit priority `-100`. Nicht mit `init_in_progress` verwechseln — das hängt an
   der API-Verbindung und käme für die Ausrichtung viel zu spät.
-- **Die Weboberfläche ist eigener Code, nicht das ESPHome-Dashboard.**
-  `web/app.js` und `web/app.css` hängen über `css_include`/`js_include` in der
-  Index-Seite, die ESPHome selbst baut; ohne geladenes Standard-Bundle bleibt
-  `<esp-app>` ein leeres Element und unser Modul baut die Seite an seiner
-  Stelle auf. Drei Fallstricke, alle in `web/README.md` ausgeführt: **`local:
-  true` muss weg** (sonst liefert das Gerät für `/` das eingebaute Frontend,
-  `web_server.cpp:431`, und `/0.js` wird nie geladen), **`js_url: ""`**
-  unterdrückt das Nachladen vom CDN, und die Pfade sind relativ zu
-  `assist-satellit.yaml`. Die Seite spricht nur `GET /events`,
-  `POST /select/<entity>/set?option=`, `POST /text/<entity>/set?value=` und
-  `POST /switch/<entity>/turn_on|turn_off` — ein ESPHome-Update kann sie nicht
-  brechen, solange die vier bleiben. Zum
-  Ausprobieren ohne Flash gibt es keinen festen Mock im Repo; einer ist schnell
-  gebaut, weil die Ereignisformate in `web_server.cpp` stehen.
-  **`app.js` kennt keine Entity beim Namen.** Es zeigt, was eine
-  `sorting_group` hat, in der Reihenfolge, in der das Gerät sie meldet (also
-  YAML-Reihenfolge — `sorting_weight` ist überall gleich). Die Art der Zeile
-  entscheidet die *Domain* bzw. die Form des Werts, nie der Name: `select`
-  wird zur Kachelreihe, `switch` zum Kippschalter, und eine Farbe wäre ein
-  `text` mit `max_length == 6` und hexartigem Wert. Eine neue Einstellung in
-  `web.yaml` erscheint damit von selbst.
-  **Der Farbzweig ist tot, aber absichtlich da**: die Farbfelder sind in
-  `3f6b9bc` entfallen, Symbolfarben sind Compile-Zeit-Werte. Der Code hängt an
-  keiner Entity und kostet nur ein paar Zeilen im Flash — er bleibt als
-  Rückweg, falls je wieder eine Textfarbe dazukommt.
-  **Der Kippschalter schickt `turn_on`/`turn_off`, nie `toggle`.** Ein Toggle
-  bezieht sich auf den Zustand im Gerät, der Klick aber auf den angezeigten;
-  laufen die auseinander, schaltet ein Toggle in die falsche Richtung.
-  **Umlaute in Entity-Namen sind unbedenklich**: der Webserver adressiert über
-  den Namen, nicht über die `object_id` (`web_server.cpp:549`), und dekodiert
-  den Pfad vorher (`web_server_idf.cpp:324`). Sie ändern aber die abgeleitete
-  `object_id` — eine bestehende HA-Integration legt danach neue Entities an und
-  lässt die alten als Waisen zurück (betrifft „PV Übersicht").
-- **Alles außerhalb von `web.yaml` trägt `disabled_by_default: true`.** Das ist
-  der zweite Teil derselben Entscheidung: `web_server` kennt **kein** „nur im
-  Web verstecken" (die Per-Entity-Optionen sind ausschließlich
-  `sorting_weight` und `sorting_group_id`), und `internal: true` nähme die
-  Entities auch Home Assistant weg. Für unsere eigene Seite wäre der Schalter
-  streng genommen nicht mehr nötig — sie filtert ohnehin über die
-  Sortiergruppe —, aber er hält die Entities auch im HA-Gerätebild
-  zusammengeräumt und ist der Rückfallpfad, falls jemand auf das
-  Standard-Frontend zurückgeht. Der Preis: eine **frisch** eingerichtete
-  HA-Integration legt sie deaktiviert an, Displayhelligkeit und Media Player
-  müssen dort einmal eingeschaltet werden — sonst fehlen der
-  `on_turn_on`-Weg in den Standby und die Announcements.
+- **Es gibt keine Weboberfläche mehr.** `web_server`, `packages/web.yaml` und
+  das ganze Verzeichnis `web/` (eigene Bedienseite aus `app.js`/`app.css` plus
+  `mockup.py`) sind entfallen — bedient wird ausschließlich über Home
+  Assistant. Der Grund: Farben sind Compile-Zeit-Werte, das Farbfeld war schon
+  vorher weg, und übrig blieben zwei Selects, die als HA-Entities ohnehin
+  existieren. Was von `web.yaml` bleibt, steht in `packages/settings.yaml`:
+  `sel_rotation`, `sel_standby_page`, `boot_done`, `apply_rotation`. Das Gerät
+  beantwortet damit keine HTTP-Anfragen mehr (`captive_portal` im
+  AP-Fallback ausgenommen). Wer die Seite zurückholen will, findet sie samt
+  ihrer Begründungen in der Historie bis Commit vor diesem Umbau — sie hing
+  nur an vier REST-Endpunkten und wäre wieder aufsetzbar.
+  **`disabled_by_default` ist mit ihr entfallen.** Es hatte genau einen Zweck:
+  die Bedienseite sollte nur die Display-Einstellungen zeigen, und `web_server`
+  kennt kein "nur im Web verstecken". Ohne Weboberfläche kostet es nur — eine
+  frisch eingerichtete HA-Integration legte die Entities deaktiviert an, und
+  wer Displayhelligkeit oder Media Player dort vergaß, verlor den
+  `on_turn_on`-Weg in den Standby und die Announcements. `entity_category`
+  sortiert in HA ohnehin.
 - **Ein Tippen bricht den laufenden Sprachvorgang ab.** `on_screen_touch`
   verzweigt nach Phase: Zuhören/Verarbeitung/Sprachausgabe → `abort_session`,
   sonst wie bisher Display wecken bzw. nur aufhellen. `abort_session` ruft
@@ -232,10 +201,11 @@ Punkte, die man beim Ändern leicht übersieht:
   wenn der Finger auch eins trifft — hier soll jede Stelle zählen. `on_touch`
   feuert genau einmal je Berührung (`touchscreen.cpp`: `first_touch_`), das
   `mode: restart` des Skripts wird also nicht von Bewegungen zurückgesetzt.
-  `show_config_page` füllt Label und QR-Code erst zur Laufzeit aus
-  `device_ip` — beim Bauen ist die Adresse unbekannt. Die Ruhezone des
-  QR-Codes muss dabei explizit an (`lv_qrcode_set_quiet_zone`), LVGL hat sie
-  per Default aus und die Module stünden bis an den Kachelrand.
+  `show_config_page` füllt die Adresse erst zur Laufzeit aus `device_ip` —
+  beim Bauen ist sie unbekannt. Der QR-Code, der dort einmal stand, ist mit
+  der Weboberfläche entfallen: er hätte ins Leere geführt. Die Seite zeigt
+  jetzt Gerätename und Adresse, und ihr Zweck ist nur noch der eine —
+  nachsehen, wohin `esphome run`/`esphome logs` gehen müssen.
 
 - **Eigene Töne dürfen nur spielen, wenn das Wake Word nicht lauscht.** Das
   Board hat genau einen I2S-Controller für Mikrofon und Lautsprecher. Läuft die
@@ -309,9 +279,22 @@ Punkte, die man beim Ändern leicht übersieht:
   darf die `is_showing`-Prüfung überhaupt laufen. Als `and:` wäre das nur
   wegen der Kurzschluss-Auswertung richtig — geschachtelt ist es sichtbar
   richtig.
-  Auf dem Zifferblatt gibt es **keinen Countdown**: von einem laufenden Timer
-  bleibt dort nur der Ring im `top_layer`. Das ist Absicht, die Ziffern
-  stünden mitten im Kranz.
+  **Ein laufender Timer sticht die Auswahl aus.** Weder Zifferblatt noch
+  Gesicht können den Countdown tragen — die Ziffern stünden mitten im Kranz
+  bzw. im Gesicht —, und der Ring allein sagt nur "noch ein Rest", nicht wie
+  lang. Solange `timer_active` gilt, zeigt der Standby deshalb immer
+  `page_standby`. Das steht an **zwei** Stellen, und beide werden gebraucht:
+  in `show_standby_page` (beim Betreten des Standbys) und als eigener Zweig am
+  Anfang von `update_timer_ui` (der Timer startet oder endet, während schon
+  eine Standby-Seite vorne liegt). Der zweite Zweig schaltet die Seite selbst
+  um, statt `show_standby_page` zu rufen: das Skript endet mit
+  `update_timer_ui`, und ein `mode: restart`-Skript, das sich selbst neu
+  startet, schösse sich mitten im eigenen Durchlauf ab.
+  Sein Guard auf `phase_idle`/`phase_muted` ist die Umsetzung von "erst nach
+  der Sprachausgabe": im Gesichtsmodus trägt `page_face` auch Zuhören,
+  Verarbeitung und Sprachausgabe, und mitten hinein soll kein Countdown
+  springen. `page_off` bleibt in beiden Zweigen außen vor — ein Timer weckt
+  den Bildschirm nicht.
 - **Das Gesicht ist eine Standby-Seite mit Sonderrolle.** `page_face` ist die
   Umsetzung von „Animierter Charakter rundes Display" (`Device Face.dc.html`).
   Anders als Uhr und Zifferblatt liegt es nicht nur nach einem Tippen vorne:
@@ -385,13 +368,13 @@ Punkte, die man beim Ändern leicht übersieht:
   **Ein sichtbarer Bildschirm hat trotzdem zwei Helligkeiten**, und das ist
   kein Widerspruch dazu: `active_brightness` (100 %) gilt allein beim Zuhören,
   alles andere — Uhr, Zifferblatt, Gesicht im Warten, Verarbeitung, Antwort,
-  Fehler, Hinweis, Konfigurationsseite, PV-Übersicht — läuft auf
+  Fehler, Hinweis, Konfigurationsseite — läuft auf
   `idle_brightness` (80 %). Der Sprung nach
   oben ist selbst Rückmeldung ("er hört jetzt zu") und fällt aus dem
   Augenwinkel auf, bevor das Mikrofon-Icon gelesen ist. Die Verzweigung sitzt
-  in `wake_display`; die drei anderen Stellen, die das Display einschalten
-  (`on_screen_touch` im Leerlauf, `show_config_page`, `sw_pv_overview` in
-  `web.yaml`), nehmen fest `idle_brightness`. Wer eine weitere ergänzt, muss
+  in `wake_display`; die beiden anderen Stellen, die das Display einschalten
+  (`on_screen_touch` im Leerlauf, `show_config_page`), nehmen fest
+  `idle_brightness`. Wer eine weitere ergänzt, muss
   sich dort für eine der beiden Stufen entscheiden.
   Uhr und Zifferblatt sind damit **keine Dauerzustände mehr**, sondern das, was
   ein Tippen für `standby_timeout` zeigt.
@@ -525,37 +508,10 @@ fehlenden Zustände **Error, Muted, Not Ready** und ersetzt den Phasentext auf
 `page_main` durch Statusicons (Material Symbols, siehe unten). Umgesetzt mit
 LVGL-Widgets in `ui.yaml`; das Mockup selbst bleibt reine Vorlage, nicht Code.
 
-Ein viertes Mockup betrifft **nicht** das Display, sondern die Weboberfläche:
-`uploads/file-1786186211037-nedf.html` im Claude-Design-Projekt
-„Konfigurationsseite". Es ist als einziges kein HTML/CSS-Entwurf, sondern ein
-**angepasster Build des ESPHome-Frontends** — 232 kB minifiziertes JavaScript.
-Übernommen sind Palette, Typografie (Barlow / Barlow Condensed), die Eckmarken
-an den Containern, das dunkle Kopfband und die Vorschaukachel neben den
-Auswahlfeldern. Nicht übernommen ist der Fork selbst: Er wäre bei jedem
-ESPHome-Update neu zu bauen und von Hand nicht zu pflegen. `web/app.js` setzt
-den Entwurf stattdessen als eigene Seite um (Begründung in `web/README.md`).
-Deshalb fehlen dort auch Logansicht, OTA-Formular und der
-„Entwicklerwerkzeuge"-Knopf des Entwurfs.
-
-Ein fünftes Mockup betrifft dieselbe Weboberfläche und **löst das vierte ab**:
-`uploads/mockup.html` im Claude-Design-Projekt „Bedienseite". Es ist kein
-fremder Entwurf, sondern der Rücklauf unseres eigenen Standbilds — dunkle
-Fläche in oklch (alle Töne auf Farbwinkel 264), Manrope und Roboto Mono statt
-Barlow, Zeilen als Kacheln in einem zweispaltigen Raster, und die Dropdowns
-ersetzt durch klickbare Vorschaukacheln je Option. Vom vierten Mockup bleiben
-der Seitenaufbau und die Eckmarken — letztere sind mit `display: none`
-abgeschaltet, weil der Gruppenblock keinen Rahmen mehr hat, um den sie stehen
-könnten; Regeln und Markup bleiben als Ein-Zeilen-Rückweg.
-
-Der Weg dorthin ist der Grund, warum `web/mockup.py` existiert: Die Seite baut
-ihr Markup erst zur Laufzeit, ein Entwurf braucht aber etwas, das ohne Gerät
-rendert. Das Skript erzeugt `web/mockup.html` — dasselbe Markup mit
-Beispielwerten und eingebettetem `app.css` — und dieses Standbild geht nach
-Claude Design. **Es ist eine Ableitung und muss nach jeder Änderung an
-`app.css` oder `app.js` neu erzeugt werden**, sonst gestaltet der nächste
-Durchgang an einem veralteten Bild. Sein Kopfkommentar führt die Klassennamen
-auf, die `app.js` und `app.css` teilen; wer dort umbenennt, muss beide Seiten
-mitziehen.
+Zwei weitere Mockups betrafen die **Weboberfläche** des Geräts
+(`Konfigurationsseite` und `Bedienseite` in Claude Design). Sie sind mit ihr
+zusammen hinfällig; `web/mockup.py`, das Standbild für diese Entwürfe erzeugte,
+ist mit dem Verzeichnis `web/` entfallen.
 
 ## Bekannte Einschränkungen
 
@@ -734,36 +690,14 @@ mitziehen.
   außerhalb von `${phase_thinking}` sofort aus. Parameter: `dot_size`,
   `dot_size_max`, `dot_gap`, `dot_lift`, `dot_opa_min`, `dot_step_time`,
   `dot_cycle_steps` in `assist-satellit.yaml`.
-- **`page_power` ist eine angepinnte Seite, keine Standby-Seite.** Anders als
-  Uhr und Zifferblatt hängt sie nicht an `sel_standby_page`, sondern am
-  Schalter `sw_pv_overview` (`web.yaml`) — Vorgabe war ein per Sprachbefehl
-  schaltbares Home-Assistant-Entity, kein weiterer Eintrag in einer Auswahl.
-  Solange der Schalter an ist, ist die Seite auch von `on_idle` ausgenommen
-  (siehe dessen Kommentar in `ui.yaml`) — sie geht nicht nach
-  `standby_timeout` von selbst weg, sondern erst mit dem Schalter. Ein Tippen
-  schaltet ihn aus (`on_screen_touch`) statt die Seite direkt zu wechseln,
-  damit der Zustand in Home Assistant nicht vom Display abweicht.
-  Die vier Leistungswerte (PV, Batterie, Netz, Hausverbrauch) sind
-  `sensor: platform: homeassistant`-Importe in `core.yaml`, nach demselben
-  Muster wie `ha_time` — das Gerät misst selbst nichts. Ein fehlender
-  (`NaN`, vor der ersten Meldung aus HA) oder negativer Wert (Batterie lädt,
-  Netz speist ein) zählt für den Ring als 0 — er zeigt nur Quellen, die
-  gerade tatsächlich zum Haus hin fließen, ein rückwärts laufender Pfeil wäre
-  eine andere Funktion. Anzeige unter 1000 W in Watt, darüber in kW mit einer
-  Nachkommastelle und Komma statt Punkt (`update_power_flow`).
-  Die drei Ringfarben (`color_pv`/`color_batt`/`color_netz` in
-  `assist-satellit.yaml`) sind bewusst *nicht* über `col_*`-Globals zur
-  Laufzeit einstellbar, anders als sonst jede Akzentfarbe im Projekt — wie
-  der Kranz des Zifferblatts (siehe `color_dial`-Kommentar) ist der Ring hier
-  die Hauptaussage der Seite, kein editierbares Detail.
-  Geometrie und Winkelrechnung sind aus `Leistungsfluss Display.dc.html`
-  (Claude-Design-Projekt „Leistungsfluss-Dashboard Design") übernommen: drei
-  `arc:`-Widgets statt eines CSS-Conic-Gradients (den LVGL nicht kennt),
-  nach demselben Rezept wie `ring_timer` im `top_layer`. Die Winkel
-  berechnet `update_power_flow` genau wie `buildRing()`/`ringMarkers()` im
-  Mockup — kumulativer Winkel über die volle Segmentbreite, die Lücke kürzt
-  nur `end_angle`, damit die Segmentmitte für die Labelposition unabhängig
-  von der Lücke bleibt.
+- **Die PV-Übersicht ist entfallen.** `page_power`, `update_power_flow`, der
+  Schalter `sw_pv_overview`, die vier `homeassistant`-Sensorimporte in
+  `core.yaml`, die fünf `font_power_*` und alle `power_*`- bzw.
+  `color_pv`/`color_batt`/`color_netz`-Substitutions sind weg. Mit ihr fiel die
+  einzige Ausnahme im `on_idle` (eine "angepinnte" Seite, die der Standby nicht
+  wegräumen durfte) und der einzige Zweig in `on_screen_touch`, der einen
+  Schalter statt einer Seite umlegte. Wer so etwas wieder braucht: die Umsetzung
+  von `Leistungsfluss Display.dc.html` steht vollständig in der Historie.
 - **Mikrofon (16 kHz) und Lautsprecher (48 kHz) teilen sich den I2S-Bus.** Falls Ton
   verzerrt: beide in `packages/hardware.yaml` auf 16000 setzen.
 - **micro_wake_word-Modelle sind englisch.** STT/TTS laufen unabhängig davon auf

@@ -446,21 +446,16 @@ text_sensor:
     id: text_request
     name: "Erkannter Text"
     icon: mdi:account-voice
-    # Nicht auf der Weboberflaeche des Geraets - siehe Kommentar bei sensor: in
-    # packages/core.yaml.
-    disabled_by_default: true
   - platform: template
     id: text_response
     name: "Antwort"
     icon: mdi:message-text
-    disabled_by_default: true
 
 switch:
   - platform: template
     id: mute
     name: "Mikrofon stumm"
     icon: mdi:microphone-off
-    disabled_by_default: true
     optimistic: true
     restore_mode: RESTORE_DEFAULT_OFF
     on_turn_on:
@@ -479,7 +474,6 @@ select:
     id: wake_word_engine_location
     name: "Wake-Word-Engine"
     icon: mdi:account-voice
-    disabled_by_default: true
     optimistic: true
     restore_value: true
     entity_category: config
@@ -508,7 +502,6 @@ select:
     id: wake_word_sensitivity
     name: "Wake-Word-Empfindlichkeit"
     icon: mdi:tune
-    disabled_by_default: true
     optimistic: true
     restore_value: true
     entity_category: config
