@@ -103,7 +103,6 @@ Querverbindungen:
 | `ui.yaml` → `on_screen_touch`, `update_timer_ui`, `update_clock` | `globals: timer_*` | `voice.yaml` |
 | `ui.yaml` → `update_ui` | `globals: result_*`, `error_kind`, `is_followup` | `voice.yaml` |
 | `core.yaml` → `api.actions.zeige_hinweis` | `script: show_hint` | `ui.yaml` |
-| `core.yaml` → `ha_time.on_time` | `lbl_timer` | `ui.yaml` |
 | `core.yaml` → `ha_time.on_time` | `script: update_dial` | `ui.yaml` |
 | `hardware.yaml` → `display_brightness.on_turn_on` | `script: show_standby_page`, `standby_return`, `page_off` | `ui.yaml` |
 | `hardware.yaml` → `display_brightness.on_turn_on` | `global: boot_done` | `web.yaml` |
@@ -130,10 +129,11 @@ Die Skripte sind die Bedienoberfläche der Logik, nicht die Handler selbst:
 
 - `voice.yaml`: `start_wake_word`, `stop_wake_word`, `set_idle_or_muted`,
   `end_session`, `clear_error`, `abort_session`, `timer_start_ringing`,
-  `timer_ring_sound`, `timer_ring_guard`, `timer_stop_ringing`
+  `timer_ring_sound`, `timer_ring_guard`, `timer_stop_ringing`,
+  `timer_ring_release`
 - `ui.yaml`: `update_ui`, `wake_display`, `sleep_display`, `standby_return`,
   `show_standby_page`, `show_config_page`, `detect_long_press`, `update_clock`,
-  `update_dial`, `update_timer_ui`, `show_hint`
+  `update_dial`, `update_timer_ui`, `ring_fade_out`, `show_hint`
 
 **`wake_display` entscheidet, welche Seite die laufende Phase trägt** — nicht
 `update_ui`. Das ist der einzige Ort, an dem der Gesichtsmodus hängt (siehe
@@ -247,19 +247,33 @@ Punkte, die man beim Ändern leicht übersieht:
   der Sprachausgabe und `start_wake_word` — das einzige Fenster, in dem der Bus
   sicher frei ist — und wird über `confirm_pending` dorthin vorgemerkt. Wer
   weitere Töne einbaut, braucht dasselbe Fenster oder muss das Wake Word
-  ringsum stoppen. Der Timer-Klingelton ist davon nicht betroffen: er läuft
-  zwar bei aktivem Wake Word, aber `micro_wake_word` ist zu dem Zeitpunkt über
-  `stop_after_detection` bereits gestoppt — falls dort doch `Parent bus is
-  busy` auftaucht, ist das dieselbe Ursache.
+  ringsum stoppen.
+  **Der Timer-Klingelton stoppt es ringsum** — hier stand einmal, er sei nicht
+  betroffen, weil `stop_after_detection` das Modell ohnehin angehalten habe.
+  Das war falsch, und der Ton kam deshalb nie: `stop_after_detection` greift
+  erst nach einer *Erkennung*, ein ablaufender Timer trifft das Gerät aber in
+  aller Regel mitten im Lauschen. `timer_ring_sound` ruft deshalb selbst
+  `stop_wake_word` und wartet 500 ms (dieselben wie beim Engine-Wechsel: der
+  Mikrofontask gibt den Bus nicht im selben Atemzug frei);
+  `timer_ring_release` stellt es wieder scharf, sobald der Lautsprecher fertig
+  ist — und nur dann, wenn inzwischen kein Sprachvorgang begonnen hat, denn
+  dessen `end_session` macht das selbst. Der Preis des einen Busses: solange
+  es klingelt, hört das Gerät kein Wake Word. Beenden geht per Tippen, und
+  nach `timer_ring_timeout` gibt `timer_ring_guard` von selbst Ruhe.
 - **Die Balken enden mit dem Ton, die Ergebnisanzeige nicht.** `end_session`
   wartet auf das Ende der Sprachausgabe und setzt danach sofort
   `set_idle_or_muted` + `update_ui`, **falls** die Phase noch
   `phase_replying` ist. Ohne diesen Zweig liefen die fünf Balken noch die
   8 s des Nachlaufs weiter, obwohl längst nichts mehr zu hören war. Der
-  Nachlauf (`delay: 8s`) bleibt, denn er gehört `phase_result`: Messwert und
-  Haken sollen stehen bleiben, in `phase_replying` steht dagegen nichts
-  Lesbares auf dem Schirm. Wer dort eine weitere Anzeige einbaut, die den Ton
-  überdauern soll, muss sie wie das Ergebnis aus diesem Zweig ausnehmen.
+  Nachlauf bleibt, aber er gehört `phase_result`: Messwert und Haken sollen
+  stehen bleiben (`${result_hold_time}`, 5 s), in `phase_replying` steht
+  dagegen nichts Lesbares auf dem Schirm. Wer dort eine weitere Anzeige
+  einbaut, die den Ton überdauern soll, muss sie wie das Ergebnis aus diesem
+  Zweig ausnehmen.
+  **Die Textsensoren haben ihre eigene, längere Standzeit** (`delay: 8s` am
+  Ende von `end_session`). Sie sind die einzige Stelle, an der Frage und
+  Antwort in Home Assistant landen, und hängen deshalb nicht daran, wie lange
+  das Gerät selbst etwas zeigt.
 - **Eine Zeile pro Antwort geht als `ESP_LOGI("ergebnis", …)` ins Log.** Sie
   zeigt Antworttext, erkannte Art, Wert und Einheit. Das ist Absicht und darf
   nicht wegoptimiert werden: ohne sie lässt sich nicht unterscheiden, ob die
@@ -409,6 +423,28 @@ Punkte, die man beim Ändern leicht übersieht:
   ihre Labels mit dem Countdown (`lbl_date` trägt dann den Timernamen). Ohne
   den Guard schriebe der Minutentakt aus `core.yaml` jede Minute Uhrzeit und
   Datum hinein, bis `update_timer_ui` eine Sekunde später zurückschreibt.
+- **Der Countdown steht in drei Labels, nicht in einem.** `lbl_timer_pre`
+  (rechtsbündig), `lbl_timer_colon` (feste Box in der Mitte) und
+  `lbl_timer_sec` (linksbündig). Grund ist die Schrift: Figtrees Ziffern sind
+  proportional, eine `1` ist schmaler als eine `8` — ein einzelnes zentriertes
+  Label wanderte deshalb mit jeder Sekunde hin und her. Anker ist der letzte
+  Doppelpunkt; nur über einer Stunde rückt die Gruppe um
+  `${timer_hour_shift}` nach rechts, sonst stieße `1:23` links über den runden
+  Rand. Geschrieben wird mit `lv_obj_set_style_x`, weil der Codegen `x:` als
+  Style-Property anlegt.
+- **Die Ergebnisanzeige ist Icon, Zahl und Einheit.** Zahl und Einheit stehen
+  nebeneinander in `box_result` (Flex, `flex_align_cross: END` als Ersatz für
+  eine Grundlinie, die LVGL nicht kennt), darüber `lbl_result_icon`. Die feste
+  Breite von 440 px ist Absicht: mit `SIZE_CONTENT` wüchse die Gruppe bei
+  langen Einheiten („17:45 Uhr") über den runden Rand. `pad_column` kennt der
+  Codegen nicht, der Abstand ist ein `pad_left` an der Einheit.
+  **Welches Icon, entscheidet allein die Einheit** — mehr weiß das Gerät
+  nicht, `on_intent_end` hat eine leere Parameterliste. Unbekanntes bekommt
+  das Thermometer, weil Temperatur der häufigste Fall ist.
+- **Die Glocke des abgelaufenen Timers pulsiert am Mikrofon-Takt.** Es ist
+  dasselbe Widget (`lbl_icon`) in derselben Größe, also braucht es keinen
+  zweiten `interval:` — der Takt prüft auf `phase_listening` **oder**
+  `phase_timer_ringing`.
 
 ## Was Home Assistant dem Gerät schickt — und was nicht
 
@@ -527,11 +563,20 @@ mitziehen.
   `ring_timer` liegt im `top_layer` von LVGL und ist damit auf jeder Seite
   sichtbar, ohne ihn dreimal anzulegen. Er darf existieren, weil er eine
   völlig andere Last erzeugt als die gescheiterten Phasen-Ringe: **eine**
-  Schicht statt vier, **kein** Glow, **keine** Deckkraftanimation, und eine
-  Wertänderung **einmal pro Sekunde** statt 25-mal. Wer ihn anfasst, muss
-  diese vier Punkte halten — insbesondere darf `update_timer_ui` pro Durchlauf
-  nicht auch noch die Farbe setzen: die steht fest als `${color_timer}` in der
-  Widget-Definition und ändert sich nie zur Laufzeit.
+  Schicht statt vier, **kein** Glow, **keine** dauernde Deckkraftanimation,
+  und eine Wertänderung **einmal pro Sekunde** statt 25-mal. Wer ihn anfasst,
+  muss diese vier Punkte halten — insbesondere darf `update_timer_ui` pro
+  Durchlauf nicht auch noch die Farbe setzen: die steht fest als
+  `${color_timer}` in der Widget-Definition und ändert sich nie zur Laufzeit.
+  **Die eine erlaubte Ausnahme ist `ring_fade_out`**: beim Abbrechen oder
+  Ablaufen eines Timers verschwand der Ring von einem Bild aufs nächste, was
+  wie ein Anzeigefehler wirkte. Jetzt läuft er auf null und blendet dabei aus
+  — `${ring_fade_steps}` × `${ring_fade_step_time}` (14 × 25 ms), einmalig und
+  danach nie wieder. Am Ende setzt das Skript die Deckkraft zurück, sonst
+  finge der nächste Timer blass an; ein neuer Timer stoppt ein laufendes
+  Ausblenden (`script.stop` im Aktiv-Zweig von `update_timer_ui`).
+  Der Ring ist mit `${timer_ring_width}` 18 px breit und wächst dabei nach
+  innen — die Außenkante bleibt auf 462.
   Zwei LVGL-Eigenheiten stecken darin: `start_angle: 270` / `end_angle: 269`
   ist der übliche Weg zu einem Vollkreis ab zwölf Uhr (`start == end` wäre
   entartet und ergäbe gar keinen Bogen, und Werte über 360 normalisiert LVGL

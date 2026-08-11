@@ -535,7 +535,12 @@ cd /Users/moritzholzer/Claude/Assist && git pull && esphome run assist-satellit.
 - Display antippen → Uhr bzw. Zifferblatt bei `idle_brightness` (80 %); erst
   ein Wake Word hebt auf 100 %, und nach dem Zuhören fällt es wieder auf 80 %.
 - Antwort abwarten: die Balken müssen mit dem letzten Ton aufhören, nicht erst
-  Sekunden später.
+  Sekunden später. Ein Messwert bleibt danach `result_hold_time` (5 s) stehen.
+- Timer stellen und ablaufen lassen: Es muss **klingeln** (der Ton fiel früher
+  aus, weil das Wake Word den I2S-Bus hielt), die Glocke pulsiert, ein Tippen
+  beendet beides — und danach reagiert das Wake Word wieder.
+- Timer abbrechen: Der Ring läuft auf null und blendet aus, statt zu
+  verschwinden.
 - Speicher prüfen: `debug:`-Komponente aktivieren und Free-Heap/PSRAM im Log
   beobachten. Bei Boot-Loops oder LVGL-Allokationsfehlern `buffer_size` senken.
 

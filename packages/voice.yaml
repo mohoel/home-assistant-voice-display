@@ -640,16 +640,27 @@ script:
       # die gewaehlte Engine und respektiert eine waehrend des Vorgangs
       # gesetzte Stummschaltung.
       - script.execute: start_wake_word
-      # Antworttext noch kurz stehen lassen, dann aufraeumen
-      - delay: 8s
+      # Stehen bleibt nur, was man auch ansehen will: der Messwert bzw. der
+      # Haken der Ergebnisanzeige. Die Balken der Sprachausgabe sind zu diesem
+      # Zeitpunkt laengst weg - der Zweig oben hat die Phase mit dem letzten
+      # Ton verlassen.
+      - if:
+          condition:
+            lambda: return id(voice_assistant_phase) == ${phase_result};
+          then:
+            - delay: ${result_hold_time}
       - script.execute: set_idle_or_muted
+      - script.execute: update_ui
+      # Die Textsensoren sind die einzige Stelle, an der Frage und Antwort in
+      # Home Assistant landen - sie behalten ihre Standzeit unabhaengig davon,
+      # wie lange die Anzeige auf dem Geraet stehen bleibt.
+      - delay: 8s
       - text_sensor.template.publish:
           id: text_request
           state: ""
       - text_sensor.template.publish:
           id: text_response
           state: ""
-      - script.execute: update_ui
 
   # Laufenden Sprachvorgang abbrechen. Aufgerufen aus on_screen_touch
   # (packages/ui.yaml), und zwar nur aus den drei aktiven Phasen heraus.
@@ -699,6 +710,25 @@ script:
   - id: timer_ring_sound
     mode: restart
     then:
+      # Erst das Wake Word abschalten, sonst bleibt der Klingelton stumm.
+      #
+      # Das Board hat genau einen I2S-Controller fuer Mikrofon und
+      # Lautsprecher. Laeuft die Wake-Word-Erkennung, haelt sie ihn mit 16 kHz
+      # und der Lautsprecherstart mit 48 kHz scheitert an "Parent bus is busy"
+      # (i2s_audio.speaker.std:401) - dieselbe Ursache wie frueher beim
+      # Bestaetigungston. stop_after_detection rettet hier nichts: es haelt das
+      # Modell nur nach einer *Erkennung* an, und ein ablaufender Timer trifft
+      # das Geraet in aller Regel mitten im Lauschen. (Die frueher hier
+      # stehende Behauptung, der Klingelton sei davon nicht betroffen, war
+      # schlicht falsch - der Ton kam nie.)
+      #
+      # Solange es klingelt, hoert das Geraet also kein Wake Word. Das ist der
+      # Preis des einen Busses; zum Beenden genuegt ein Tippen, und nach
+      # ${timer_ring_timeout} gibt timer_ring_guard von selbst Ruhe.
+      - script.execute: stop_wake_word
+      # Dieselben 500 ms wie beim Engine-Wechsel: der Mikrofontask gibt den Bus
+      # nicht im selben Atemzug frei.
+      - delay: 500ms
       - while:
           condition:
             lambda: return id(timer_ringing);
@@ -729,6 +759,31 @@ script:
           id: media_out
       - script.execute: set_idle_or_muted
       - script.execute: update_ui
+      # Das Wake Word wieder scharfstellen. Getrenntes Skript, weil dabei auf
+      # den Lautsprecher gewartet werden muss - dieses hier muss synchron
+      # durchlaufen, damit on_listening danach seine eigene Phase setzen kann.
+      - script.execute: timer_ring_release
+
+  # Gegenstueck zum stop_wake_word in timer_ring_sound: Bus freigeben lassen,
+  # dann die Erkennung neu starten.
+  - id: timer_ring_release
+    mode: restart
+    then:
+      - wait_until:
+          condition:
+            not:
+              speaker.is_playing:
+          timeout: 5s
+      # Hat inzwischen ein Sprachvorgang begonnen (on_listening ruft
+      # timer_stop_ringing, bevor es die Phase setzt), gehoert der Bus ihm -
+      # dessen end_session stellt das Wake Word selbst wieder scharf.
+      - if:
+          condition:
+            lambda: |-
+              return id(voice_assistant_phase) == ${phase_idle}
+                  || id(voice_assistant_phase) == ${phase_muted};
+          then:
+            - script.execute: start_wake_word
 
   - id: clear_error
     mode: restart

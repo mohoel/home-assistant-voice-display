@@ -74,7 +74,7 @@ output:
 light:
   - platform: monochromatic
     id: display_brightness
-    name: "Displayhelligkeit"
+    name: "Display"
     # Nicht auf der Weboberflaeche des Geraets - siehe Kommentar bei sensor: in
     # packages/core.yaml. In HA wird die Entity gebraucht (on_turn_on unten).
     disabled_by_default: true

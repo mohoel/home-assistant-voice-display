@@ -89,6 +89,12 @@ substitutions:
   bar_step_time: 40ms
   bar_cycle_steps: "20"
 
+  # Wie lange ein Ergebnis (Messwert oder Haken) nach dem Ende der
+  # Sprachausgabe stehen bleibt. Die fuenf Balken der Sprachausgabe bekommen
+  # diese Nachlaufzeit bewusst *nicht*: sie sind die Visualisierung des Tons
+  # und enden mit ihm - siehe end_session in packages/voice.yaml.
+  result_hold_time: 5s
+
   # Timer. Home Assistant schickt Timer-Ereignisse von sich aus an den
   # Satelliten (on_timer_* in packages/voice.yaml) - dafuer braucht es keine
   # Automation in HA. Waehrend ein Timer laeuft, liegt ein Ring am
@@ -105,11 +111,33 @@ substitutions:
   # Zwoelf-Uhr-Punkt (start 270, end 269) ist der uebliche LVGL-Weg zu einem
   # Vollkreis - start == end waere entartet und ergaebe gar keinen Bogen.
   timer_ring_size: "462"
-  timer_ring_width: "12"
+  timer_ring_width: "18"
   # Groesse der Countdown-Ziffern in der Bildschirmmitte. 110 px statt der
   # 140 px der Standby-Uhr, damit auch "1:23:45" (sieben Zeichen) in den runden
   # Bildschirm passt.
   timer_font_size: "110"
+  # Der Countdown steht in drei Labels, damit der Doppelpunkt genau in der
+  # Bildschirmmitte sitzt und die Ziffern nicht mit jeder Sekunde wandern:
+  # Figtrees Ziffern sind proportional, eine "1" ist schmaler als eine "8" -
+  # bei einem einzigen zentrierten Label verschiebt sich dadurch der ganze
+  # Countdown. Minuten sind rechtsbuendig an den Doppelpunkt gesetzt, Sekunden
+  # linksbuendig; beide Boxen sind timer_part_width breit, der Doppelpunkt
+  # sitzt in einer timer_colon_width breiten Box mittig.
+  #
+  # Die x-Versaetze der Seitenboxen ergeben sich daraus:
+  #   timer_part_width / 2 + timer_colon_width / 2 = 125 + 16 = 141
+  timer_part_width: "250"
+  timer_colon_width: "32"
+  timer_part_offset: "141"
+  # Mit Stunden ("1:23:45") waere die linke Box zu breit fuer den runden
+  # Bildschirm, wenn der Doppelpunkt in der Mitte bliebe. Dann wandert die
+  # ganze Gruppe um diesen Betrag nach rechts - die Ziffern stehen weiterhin
+  # ruhig, nur der Ankerpunkt ist ein anderer.
+  timer_hour_shift: "48"
+  # Ausblenden des Rings, wenn ein Timer abgebrochen wird oder ablaeuft. Er
+  # laeuft dabei auf null und wird transparent; Dauer = Schritte * Schrittzeit.
+  ring_fade_steps: "14"
+  ring_fade_step_time: 25ms
   # Klingeln: Laenge der Tondatei (2,73 s) plus eine kurze Pause. Nach
   # timer_ring_timeout gibt das Geraet von selbst Ruhe, falls niemand da ist.
   timer_sound_repeat: 3.2s

@@ -42,9 +42,15 @@ font:
     id: font_date
     size: 31 # 130% der urspruenglichen 24 px
     glyphsets: [GF_Latin_Core]
-    # Traegt auch die Einheit unter einem Messwert. Das Gradzeichen liegt
-    # ausserhalb von GF_Latin_Core; glyphs und glyphsets werden vereinigt
-    # (font/__init__.py:563), die Angabe ergaenzt den Satz also nur.
+
+  # Einheit neben einem Messwert ("21,5 °C"). Frueher stand sie klein und grau
+  # unter der Zahl; sie steht jetzt gross und in der Ergebnisfarbe daneben.
+  # Das Gradzeichen liegt ausserhalb von GF_Latin_Core; glyphs und glyphsets
+  # werden vereinigt (font/__init__.py:563), die Angabe ergaenzt den Satz nur.
+  - file: "gfonts://Figtree@600"
+    id: font_unit
+    size: 46
+    glyphsets: [GF_Latin_Core]
     glyphs: ["°"]
   - file: "gfonts://Figtree@700"
     id: font_clock
@@ -96,6 +102,26 @@ font:
       - "\U0000EB8B" # question_mark         - nicht verstanden, Rueckfrage
       - "\U0000E668" # check                 - Befehl ausgefuehrt
       - "\U0000E7F7" # notifications_active   - Timer klingelt
+
+  # Kleines Icon ueber einem Messwert. Was gemessen wurde, weiss das Geraet
+  # nicht (on_intent_end hat keine Parameter) - die erkannte *Einheit* traegt
+  # aber weit genug, um das Ergebnis einzuordnen: Grad -> Thermometer,
+  # Prozent -> Prozentzeichen, Watt -> Blitz. Die Zuordnung steht in update_ui.
+  # Codepoints wie oben aus dem Material-Symbols-Register.
+  - file: "gfonts://Material+Symbols+Outlined"
+    id: font_icon_small
+    size: 96
+    glyphs:
+      - "\U0000E1FF" # device_thermostat - °C, °F, °, Grad
+      - "\U0000EB58" # percent           - %, Prozent
+      - "\U0000EFD6" # schedule          - Uhr
+      - "\U0000E9E4" # speed             - km/h
+      - "\U0000E94D" # compress          - hPa
+      - "\U0000E518" # light_mode        - lx
+      - "\U0000E7B0" # co2               - ppm
+      - "\U0000E050" # volume_up         - dB
+      - "\U0000EA0B" # bolt              - kWh, kW, Wh, W, V, A
+      - "\U0000E41C" # straighten        - km, m, cm, mm
 
   # ------------------------------------------------------- PV-Uebersicht
   # Fuenf eigene Fontgroessen fuer page_power, nach demselben Prinzip wie
@@ -398,28 +424,64 @@ lvgl:
             border_width: 0
             hidden: true
 
-        # --- Messwert: Zahl und Einheit ---
+        # --- Messwert: Icon, Zahl und Einheit ---
         # Gefuellt aus dem Antworttext (result_value/result_unit, gesetzt in
         # on_tts_start in packages/voice.yaml). Ersetzt in phase_result die
         # fuenf Balken, wenn die Antwort eine Zahl mit bekannter Einheit war.
+        #
+        # Zahl und Einheit standen frueher untereinander, die Einheit klein und
+        # grau - das las sich wie eine Fussnote. Sie stehen jetzt nebeneinander
+        # wie auf einem Thermostat, mit einem Icon zur Einheit darueber. Die
+        # Gruppe sitzt in einem Flex-Container, damit sie als Ganzes zentriert
+        # bleibt, egal wie breit Zahl und Einheit ausfallen.
         - label:
-            id: lbl_value
+            id: lbl_result_icon
             align: CENTER
-            y: -15
+            y: -115
+            width: 120
+            height: 120
             text: ""
-            text_font: font_timer
-            text_color: ${color_text}
+            text_font: font_icon_small
+            text_color: ${color_result}
             text_align: CENTER
             hidden: true
-        - label:
-            id: lbl_unit
+        - obj:
+            id: box_result
             align: CENTER
-            y: 70
-            text: ""
-            text_font: font_date
-            text_color: ${color_text_dim}
-            text_align: CENTER
+            y: 40
+            # Feste Breite statt SIZE_CONTENT: so zentriert Flex den Inhalt
+            # innerhalb des Bildschirms, statt ihn bei langen Einheiten
+            # ("17:45 Uhr") ueber den Rand hinauswachsen zu lassen.
+            width: 440
+            height: SIZE_CONTENT
+            bg_opa: TRANSP
+            border_width: 0
+            pad_all: 0
+            layout:
+              type: FLEX
+              flex_flow: ROW
+              flex_align_main: CENTER
+              # Unterkante buendig - das kommt einer gemeinsamen Grundlinie am
+              # naechsten, die LVGL nicht kennt. Das pad_bottom der Einheit
+              # hebt sie von dort auf Ziffernhoehe.
+              flex_align_cross: END
             hidden: true
+            widgets:
+              - label:
+                  id: lbl_value
+                  text: ""
+                  text_font: font_timer
+                  text_color: ${color_text}
+              - label:
+                  id: lbl_unit
+                  text: ""
+                  text_font: font_unit
+                  text_color: ${color_result}
+                  # pad_left ist der Abstand zur Zahl - ein pad_column am
+                  # Container kennt der ESPHome-Codegen nicht. pad_bottom hebt
+                  # die Einheit von der Unterkante auf Ziffernhoehe.
+                  pad_left: 14
+                  pad_bottom: 22
 
         # --- Hinweis von aussen ---
         # Nur fuer die optionale API-Aktion zeige_hinweis (packages/core.yaml).
@@ -466,14 +528,45 @@ lvgl:
         # ist dann die Information, die man im Vorbeigehen sehen will - die
         # Uhrzeit steht bis dahin auf jedem anderen Geraet im Raum.
         # Geschrieben von update_timer_ui, das der Sekundentakt aufruft.
+        #
+        # Drei Labels statt einem, damit der Doppelpunkt ruhig in der Mitte
+        # steht: Figtrees Ziffern sind proportional (eine "1" ist schmaler als
+        # eine "8"), ein einzelnes zentriertes Label wanderte deshalb mit jeder
+        # Sekunde hin und her. Die Minuten sind rechtsbuendig an den
+        # Doppelpunkt gesetzt, die Sekunden linksbuendig - beide wachsen also
+        # von ihm weg statt die ganze Zeile zu verschieben.
         - label:
-            id: lbl_timer
+            id: lbl_timer_pre
             align: CENTER
+            x: -${timer_part_offset}
             y: -15
+            width: ${timer_part_width}
+            text: ""
+            text_font: font_timer
+            text_color: ${color_text}
+            text_align: RIGHT
+            hidden: true
+        - label:
+            id: lbl_timer_colon
+            align: CENTER
+            x: 0
+            y: -15
+            width: ${timer_colon_width}
             text: ""
             text_font: font_timer
             text_color: ${color_text}
             text_align: CENTER
+            hidden: true
+        - label:
+            id: lbl_timer_sec
+            align: CENTER
+            x: ${timer_part_offset}
+            y: -15
+            width: ${timer_part_width}
+            text: ""
+            text_font: font_timer
+            text_color: ${color_text}
+            text_align: LEFT
             hidden: true
 
         # Zweitzeile fuer beide Faelle: im Normalfall das Datum, waehrend eines
@@ -982,6 +1075,18 @@ globals:
     restore_value: false
     initial_value: "false"
 
+  # Zwischenstand des ausblendenden Timer-Rings (ring_fade_out). Als Globals
+  # und nicht als static im Lambda, weil das Skript ueber mehrere Durchlaeufe
+  # eines repeat: laeuft und mode: restart jederzeit neu ansetzen kann.
+  - id: ring_fade_from
+    type: int
+    restore_value: false
+    initial_value: "0"
+  - id: ring_fade_step
+    type: int
+    restore_value: false
+    initial_value: "0"
+
 script:
   # ---------------------------------------------------------- Hinweis zeigen
   # Gegenstueck zur optionalen API-Aktion zeige_hinweis. Fuer den normalen
@@ -1034,7 +1139,7 @@ script:
           lv_obj_t *const alle[] = {
               id(lbl_icon), id(dot_1), id(dot_2), id(dot_3),
               id(bar_1), id(bar_2), id(bar_3), id(bar_4), id(bar_5),
-              id(lbl_value), id(lbl_unit),
+              id(box_result), id(lbl_result_icon),
               id(lbl_hint_icon), id(lbl_hint_text)};
           for (lv_obj_t *w : alle)
             lv_obj_add_flag(w, LV_OBJ_FLAG_HIDDEN);
@@ -1077,8 +1182,28 @@ script:
               if (id(result_kind) == 1) {
                 lv_label_set_text(id(lbl_value), id(result_value).c_str());
                 lv_label_set_text(id(lbl_unit), id(result_unit).c_str());
-                lv_obj_remove_flag(id(lbl_value), LV_OBJ_FLAG_HIDDEN);
-                lv_obj_remove_flag(id(lbl_unit), LV_OBJ_FLAG_HIDDEN);
+                // Icon zur Einheit. Mehr als sie weiss das Geraet nicht - was
+                // gemessen wurde, steht in keiner Nutzlast (on_intent_end hat
+                // eine leere Parameterliste). Unbekanntes und alles Gradartige
+                // bekommt das Thermometer: Temperatur ist der mit Abstand
+                // haeufigste Fall.
+                const std::string &e = id(result_unit);
+                const char *ico = "\U0000E1FF";  // device_thermostat
+                if (e == "%" || e == "Prozent")      ico = "\U0000EB58";  // percent
+                else if (e == "Uhr")                 ico = "\U0000EFD6";  // schedule
+                else if (e == "km/h")                ico = "\U0000E9E4";  // speed
+                else if (e == "hPa")                 ico = "\U0000E94D";  // compress
+                else if (e == "lx")                  ico = "\U0000E518";  // light_mode
+                else if (e == "ppm")                 ico = "\U0000E7B0";  // co2
+                else if (e == "dB")                  ico = "\U0000E050";  // volume_up
+                else if (e == "kWh" || e == "kW" || e == "Wh" ||
+                         e == "W" || e == "V" || e == "A")
+                                                     ico = "\U0000EA0B";  // bolt
+                else if (e == "km" || e == "m" || e == "cm" || e == "mm")
+                                                     ico = "\U0000E41C";  // straighten
+                lv_label_set_text(id(lbl_result_icon), ico);
+                lv_obj_remove_flag(id(box_result), LV_OBJ_FLAG_HIDDEN);
+                lv_obj_remove_flag(id(lbl_result_icon), LV_OBJ_FLAG_HIDDEN);
               } else {
                 glyph = "\U0000E668";  // check
                 farbe = ${color_result};
@@ -1143,7 +1268,7 @@ script:
           // Compile und OTA.
           ESP_LOGI("anzeige", "phase=%d art=%d wert_sichtbar=%d icon_sichtbar=%d",
                    id(voice_assistant_phase), id(result_kind),
-                   !lv_obj_has_flag(id(lbl_value), LV_OBJ_FLAG_HIDDEN),
+                   !lv_obj_has_flag(id(box_result), LV_OBJ_FLAG_HIDDEN),
                    !lv_obj_has_flag(id(lbl_icon), LV_OBJ_FLAG_HIDDEN));
 
       # Im Leerlauf gibt es nichts anzuzeigen -> Standby.
@@ -1441,19 +1566,34 @@ script:
   - id: update_timer_ui
     mode: restart
     then:
-      - lambda: |-
-          const bool aktiv = id(timer_active) && id(timer_total) > 0;
-
-          if (aktiv) {
-            int32_t wert = (int32_t) (1000.0f * (float) id(timer_left) /
-                                      (float) id(timer_total));
-            if (wert < 0) wert = 0;
-            if (wert > 1000) wert = 1000;
-            lv_arc_set_value(id(ring_timer), wert);
-            lv_obj_remove_flag(id(ring_timer), LV_OBJ_FLAG_HIDDEN);
-          } else {
-            lv_obj_add_flag(id(ring_timer), LV_OBJ_FLAG_HIDDEN);
-          }
+      - if:
+          condition:
+            lambda: return id(timer_active) && id(timer_total) > 0;
+          then:
+            # Ein neuer Timer bricht ein laufendes Ausblenden ab; die Deckkraft
+            # setzt das Lambda darunter wieder zurueck, sonst bliebe der Ring
+            # auf dem Stand, auf dem ring_fade_out ihn verlassen hat.
+            - script.stop: ring_fade_out
+            - lambda: |-
+                int32_t wert = (int32_t) (1000.0f * (float) id(timer_left) /
+                                          (float) id(timer_total));
+                if (wert < 0) wert = 0;
+                if (wert > 1000) wert = 1000;
+                lv_arc_set_value(id(ring_timer), wert);
+                lv_obj_set_style_arc_opa(id(ring_timer), LV_OPA_COVER,
+                                         LV_PART_INDICATOR);
+                lv_obj_remove_flag(id(ring_timer), LV_OBJ_FLAG_HIDDEN);
+          else:
+            # Der Ring verschwand bisher von einem Bild aufs naechste - beim
+            # Abbrechen eines Timers wirkte das wie ein Anzeigefehler. Jetzt
+            # laeuft er auf null und blendet dabei aus.
+            - if:
+                condition:
+                  lambda: |-
+                    return !lv_obj_has_flag(id(ring_timer), LV_OBJ_FLAG_HIDDEN)
+                        && !id(ring_fade_out).is_running();
+                then:
+                  - script.execute: ring_fade_out
 
       # Der Countdown steht nur auf der Standby-Seite. Auf der Hauptseite
       # gehoert die Mitte der laufenden Phase, auf der Konfigurationsseite dem
@@ -1466,23 +1606,50 @@ script:
             lvgl.page.is_showing: page_standby
           then:
             - lambda: |-
+                lv_obj_t *const teile[3] = {id(lbl_timer_pre),
+                                            id(lbl_timer_colon),
+                                            id(lbl_timer_sec)};
                 if (id(timer_active)) {
                   const int rest = id(timer_left);
                   const int stunden = rest / 3600;
                   const int minuten = (rest % 3600) / 60;
                   const int sekunden = rest % 60;
-                  const std::string text =
+                  // Links vom letzten Doppelpunkt steht bei einem langen Timer
+                  // "1:23", sonst nur "05". Der letzte Doppelpunkt ist der
+                  // Ankerpunkt in der Bildschirmmitte.
+                  const std::string vorn =
                       stunden > 0
-                          ? esphome::str_sprintf("%d:%02d:%02d", stunden, minuten, sekunden)
-                          : esphome::str_sprintf("%02d:%02d", minuten, sekunden);
-                  lv_label_set_text(id(lbl_timer), text.c_str());
+                          ? esphome::str_sprintf("%d:%02d", stunden, minuten)
+                          : esphome::str_sprintf("%02d", minuten);
+                  lv_label_set_text(id(lbl_timer_pre), vorn.c_str());
+                  lv_label_set_text(id(lbl_timer_colon), ":");
+                  lv_label_set_text(
+                      id(lbl_timer_sec),
+                      esphome::str_sprintf("%02d", sekunden).c_str());
+
+                  // Mit Stunden waere die linke Box zu breit fuer den runden
+                  // Bildschirm - dann wandert die ganze Gruppe nach rechts.
+                  //
+                  // lv_obj_set_style_x und nicht lv_obj_set_x: der Codegen
+                  // legt `x:` als Style-Property an (lv_obj_set_style_x im
+                  // generierten main.cpp), und `lvgl.widget.update` schreibt
+                  // dorthin zurueck.
+                  const int16_t versatz = stunden > 0 ? ${timer_hour_shift} : 0;
+                  lv_obj_set_style_x(id(lbl_timer_pre),
+                                     -${timer_part_offset} + versatz, LV_PART_MAIN);
+                  lv_obj_set_style_x(id(lbl_timer_colon), versatz, LV_PART_MAIN);
+                  lv_obj_set_style_x(id(lbl_timer_sec),
+                                     ${timer_part_offset} + versatz, LV_PART_MAIN);
+
                   lv_label_set_text(id(lbl_date), id(timer_name).empty()
                                                       ? "Timer"
                                                       : id(timer_name).c_str());
                   lv_obj_add_flag(id(lbl_clock), LV_OBJ_FLAG_HIDDEN);
-                  lv_obj_remove_flag(id(lbl_timer), LV_OBJ_FLAG_HIDDEN);
+                  for (lv_obj_t *w : teile)
+                    lv_obj_remove_flag(w, LV_OBJ_FLAG_HIDDEN);
                 } else {
-                  lv_obj_add_flag(id(lbl_timer), LV_OBJ_FLAG_HIDDEN);
+                  for (lv_obj_t *w : teile)
+                    lv_obj_add_flag(w, LV_OBJ_FLAG_HIDDEN);
                   lv_obj_remove_flag(id(lbl_clock), LV_OBJ_FLAG_HIDDEN);
                 }
       # Faellt der letzte Timer weg, brauchen Uhr und Datum wieder ihren
@@ -1492,6 +1659,38 @@ script:
             lambda: return !id(timer_active);
           then:
             - script.execute: update_clock
+
+  # Ausblenden des Timer-Rings. Der einzige Fall, in dem der Ring animiert
+  # wird - und er bleibt damit innerhalb der Grenzen, an denen die frueheren
+  # Phasen-Ringe gescheitert sind: er laeuft genau
+  # ${ring_fade_steps} * ${ring_fade_step_time} lang und danach nie wieder.
+  #
+  # Zwei Dinge laufen gleichzeitig: der Wert geht auf null (der Bogen zieht
+  # sich zur Zwoelf zurueck) und die Deckkraft mit ihm. Am Ende steht der Ring
+  # wieder auf voller Deckkraft, damit der naechste Timer nicht blass anfaengt.
+  - id: ring_fade_out
+    mode: restart
+    then:
+      - lambda: |-
+          id(ring_fade_from) = lv_arc_get_value(id(ring_timer));
+          id(ring_fade_step) = 0;
+      - repeat:
+          count: ${ring_fade_steps}
+          then:
+            - lambda: |-
+                id(ring_fade_step)++;
+                const float f = 1.0f - (float) id(ring_fade_step) /
+                                           (float) ${ring_fade_steps};
+                lv_arc_set_value(id(ring_timer),
+                                 (int32_t) (id(ring_fade_from) * f));
+                lv_obj_set_style_arc_opa(id(ring_timer),
+                                         (lv_opa_t) (255.0f * f),
+                                         LV_PART_INDICATOR);
+            - delay: ${ring_fade_step_time}
+      - lambda: |-
+          lv_obj_add_flag(id(ring_timer), LV_OBJ_FLAG_HIDDEN);
+          lv_obj_set_style_arc_opa(id(ring_timer), LV_OPA_COVER,
+                                   LV_PART_INDICATOR);
 
   # ---------------------------------------------------------------- Uhrzeit
   # Steigt aus, solange ein Timer laeuft: dann gehoeren beide Labels dem
@@ -1782,7 +1981,13 @@ interval:
       - lambda: |-
           static bool aktiv = false;
           static uint8_t step = 0;
-          if (id(voice_assistant_phase) != ${phase_listening}) {
+          // Dieselbe Animation traegt die Glocke eines abgelaufenen Timers -
+          // beide Male ist es dasselbe Widget (lbl_icon) in derselben Groesse,
+          // es braucht also keinen zweiten Takt.
+          const bool pulst =
+              id(voice_assistant_phase) == ${phase_listening} ||
+              id(voice_assistant_phase) == ${phase_timer_ringing};
+          if (!pulst) {
             if (aktiv) {
               aktiv = false;
               lv_obj_set_style_text_opa(id(lbl_icon), LV_OPA_COVER, LV_PART_MAIN);

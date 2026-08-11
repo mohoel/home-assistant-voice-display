@@ -22,7 +22,8 @@ Statusanzeige statt eines LED-Rings.
   sichtbar bleibt — auch im Standby, wo der Countdown an die Stelle der Uhr
   tritt. Am Ende klingelt es und eine Glocke erscheint; Antippen beendet beides
 - **Messwerte** („Wie warm ist es im Bad?") erscheinen als große Zahl mit
-  Einheit statt als Balken, kurze Bestätigungen („Eingeschaltet") als Haken.
+  Einheit daneben und einem passenden Symbol darüber — Thermometer, Blitz,
+  Prozentzeichen —, kurze Bestätigungen („Eingeschaltet") als Haken.
   Das setzt die eingebaute Intent-Erkennung von Home Assistant voraus — wer ein
   Sprachmodell als Konversationsagenten nutzt, bekommt ausformulierte Antworten
   und damit weiterhin die Balken
