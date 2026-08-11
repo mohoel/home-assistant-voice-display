@@ -108,6 +108,9 @@ Querverbindungen:
 | `hardware.yaml` → `display_brightness.on_turn_on` | `global: boot_done` | `web.yaml` |
 | `web.yaml` → `sel_standby_page.on_value` | `script: show_standby_page`, `page_standby`, `page_dial` | `ui.yaml` |
 | `web.yaml` → `sel_standby_page.on_value` | `global: boot_done` | `web.yaml` |
+| `core.yaml` → `ha_pv_power`/`ha_batt_power`/`ha_netz_power`/`ha_haus_power` (HA-Importe) | `script: update_power_flow` | `ui.yaml` |
+| `web.yaml` → `sw_pv_overview.on_turn_on/on_turn_off` | `script: update_power_flow`, `update_ui`, `standby_return`, `page_power` | `ui.yaml` |
+| `ui.yaml` → `on_screen_touch`, `on_idle` | `switch: sw_pv_overview`, `page_power` | `web.yaml` |
 
 Der Minutentakt für Uhr und Zifferblatt liegt bewusst in `core.yaml` am
 `time:`-Block und nicht bei den Widgets: ESPHome führt **Plattform-Listen wie
@@ -503,6 +506,36 @@ LVGL-Widgets in `ui.yaml`; das Mockup selbst bleibt reine Vorlage, nicht Code.
   außerhalb von `${phase_thinking}` sofort aus. Parameter: `dot_size`,
   `dot_size_max`, `dot_gap`, `dot_lift`, `dot_opa_min`, `dot_step_time`,
   `dot_cycle_steps` in `assist-satellit.yaml`.
+- **`page_power` ist eine angepinnte Seite, keine Standby-Seite.** Anders als
+  Uhr und Zifferblatt hängt sie nicht an `sel_standby_page`, sondern am
+  Schalter `sw_pv_overview` (`web.yaml`) — Vorgabe war ein per Sprachbefehl
+  schaltbares Home-Assistant-Entity, kein weiterer Eintrag in einer Auswahl.
+  Solange der Schalter an ist, ist die Seite auch von `on_idle` ausgenommen
+  (siehe dessen Kommentar in `ui.yaml`) — sie geht nicht nach
+  `standby_timeout` von selbst weg, sondern erst mit dem Schalter. Ein Tippen
+  schaltet ihn aus (`on_screen_touch`) statt die Seite direkt zu wechseln,
+  damit der Zustand in Home Assistant nicht vom Display abweicht.
+  Die vier Leistungswerte (PV, Batterie, Netz, Hausverbrauch) sind
+  `sensor: platform: homeassistant`-Importe in `core.yaml`, nach demselben
+  Muster wie `ha_time` — das Gerät misst selbst nichts. Ein fehlender
+  (`NaN`, vor der ersten Meldung aus HA) oder negativer Wert (Batterie lädt,
+  Netz speist ein) zählt für den Ring als 0 — er zeigt nur Quellen, die
+  gerade tatsächlich zum Haus hin fließen, ein rückwärts laufender Pfeil wäre
+  eine andere Funktion. Anzeige unter 1000 W in Watt, darüber in kW mit einer
+  Nachkommastelle und Komma statt Punkt (`update_power_flow`).
+  Die drei Ringfarben (`color_pv`/`color_batt`/`color_netz` in
+  `assist-satellit.yaml`) sind bewusst *nicht* über `col_*`-Globals zur
+  Laufzeit einstellbar, anders als sonst jede Akzentfarbe im Projekt — wie
+  der Kranz des Zifferblatts (siehe `color_dial`-Kommentar) ist der Ring hier
+  die Hauptaussage der Seite, kein editierbares Detail.
+  Geometrie und Winkelrechnung sind aus `Leistungsfluss Display.dc.html`
+  (Claude-Design-Projekt „Leistungsfluss-Dashboard Design") übernommen: drei
+  `arc:`-Widgets statt eines CSS-Conic-Gradients (den LVGL nicht kennt),
+  nach demselben Rezept wie `ring_timer` im `top_layer`. Die Winkel
+  berechnet `update_power_flow` genau wie `buildRing()`/`ringMarkers()` im
+  Mockup — kumulativer Winkel über die volle Segmentbreite, die Lücke kürzt
+  nur `end_angle`, damit die Segmentmitte für die Labelposition unabhängig
+  von der Lücke bleibt.
 - **Mikrofon (16 kHz) und Lautsprecher (48 kHz) teilen sich den I2S-Bus.** Falls Ton
   verzerrt: beide in `packages/hardware.yaml` auf 16000 setzen.
 - **micro_wake_word-Modelle sind englisch.** STT/TTS laufen unabhängig davon auf
