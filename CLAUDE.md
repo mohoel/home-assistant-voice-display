@@ -450,7 +450,7 @@ Antwortsatzes umgehen wollen.
 Was daraus folgt: Die Klassifikation in `on_tts_start` ist bewusst eine
 **Heuristik über den Antwortsatz** mit genau drei Ausgängen — Messwert
 (`result_kind == 1`), Bestätigung (`== 2`) und alles Übrige (`phase_replying`,
-also die fünf Balken wie bisher). Sie greift nur bei Antworten bis 60 Zeichen,
+also die fünf Balken wie bisher). Sie greift nur bei Antworten bis 80 Zeichen,
 erkennt eine Zahl nur mit Einheit aus einer festen Liste und eine Bestätigung
 nur als Satzanfang aus einer festen Wortliste. Erkennt sie nichts, bleibt alles
 beim Alten — das ist der Rückfallpfad, nicht ein Fehlerfall.
