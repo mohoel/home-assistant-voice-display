@@ -202,6 +202,15 @@ Punkte, die man beim Ändern leicht übersieht:
   zwar bei aktivem Wake Word, aber `micro_wake_word` ist zu dem Zeitpunkt über
   `stop_after_detection` bereits gestoppt — falls dort doch `Parent bus is
   busy` auftaucht, ist das dieselbe Ursache.
+- **Die Balken enden mit dem Ton, die Ergebnisanzeige nicht.** `end_session`
+  wartet auf das Ende der Sprachausgabe und setzt danach sofort
+  `set_idle_or_muted` + `update_ui`, **falls** die Phase noch
+  `phase_replying` ist. Ohne diesen Zweig liefen die fünf Balken noch die
+  8 s des Nachlaufs weiter, obwohl längst nichts mehr zu hören war. Der
+  Nachlauf (`delay: 8s`) bleibt, denn er gehört `phase_result`: Messwert und
+  Haken sollen stehen bleiben, in `phase_replying` steht dagegen nichts
+  Lesbares auf dem Schirm. Wer dort eine weitere Anzeige einbaut, die den Ton
+  überdauern soll, muss sie wie das Ergebnis aus diesem Zweig ausnehmen.
 - **Eine Zeile pro Antwort geht als `ESP_LOGI("ergebnis", …)` ins Log.** Sie
   zeigt Antworttext, erkannte Art, Wert und Einheit. Das ist Absicht und darf
   nicht wegoptimiert werden: ohne sie lässt sich nicht unterscheiden, ob die
@@ -287,6 +296,11 @@ Punkte, die man beim Ändern leicht übersieht:
   hier die Bildschirmmitte). Alle Versätze stehen **positiv** in den
   Substitutions und werden vorzeichenrichtig eingesetzt (`-${face_eye_dy}`) —
   eine negative Substitution ergäbe irgendwo `--71`.
+  **Das Fragezeichen steht auf der Gegenseite des Blicks.** Beim Denken gehen
+  die Augen nach `34 * seite`, das Fragezeichen nach `-${face_q_dx} * seite`.
+  Ursprünglich hatten beide dasselbe Vorzeichen — dann stapelte sich alles in
+  derselben oberen Ecke und das Fragezeichen lag den Augen im Weg. Wer das
+  Vorzeichen anfasst, dreht damit die Aussage der Miene um.
   Die Zunge liegt in der Z-Ordnung **unter** dem Mund und ragt 6 px in ihn
   hinein, damit ihre oberen Ecken verdeckt sind: LVGL kann Radien nur für alle
   vier Ecken zugleich, das `border-radius: 0 0 20px 20px` des Mockups gibt es
@@ -302,10 +316,17 @@ Punkte, die man beim Ändern leicht übersieht:
   Eine gedimmte Zwischenstufe gab es einmal (`standby_brightness` +
   `screen_off_delay`, zweistufig über ein Skript `screen_off`) und sie ist auf
   Ansage wieder entfallen: eine dauerhaft gedimmte Uhr war der einzige ständig
-  leuchtende Inhalt im ganzen Entwurf. Beide Substitutions sind weg,
-  `active_brightness` ist die einzige verbliebene Helligkeit. Wer die Stufe
-  zurückholt, muss auch den Einbrennschutz mit zurückholen (siehe
+  leuchtende Inhalt im ganzen Entwurf. Beide Substitutions sind weg; wer die
+  Stufe zurückholt, muss auch den Einbrennschutz mit zurückholen (siehe
   `core.yaml`).
+  **Ein sichtbarer Bildschirm hat trotzdem zwei Helligkeiten**, und das ist
+  kein Widerspruch dazu: `active_brightness` (100 %) gilt allein beim Zuhören,
+  alles andere — Uhr, Zifferblatt, Verarbeitung, Antwort, Fehler, Hinweis,
+  Konfigurationsseite — läuft auf `idle_brightness` (80 %). Der Sprung nach
+  oben ist selbst Rückmeldung ("er hört jetzt zu") und fällt aus dem
+  Augenwinkel auf, bevor das Mikrofon-Icon gelesen ist. Die Verzweigung sitzt
+  in `wake_display`; wer eine weitere Stelle ergänzt, die das Display
+  einschaltet, muss sich dort für eine der beiden Stufen entscheiden.
   Uhr und Zifferblatt sind damit **keine Dauerzustände mehr**, sondern das, was
   ein Tippen für `standby_timeout` zeigt.
   **Der Rückweg in den Standby hängt nicht an einem zweiten `on_idle`.** Der
@@ -462,15 +483,23 @@ LVGL-Widgets in `ui.yaml`; das Mockup selbst bleibt reine Vorlage, nicht Code.
     Punktearray der Minutenmarke in `update_dial` muss deshalb `static` sein.
     Danach folgt zwingend ein `lv_obj_set_size`, sonst zieht die
     Inhaltsgröße (`width_def = LV_SIZE_CONTENT`) die Box wieder zusammen.
-  - **Der Glow ist ein Kreis, der nur seinen Schatten trägt** (`bg_opa:
-    TRANSP` plus `shadow_*`). LVGL kennt keinen Weichzeichner für Linien oder
-    Text — das ist der einzige Weg. Er kostet nichts, weil er sich höchstens
-    einmal pro Minute bewegt.
+  - **Den Glow des Entwurfs gibt es nicht mehr — und er kommt nicht
+    zurück.** LVGL kennt keinen Weichzeichner für Linien oder Text, der
+    einzige Weg war je ein Kreis, der nur seinen Schatten trägt (`bg_opa:
+    TRANSP` plus `shadow_*`). Auf dem Gerät sah das nicht nach Leuchten aus,
+    sondern nach einem kleinen Kreis **um** Ziffer und Minutenmarke herum: der
+    Schatten ist die weichgezeichnete Kontur der Box, und bei 34 px Box mit
+    40 px Weichzeichnung bleibt davon ein Ring übrig. Hervorgehoben wird
+    seither das Element selbst — Akzentfarbe `${color_dial}` und volle
+    Deckkraft, beim Strich zusätzlich mehr Länge (`dial_mark_len`) und
+    `line_width: 4` gegen die 3 px der Stundenstriche. `dial_glow_num` und
+    `dial_glow_tick` sind samt ihren Aufrufen in `update_dial` entfallen.
   - **Alle 72 Elemente liegen im Träger `dial_face`.** Angelegt wurde er für
     den Einbrennschutz, der das Zifferblatt mit *einem* Aufruf verschob statt
     mit 72; den gibt es nicht mehr, der Träger bleibt als greifbare Einheit.
-    Er ist mit 560 px größer als der Bildschirm, weil LVGL Kinder am
-    Elternrand abschneidet und der Glow sonst angeschnitten wäre.
+    Er ist genau bildschirmgroß (466 px) — LVGL schneidet Kinder am Elternrand
+    ab, und das äußerste Element ist die Minutenmarke mit 218 + 10 = 228 px.
+    Die früheren 560 px galten allein dem Glow.
   In einer **Flow-Sequenz muss eine Substitution in Anführungszeichen**
   (`points: [[0, "${dial_mark_len}"], …]`) — sonst liest der YAML-Parser das
   `${` als Beginn einer Flow-Map und bricht ab.

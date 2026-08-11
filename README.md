@@ -39,15 +39,20 @@ Statusanzeige statt eines LED-Rings.
 - **Standby heißt aus:** 30 Sekunden ohne Berührung, dann schaltet sich der
   Bildschirm komplett ab — leere schwarze Seite und Helligkeit 0. Eine
   gedimmte Zwischenstufe gibt es nicht
+- **Volle Helligkeit nur beim Zuhören:** ein sichtbarer Bildschirm läuft
+  normalerweise auf 80 %, das Wake Word hebt auf 100 % — der Sprung ist selbst
+  das Zeichen, dass das Gerät jetzt zuhört
 - Antippen weckt das Display und zeigt wahlweise eine **Uhr** mit Datum
   („Dienstag, 4. August"), ein **Zifferblatt** ohne Zeiger, auf dem die
-  aktuelle Stunde als leuchtende Ziffer und die Minute als leuchtender Strich
-  im Kranz stehen, oder ein **Gesicht**, das wartend umherblickt, blinzelt und
-  gelegentlich die Zunge herausstreckt; umschaltbar auf der Weboberfläche.
+  aktuelle Stunde als farbig hervorgehobene Ziffer und die Minute als längerer,
+  ebenso hervorgehobener Strich im Kranz stehen, oder ein **Gesicht**, das
+  wartend umherblickt, blinzelt und gelegentlich die Zunge herausstreckt;
+  umschaltbar auf der Weboberfläche.
   Nach 30 Sekunden geht der Bildschirm wieder aus
 - **Das Gesicht ist mehr als eine Standby-Seite.** Ist es gewählt, übernimmt es
   auch Zuhören, Verarbeiten und Antworten: die Augen richten sich auf, blicken
-  beim Nachdenken schräg nach oben (mit Fragezeichen), und beim Sprechen
+  beim Nachdenken schräg nach oben — das Fragezeichen steht dabei auf der
+  Gegenseite, dort, wo die Augen gerade *nicht* hinsehen — und beim Sprechen
   bewegt sich der Mund. Die Bewegung läuft dabei durch — bei jedem
   Phasenwechsel biegen die Augen ab, statt zu springen. Bei Uhr und
   Zifferblatt bleibt es unverändert bei Mikrofon, Punkten und Balken

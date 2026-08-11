@@ -124,7 +124,15 @@ substitutions:
   # standby_timeout ist damit die einzige Zeit, die zaehlt: so lange ist die
   # Uhr bzw. das Zifferblatt nach einem Tippen zu sehen.
   standby_timeout: 30s
+  # Zwei Stufen, wenn der Bildschirm an ist: volle Helligkeit gibt es nur beim
+  # Zuhoeren - der Sprung von 80 auf 100 % ist selbst ein Signal ("er hoert
+  # jetzt zu"). Alles andere (Uhr, Zifferblatt, Verarbeitung, Antwort,
+  # Konfigurationsseite, Hinweis) laeuft auf ${idle_brightness}. Das ist keine
+  # Rueckkehr der frueheren gedimmten Zwischenstufe im Standby: Standby heisst
+  # weiterhin aus, hier geht es nur um die Helligkeit eines *sichtbaren*
+  # Bildschirms.
   active_brightness: "100%"
+  idle_brightness: "80%"
 
   # Zifferblatt: zweite Standby-Seite nach dem Design "Runde Zeitanzeige".
   # Es hat bewusst *keine* Zeiger - die Stunde ist die hervorgehobene Ziffer,
@@ -178,7 +186,8 @@ substitutions:
   face_tongue_w: "44"
   face_tongue_h: "34"
   face_tongue_dy: "124"
-  # Fragezeichen beim Denken, abwechselnd links oder rechts oben.
+  # Fragezeichen beim Denken, abwechselnd links oder rechts oben - und zwar
+  # immer auf der Gegenseite des Blicks (Vorzeichen im Lambda, packages/ui.yaml).
   face_q_dx: "118"
   face_q_dy: "156"
   # Glow. Das ist der einzige teure Teil des Gesichts: LVGL zeichnet einen

@@ -493,16 +493,16 @@ lvgl:
         # Aufruf verschob statt mit 72; den gibt es nicht mehr (der Bildschirm
         # geht stattdessen ganz aus, siehe sleep_display). Er bleibt trotzdem,
         # weil er das Zifferblatt als eine Einheit greifbar macht und nichts
-        # kostet. Er ist groesser als der Bildschirm, weil LVGL Kinder am
-        # Elternrand abschneidet und der Glow der Minutenmarke sonst
-        # angeschnitten waere: 218 (Kranz) + 7 (halbe Glow-Box)
-        # + 33 (Weichzeichnung) + 8 (Reserve) = 266, also 560 / 2 = 280 als
-        # Halbmesser mit Rand.
+        # kostet. Bildschirmgross genuegt: LVGL schneidet Kinder am Elternrand
+        # ab, und das aeusserste Element ist die Minutenmarke mit
+        # 218 (Kranz) + 10 (halbe Marke) = 228 < 233. Frueher stand hier 560,
+        # weil der Glow der Minutenmarke weit ueber den Kranz hinausreichte -
+        # den gibt es nicht mehr.
         - obj:
             id: dial_face
             align: CENTER
-            width: 560
-            height: 560
+            width: 466
+            height: 466
             bg_opa: TRANSP
             border_width: 0
             radius: 0
@@ -510,42 +510,17 @@ lvgl:
             clickable: false
             scrollable: false
             widgets:
-              # Die beiden Weichzeichner-Kreise stehen zuerst, damit sie unter
-              # Marke und Ziffer liegen - Reihenfolge ist Z-Ordnung. Sie sind
-              # selbst unsichtbar (bg_opa: TRANSP) und tragen nur ihren
-              # Schatten; LVGL zeichnet den auch ohne Hintergrund. Das ist der
-              # einzige Weg zu einem Glow, den LVGL kennt: einen Weichzeichner
-              # fuer Linien oder Text gibt es nicht. Beide bewegen sich
-              # hoechstens einmal pro Minute, die Weichzeichnung faellt also
-              # nicht ins Gewicht.
-              - obj:
-                  id: dial_glow_num
-                  align: CENTER
-                  width: 34
-                  height: 34
-                  radius: 30
-                  bg_opa: TRANSP
-                  border_width: 0
-                  pad_all: 0
-                  shadow_width: 40
-                  shadow_spread: 0
-                  shadow_color: ${color_dial}
-                  shadow_opa: 45%
-                  hidden: true
-              - obj:
-                  id: dial_glow_tick
-                  align: CENTER
-                  width: 14
-                  height: 14
-                  radius: 20
-                  bg_opa: TRANSP
-                  border_width: 0
-                  pad_all: 0
-                  shadow_width: 30
-                  shadow_spread: 3
-                  shadow_color: ${color_dial}
-                  shadow_opa: 60%
-                  hidden: true
+              # Hier lagen einmal zwei Weichzeichner-Kreise (dial_glow_num,
+              # dial_glow_tick): unsichtbare Objekte, die nur ihren Schatten
+              # trugen - der einzige Glow, den LVGL kennt, weil es keinen
+              # Weichzeichner fuer Linien oder Text gibt. Auf dem Geraet sahen
+              # sie nicht nach Leuchten aus, sondern nach einem kleinen Kreis
+              # *um* Ziffer und Minutenmarke herum: LVGL zeichnet den Schatten
+              # als weichgezeichnete Kontur der Box, und bei einer 34-px-Box
+              # mit 40 px Weichzeichnung bleibt davon ein Ring uebrig.
+              # Hervorgehoben wird jetzt das Element selbst - Akzentfarbe,
+              # volle Deckkraft und beim Strich zusaetzlich mehr Laenge und
+              # Staerke (siehe dial_active und update_dial).
 
               # --- 60 feste Striche (erzeugt, siehe Kopfkommentar) ---
               - line: {id: dial_t00, styles: [dial_st_h], x: 0, y: -218, width: 1, height: 16, points: [[0, 16], [0, 0]]}
@@ -630,7 +605,10 @@ lvgl:
                   # Anfuehrungszeichen - sonst liest der YAML-Parser das
                   # "${" als Beginn einer Flow-Map.
                   points: [[0, "${dial_mark_len}"], [0, 0]]
-                  line_width: 3
+                  # Kraeftiger als die Stundenstriche (3 px, 50 % Deckkraft) -
+                  # seit dem Wegfall des Glows tragen Farbe, Laenge und Staerke
+                  # die Hervorhebung allein.
+                  line_width: 4
                   line_color: ${color_dial}
                   line_opa: COVER
                   line_rounded: true
@@ -1016,7 +994,7 @@ script:
   #   abort_session endet selbst mit update_ui und damit im Standby-Zweig.
   # - Sonst weckt es nur das Display. Im Leerlauf/stumm ist der Bildschirm
   #   dabei in aller Regel aus (page_off), das Tippen holt also die
-  #   Standby-Seite zurueck und schaltet auf ${active_brightness}. Einen
+  #   Standby-Seite zurueck und schaltet auf ${idle_brightness}. Einen
   #   eigenen Ruecksprung-Timer braucht das nicht: die Beruehrung hat LVGLs
   #   Untaetigkeitszaehler zurueckgesetzt, on_idle oben faellt nach
   #   ${standby_timeout} von selbst wieder in sleep_display.
@@ -1075,9 +1053,12 @@ script:
                               lvgl.page.is_showing: page_off
                             then:
                               - script.execute: show_standby_page
+                        # Warten, nicht zuhoeren: ${idle_brightness} genuegt.
+                        # Die volle Helligkeit gibt es erst, wenn ein Wake Word
+                        # den Vorgang startet - dann hellt wake_display auf.
                         - light.turn_on:
                             id: display_brightness
-                            brightness: ${active_brightness}
+                            brightness: ${idle_brightness}
                       else:
                         - script.execute: wake_display
 
@@ -1128,11 +1109,17 @@ script:
       - lvgl.page.show: page_config
       - light.turn_on:
           id: display_brightness
-          brightness: ${active_brightness}
+          brightness: ${idle_brightness}
 
   # ------------------------------------------------------- Display aufwecken
   #
-  # Hier faellt die eine Entscheidung des Gesichtsmodus: Welche Seite traegt die
+  # Zwei Helligkeiten: volle nur beim Zuhoeren, sonst ${idle_brightness}. Der
+  # Sprung ist Teil der Rueckmeldung - er faellt auch aus dem Augenwinkel auf
+  # und sagt "jetzt hoere ich zu", noch bevor Mikrofon-Icon oder Gesicht
+  # gelesen sind. Verarbeitung, Antwort und Fehler brauchen die volle
+  # Helligkeit nicht.
+  #
+  # Hier faellt ausserdem die eine Entscheidung des Gesichtsmodus: Welche Seite traegt die
   # laufende Phase - page_main mit Icon/Punkten/Balken oder page_face?
   #
   # Sie steht bewusst *nicht* in update_ui. update_ui fuellt die Widgets von
@@ -1162,9 +1149,17 @@ script:
             - lvgl.page.show: page_face
           else:
             - lvgl.page.show: page_main
-      - light.turn_on:
-          id: display_brightness
-          brightness: ${active_brightness}
+      - if:
+          condition:
+            lambda: return id(voice_assistant_phase) == ${phase_listening};
+          then:
+            - light.turn_on:
+                id: display_brightness
+                brightness: ${active_brightness}
+          else:
+            - light.turn_on:
+                id: display_brightness
+                brightness: ${idle_brightness}
 
   # --------------------------------------------------- Bildschirm ausschalten
   # Standby heisst aus, nicht gedimmt: die frueheren Substitutions
@@ -1365,11 +1360,9 @@ script:
           auto t = id(ha_time).now();
           if (!t.is_valid()) {
             // Vor der ersten Zeit aus Home Assistant gibt es nichts
-            // hervorzuheben. Der Kranz steht, Marke und Glow bleiben weg -
-            // eine Marke auf der Zwoelf waere eine Falschaussage.
+            // hervorzuheben. Der Kranz steht, die Marke bleibt weg - eine
+            // Marke auf der Zwoelf waere eine Falschaussage.
             lv_obj_add_flag(id(dial_active)->obj, LV_OBJ_FLAG_HIDDEN);
-            lv_obj_add_flag(id(dial_glow_tick), LV_OBJ_FLAG_HIDDEN);
-            lv_obj_add_flag(id(dial_glow_num), LV_OBJ_FLAG_HIDDEN);
             return;
           }
 
@@ -1401,9 +1394,7 @@ script:
           const int32_t mx = (int32_t) lroundf(${dial_radius} * ux);
           const int32_t my = (int32_t) lroundf(${dial_radius} * uy);
           lv_obj_align(id(dial_active)->obj, LV_ALIGN_CENTER, mx, my);
-          lv_obj_align(id(dial_glow_tick), LV_ALIGN_CENTER, mx, my);
           lv_obj_remove_flag(id(dial_active)->obj, LV_OBJ_FLAG_HIDDEN);
-          lv_obj_remove_flag(id(dial_glow_tick), LV_OBJ_FLAG_HIDDEN);
 
           // --- Stundenziffer ---
           int stunde = t.hour % 12;
@@ -1428,12 +1419,6 @@ script:
           lv_obj_set_style_text_opa(zahlen[stunde - 1], LV_OPA_COVER,
                                     LV_PART_MAIN);
           vorige = (int8_t) stunde;
-
-          const float az = stunde * 30.0f * BOGEN;
-          lv_obj_align(id(dial_glow_num), LV_ALIGN_CENTER,
-                       (int32_t) lroundf(${dial_num_radius} * sinf(az)),
-                       (int32_t) lroundf(-${dial_num_radius} * cosf(az)));
-          lv_obj_remove_flag(id(dial_glow_num), LV_OBJ_FLAG_HIDDEN);
 
   # Der minuetliche Takt fuer Uhr und Zifferblatt haengt am Zeitgeber in
   # core.yaml (`time: ha_time` -> on_time), weil ESPHome Plattform-Listen
@@ -1768,8 +1753,14 @@ interval:
                   a_frage = (int8_t) frage;
                   a_seite = seite;
                   if (frage) {
+                    // Gegenseite zum Blick, daher das Minus: die Augen gehen
+                    // beim Denken nach 34 * seite (oben in der Phasentabelle),
+                    // das Fragezeichen auf die andere Seite. Mit demselben
+                    // Vorzeichen stand beides in derselben Ecke - das
+                    // Fragezeichen lag den Augen im Weg, statt neben ihnen zu
+                    // stehen.
                     lv_obj_align(id(face_question), LV_ALIGN_CENTER,
-                                 ${face_q_dx} * seite, -${face_q_dy});
+                                 -${face_q_dx} * seite, -${face_q_dy});
                     lv_obj_remove_flag(id(face_question), LV_OBJ_FLAG_HIDDEN);
                   } else {
                     lv_obj_add_flag(id(face_question), LV_OBJ_FLAG_HIDDEN);

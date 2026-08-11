@@ -178,10 +178,11 @@ Minutentakt ist damit entfallen: was nicht leuchtet, brennt auch nicht ein.
 **Control-Page**: Tippen im Standby → Lautstärke als `arc` (adjustable) plus
 Mute-Button; nach 8 s ohne Bedienung zurück in den Standby.
 
-**Wechsel-Logik**: jede Phasenänderung ≠ idle → Main-Page + volle Helligkeit.
-`lvgl: on_idle:` nach `standby_timeout` → `sleep_display` → Off-Page +
+**Wechsel-Logik**: jede Phasenänderung ≠ idle → Main-Page, dabei
+`active_brightness` (100 %) nur beim Zuhören und sonst `idle_brightness`
+(80 %). `lvgl: on_idle:` nach `standby_timeout` → `sleep_display` → Off-Page +
 Helligkeit 0, ohne gedimmte Zwischenstufe. `touchscreen: on_touch:` → Uhr bzw.
-Zifferblatt bei voller Helligkeit, bis `on_idle` erneut zuschlägt. Im Standby
+Zifferblatt bei `idle_brightness`, bis `on_idle` erneut zuschlägt. Im Standby
 wird LVGL nicht pausiert, aber auf der leeren Seite ist die Rendering-Last
 ohnehin null.
 
@@ -394,8 +395,10 @@ Touchscreen.
 Designs „Runde Zeitanzeige". Ein Kranz aus 60 Strichen auf Radius 218 (jeder
 fünfte länger und heller), zwölf Ziffern auf Radius 168, **keine Zeiger** — die
 Stunde ist die in `col_dial` eingefärbte Ziffer, die Minute eine längere,
-ebenso eingefärbte Marke im Kranz; hinter beiden liegt je ein Kreis, der nur
-seinen LVGL-Schatten trägt und so den Glow des Entwurfs nachbildet.
+ebenso eingefärbte und mit 4 px kräftigere Marke im Kranz. Der Glow des
+Entwurfs ist wieder entfallen: LVGL kann ihn nur als Schatten einer
+unsichtbaren Box nachbilden, und auf dem Gerät sah das nicht nach Leuchten aus,
+sondern nach einem Kreis *um* Ziffer und Marke herum.
 Aktualisiert wird im Minutentakt (`update_dial`), alles Weitere steht unter
 „Bekannte Einschränkungen" in CLAUDE.md.
 
@@ -528,8 +531,11 @@ cd /Users/moritzholzer/Claude/Assist && git pull && esphome run assist-satellit.
   laufen bei der Verarbeitung, die Balken schlagen bei der Sprachausgabe aus.
 - Deutschen Satz mit Umlauten testen („Schalte die Küchenbeleuchtung ein") und
   prüfen, dass ä/ö/ü/ß gerendert werden — sonst fehlt das Glyphset im Font.
-- 30 s nichts tun → Standby mit Uhr, Display sichtbar gedimmt.
-- Display antippen → Main-Page, volle Helligkeit.
+- 30 s nichts tun → Bildschirm aus (leere Seite, Helligkeit 0).
+- Display antippen → Uhr bzw. Zifferblatt bei `idle_brightness` (80 %); erst
+  ein Wake Word hebt auf 100 %, und nach dem Zuhören fällt es wieder auf 80 %.
+- Antwort abwarten: die Balken müssen mit dem letzten Ton aufhören, nicht erst
+  Sekunden später.
 - Speicher prüfen: `debug:`-Komponente aktivieren und Free-Heap/PSRAM im Log
   beobachten. Bei Boot-Loops oder LVGL-Allokationsfehlern `buffer_size` senken.
 

@@ -566,8 +566,9 @@ script:
           else:
             - lambda: id(voice_assistant_phase) = ${phase_idle};
 
-  # Abschluss eines Sprachvorgangs: Ausgabe abwarten, Wake Word wieder
-  # scharfstellen, Antwort noch kurz stehen lassen, dann zurueck in den Idle.
+  # Abschluss eines Sprachvorgangs: Ausgabe abwarten, Balken mit dem Ton
+  # beenden, Wake Word wieder scharfstellen, eine Ergebnisanzeige noch kurz
+  # stehen lassen, dann zurueck in den Idle.
   # Wird von on_listening abgebrochen, falls schon wieder gesprochen wird.
   - id: end_session
     mode: restart
@@ -590,6 +591,18 @@ script:
               - not:
                   speaker.is_playing:
           timeout: 30s
+      # Die fuenf Balken sind die Sprachausgabe, nicht ihr Nachklang: hoert der
+      # Ton auf, hoeren sie auf. Frueher lief die Animation noch die 8 s des
+      # Nachlaufs unten weiter - der Nachlauf ist aber fuer die
+      # Ergebnisanzeige da (Messwert oder Haken, phase_result), und die bleibt
+      # unberuehrt. In phase_replying steht ohnehin nichts Lesbares auf dem
+      # Schirm, das noch stehen bleiben muesste.
+      - if:
+          condition:
+            lambda: return id(voice_assistant_phase) == ${phase_replying};
+          then:
+            - script.execute: set_idle_or_muted
+            - script.execute: update_ui
       # Bestaetigungston, falls Home Assistant den Befehl stumm ausgefuehrt hat.
       # Er muss *hier* liegen, zwischen dem Ende der Sprachausgabe und dem
       # Scharfstellen des Wake Words - das ist das einzige Fenster, in dem der
