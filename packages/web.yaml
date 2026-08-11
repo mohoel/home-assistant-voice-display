@@ -60,8 +60,13 @@ select:
       - script.execute: apply_rotation
 
   # Standby-Seite. Ausgewertet von show_standby_page in ui.yaml, und zwar
-  # ueber den Index: "Uhr" ist 0, "Zifferblatt" ist 1. Wer hier eine Option
-  # einschiebt statt anhaengt, verschiebt damit die Zuordnung.
+  # ueber den Index: "Uhr" ist 0, "Zifferblatt" ist 1, "Gesicht" ist 2. Wer
+  # hier eine Option einschiebt statt anhaengt, verschiebt damit die Zuordnung.
+  #
+  # "Gesicht" ist mehr als eine Standby-Seite: die Auswahl ersetzt zusaetzlich
+  # die drei Phasenanimationen auf page_main (Mikrofon, Punkte, Balken) durch
+  # dasselbe Gesicht. Bei "Uhr" und "Zifferblatt" bleibt es bei den bisherigen
+  # Animationen. Ausgewertet wird das in wake_display (packages/ui.yaml).
   #
   # Das on_value schaltet sofort um, wenn gerade eine Standby-Seite vorne
   # liegt - sonst saehe man die Auswahl erst nach dem naechsten Standby. Die
@@ -72,6 +77,11 @@ select:
   # ueberhaupt laufen. Deshalb zwei geschachtelte if statt einer and-Bedingung
   # - die Auswertungsreihenfolge ist so nicht nur wahrscheinlich, sondern
   # sichtbar.
+  #
+  # Die Phasenpruefung im inneren if kam mit dem Gesicht dazu: page_face liegt
+  # anders als die beiden Uhren auch waehrend eines Sprachvorgangs vorne. Ohne
+  # sie schoebe ein Umschalten auf der Weboberflaeche mitten im Antworten die
+  # Uhr ins Bild.
   - platform: template
     id: sel_standby_page
     name: "Standby-Seite"
@@ -82,6 +92,7 @@ select:
     options:
       - "Uhr"
       - "Zifferblatt"
+      - "Gesicht"
     initial_option: "Uhr"
     web_server:
       sorting_group_id: grp_display
@@ -92,9 +103,14 @@ select:
           then:
             - if:
                 condition:
-                  or:
-                    - lvgl.page.is_showing: page_standby
-                    - lvgl.page.is_showing: page_dial
+                  and:
+                    - or:
+                        - lvgl.page.is_showing: page_standby
+                        - lvgl.page.is_showing: page_dial
+                        - lvgl.page.is_showing: page_face
+                    - lambda: |-
+                        return id(voice_assistant_phase) == ${phase_idle}
+                            || id(voice_assistant_phase) == ${phase_muted};
                 then:
                   - script.execute: show_standby_page
 

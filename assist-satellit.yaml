@@ -142,6 +142,55 @@ substitutions:
   # Akzentfarbe des Zifferblatts. Der Wert stammt aus dem Design-Mockup.
   color_dial: "0xFF9F4D"
 
+  # Gesicht: dritte Standby-Seite nach dem Design "Animierter Charakter rundes
+  # Display" (Device Face.dc.html). Anders als Uhr und Zifferblatt ist sie nicht
+  # nur eine Standby-Seite: wird sie gewaehlt, traegt dasselbe Gesicht auch
+  # Zuhoeren, Verarbeitung und Sprachausgabe - genau die drei Phasen, die sonst
+  # Mikrofon-Icon, Punkte und Balken zeigen. Alle uebrigen Zustaende (Messwert,
+  # Fehler, stumm, nicht bereit, Timer, Hinweis) bleiben bei page_main, weil sie
+  # Information tragen und keine Animation sind.
+  #
+  # Die Geometrie stammt 1:1 aus dem Mockup, das schon auf 466x466 gezeichnet
+  # ist; umgerechnet ist nur der Bezugspunkt (dort linke obere Ecke, hier die
+  # Bildschirmmitte). Alle Versaetze sind positiv notiert und im YAML bzw. im
+  # Lambda vorzeichenrichtig eingesetzt - "-${face_eye_dy}" statt einer
+  # negativen Substitution, sonst stuende irgendwo "--71".
+  color_face: "0xCFEEFF"
+  # Augen: 82x132 mit Radius 20, Mitte je 61 px neben und 71 px ueber der
+  # Bildschirmmitte (Mockup: left 131/253, top 96).
+  face_eye_w: "82"
+  face_eye_h: "132"
+  face_eye_radius: "20"
+  face_eye_dx: "61"
+  face_eye_dy: "71"
+  # Mund: 132 breit, im Ruhezustand 18 hoch, 104 px unter der Mitte. Radius 9
+  # ist genau die halbe Ruhehoehe - der Mund ist also eine Pille, solange er
+  # schmal ist, und wird zum abgerundeten Rechteck, wenn er aufgeht. LVGL
+  # klemmt den Radius auf die halbe Kantenlaenge, das gilt in beide Richtungen.
+  face_mouth_w: "132"
+  face_mouth_h: "18"
+  face_mouth_h_max: "46"
+  face_mouth_radius: "9"
+  face_mouth_dy: "104"
+  # Zunge (nur als Marotte im Warten). Sie liegt *unter* dem Mund in der
+  # Z-Ordnung und ragt 6 px in ihn hinein, damit ihre oberen Ecken verdeckt
+  # sind - LVGL kann Radien nur fuer alle vier Ecken zugleich.
+  face_tongue_w: "44"
+  face_tongue_h: "34"
+  face_tongue_dy: "124"
+  # Fragezeichen beim Denken, abwechselnd links oder rechts oben.
+  face_q_dx: "118"
+  face_q_dy: "156"
+  # Glow. Das ist der einzige teure Teil des Gesichts: LVGL zeichnet einen
+  # echten Weichzeichner, und die Augen bewegen sich beim Phasenwechsel ueber
+  # rund eine halbe Sekunde jeden Takt. Bei Ruckeln ist das die erste
+  # Stellschraube - face_glow auf 0 nimmt den Weichzeichner ganz heraus.
+  face_glow: "20"
+  face_glow_opa: 55%
+  # Ein Takt fuer alle vier Zustaende, rund 30 Bilder je Sekunde. Er laeuft nur,
+  # solange page_face vorne liegt.
+  face_step_time: 33ms
+
   # Gedrueckthalten oeffnet die Konfigurationsseite (IP + QR-Code). Gemessen
   # wird zwischen on_touch und on_release des Touchscreens, siehe
   # detect_long_press in packages/ui.yaml.

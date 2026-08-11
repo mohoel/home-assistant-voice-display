@@ -69,7 +69,7 @@ Laufzeit-Einstellung dafür: eine Änderung braucht immer einen Neubau.
 | `packages/core.yaml` | SoC, PSRAM, WLAN, API, OTA, Zeit, Diagnose |
 | `packages/hardware.yaml` | I2C, QSPI-Display, Touch, I2S, ES7210/ES8311, Media Player |
 | `packages/voice.yaml` | Wake Word, Voice Assistant, Engine-Umschaltung, Mute |
-| `packages/ui.yaml` | Fonts, LVGL-Seiten, Phasen-Animationen, Standby-Uhr, Zifferblatt, Timer-Ring |
+| `packages/ui.yaml` | Fonts, LVGL-Seiten, Phasen-Animationen, Standby-Uhr, Zifferblatt, Gesicht, Timer-Ring |
 | `packages/web.yaml` | Web-Bedienseite: Webserver, Ausrichtung, Standby-Seite |
 | `sounds/` | Klingel- und Bestätigungston als FLAC, eingebettet über `files:` am Media Player |
 
@@ -106,7 +106,9 @@ Querverbindungen:
 | `core.yaml` → `ha_time.on_time` | `script: update_dial` | `ui.yaml` |
 | `hardware.yaml` → `display_brightness.on_turn_on` | `script: show_standby_page`, `standby_return`, `page_off` | `ui.yaml` |
 | `hardware.yaml` → `display_brightness.on_turn_on` | `global: boot_done` | `web.yaml` |
-| `web.yaml` → `sel_standby_page.on_value` | `script: show_standby_page`, `page_standby`, `page_dial` | `ui.yaml` |
+| `web.yaml` → `sel_standby_page.on_value` | `script: show_standby_page`, `page_standby`, `page_dial`, `page_face` | `ui.yaml` |
+| `web.yaml` → `sel_standby_page.on_value` | `global: voice_assistant_phase` | `voice.yaml` |
+| `ui.yaml` → `wake_display` | `select: sel_standby_page` | `web.yaml` |
 | `web.yaml` → `sel_standby_page.on_value` | `global: boot_done` | `web.yaml` |
 
 Der Minutentakt für Uhr und Zifferblatt liegt bewusst in `core.yaml` am
@@ -128,6 +130,11 @@ Die Skripte sind die Bedienoberfläche der Logik, nicht die Handler selbst:
 - `ui.yaml`: `update_ui`, `wake_display`, `sleep_display`, `standby_return`,
   `show_standby_page`, `show_config_page`, `detect_long_press`, `update_clock`,
   `update_dial`, `update_timer_ui`, `show_hint`
+
+**`wake_display` entscheidet, welche Seite die laufende Phase trägt** — nicht
+`update_ui`. Das ist der einzige Ort, an dem der Gesichtsmodus hängt (siehe
+unten); `update_ui` füllt weiterhin nur die Widgets von `page_main` und weiß
+nichts von Seiten.
 - `web.yaml`: `apply_rotation`
 
 **Alles mit `delay:` oder `wait_until:` gehört in ein Skript mit `mode: restart`,
@@ -215,12 +222,14 @@ Punkte, die man beim Ändern leicht übersieht:
   `on_timer_cancelled` und `on_timer_finished` `timer_active` selbst auf
   `false` setzen müssen. Laufen noch weitere Timer, korrigiert der nächste Tick
   das innerhalb einer Sekunde zurück; der Ring kann dabei kurz blinken.
-- **Es gibt zwei Standby-Seiten, ausgewählt über den Index.**
+- **Es gibt drei Standby-Seiten, ausgewählt über den Index.**
   `show_standby_page` liest `sel_standby_page.active_index()`: 0 ist die Uhr
-  (`page_standby`), 1 das Zifferblatt (`page_dial`). Eine neue Option gehört
-  deshalb ans **Ende** der Liste — wer eine einschiebt, verschiebt die
-  Zuordnung still. Dazu kommen ein Zweig in `show_standby_page` und ein
-  eigener `is_showing`-Zweig im Minutentakt in `core.yaml`.
+  (`page_standby`), 1 das Zifferblatt (`page_dial`), 2 das Gesicht
+  (`page_face`). Eine neue Option gehört deshalb ans **Ende** der Liste — wer
+  eine einschiebt, verschiebt die Zuordnung still. Dazu kommen ein Zweig in
+  `show_standby_page` und — sofern die Seite Zeit anzeigt — ein eigener
+  `is_showing`-Zweig im Minutentakt in `core.yaml`. `page_face` braucht dort
+  keinen.
   Das `on_value` des Selects schaltet sofort um, wenn gerade eine
   Standby-Seite vorne liegt. Es braucht **beide** Guards und zwar
   geschachtelt: `boot_done` hält den Aufruf zurück, bis LVGL steht (ein
@@ -231,6 +240,60 @@ Punkte, die man beim Ändern leicht übersieht:
   Auf dem Zifferblatt gibt es **keinen Countdown**: von einem laufenden Timer
   bleibt dort nur der Ring im `top_layer`. Das ist Absicht, die Ziffern
   stünden mitten im Kranz.
+- **Das Gesicht ist eine Standby-Seite mit Sonderrolle.** `page_face` ist die
+  Umsetzung von „Animierter Charakter rundes Display" (`Device Face.dc.html`).
+  Anders als Uhr und Zifferblatt liegt es nicht nur nach einem Tippen vorne:
+  ist es gewählt, trägt es auch **Zuhören, Verarbeitung und Sprachausgabe** —
+  also genau die drei Phasen, die sonst Mikrofon-Icon, Punkte und Balken
+  zeigen. Alles Übrige (Messwert, Haken, Fehler, stumm, nicht bereit,
+  klingelnder Timer, `show_hint`) bleibt auch im Gesichtsmodus bei
+  `page_main`: das trägt Information und ist keine Animation, für die der
+  Entwurf eine Miene kennt.
+  Die Abzweigung sitzt in **`wake_display`** und nirgends sonst — das ist die
+  einzige Stelle, die `page_main` vorlegt, und sie wird von `update_ui` wie von
+  `on_screen_touch` gerufen. `update_ui` selbst weiß nichts davon und füllt
+  weiterhin nur die Widgets von `page_main`; im Gesichtsmodus liegen die dann
+  eben hinten. Wer die Auswahl in `update_ui` nachbaut, hat sie an zwei Orten.
+  **Ein Takt für alle vier Zustände statt vier Takte.** Punkte, Balken und
+  Mikrofon haben je einen eigenen `interval:`, weil sie sich gegenseitig nie
+  sehen. Das Gesicht ist in jeder Phase dasselbe Gesicht — nur seine Zielwerte
+  wechseln. Genau daran hängt der geforderte fließende Übergang: jede Größe
+  hat einen laufenden Wert und ein Ziel, und der laufende nähert sich dem Ziel
+  je Takt um `k = 0.14` (`wert += (ziel - wert) * k`). Das ist ein
+  exponentieller Einlauf ohne Zeitachse, die man treffen müsste — wechselt
+  mitten in der Bewegung die Phase, biegen die Augen ab, statt zu springen.
+  Bei 33 ms sind rund 0,45 s bis 90 % des Weges, das entspricht dem
+  `transform .5s cubic-bezier(.4,0,.2,1)` des Mockups. Bewusst **nicht**
+  eingeschliffen sind zwei Dinge: der Lidschlag (eigenes `k = 0.5`, ein
+  Schnappen) und der Wechsel des Mundziels beim Reden (alle 140 ms neu, der
+  Weg dorthin bleibt weich — daher zappelt der Mund, statt zu flackern).
+  **Geschrieben wird nur, was sich in ganzen Pixeln geändert hat.** Das ist
+  kein Feinschliff, sondern der Grund, warum der Glow bezahlbar bleibt: ein
+  `lv_obj_set_size` invalidiert alte *und* neue Fläche, mit Glow je Auge rund
+  122×172 px. Im Warten stehen die Augen die meiste Zeit still und der Takt
+  läuft ohne einen einzigen LVGL-Aufruf durch; bewegt wird nur in Schüben von
+  einer knappen halben Sekunde. Bei Ruckeln ist `face_glow` die erste
+  Stellschraube — auf 0 nimmt es den Weichzeichner ganz heraus. (Ungetestet
+  auf dem Gerät, aber dieselbe Bandbreitenfalle wie beim gescheiterten Ring.)
+  Der `is_showing: page_face`-Guard steht in **YAML** statt im Lambda und
+  ersetzt zugleich eine Prüfung auf den Gesichtsmodus: `page_face` liegt nur
+  vorne, wenn das Gesicht gewählt ist. Aus demselben Grund haben Punkte und
+  Balken seither einen `is_showing: page_main`-Guard bekommen — sonst rechneten
+  sie im Gesichtsmodus für eine unsichtbare Seite. Das **Mikrofon bleibt ohne
+  Guard**: sein Lambda muss beim Verlassen der Phase `text_opa` und Ausrichtung
+  zurücksetzen, und das darf nicht ausfallen.
+  Die Geometrie ist 1:1 aus dem Mockup übernommen, das schon auf 466×466
+  gezeichnet ist; umgerechnet ist nur der Bezugspunkt (dort linke obere Ecke,
+  hier die Bildschirmmitte). Alle Versätze stehen **positiv** in den
+  Substitutions und werden vorzeichenrichtig eingesetzt (`-${face_eye_dy}`) —
+  eine negative Substitution ergäbe irgendwo `--71`.
+  Die Zunge liegt in der Z-Ordnung **unter** dem Mund und ragt 6 px in ihn
+  hinein, damit ihre oberen Ecken verdeckt sind: LVGL kann Radien nur für alle
+  vier Ecken zugleich, das `border-radius: 0 0 20px 20px` des Mockups gibt es
+  so nicht.
+  `esphome::random_uint32()` statt `rand()`: der Hardware-RNG braucht keinen
+  Startwert und liefert nicht auf jedem Gerät dieselbe Folge — sonst blinzelten
+  alle Satelliten im Gleichtakt.
 - **Standby heißt aus, nicht gedimmt.** Nach `standby_timeout` schaltet
   `sleep_display` das Display komplett ab: Helligkeit 0 **und** die leere Seite
   `page_off`. Beides zusammen, weil das Dimm-Register des CO5300 bei 0 nur die
@@ -327,6 +390,16 @@ vier Kernzustände (Standby, Listening, Thinking, Replying) — reine Vorlage, k
 Code fürs Gerät. Es zeigt noch den Ring, den es auf dem Gerät nicht mehr gibt
 (siehe *Bekannte Einschränkungen*); sein Glow ist ein CSS-`drop-shadow` und hat in
 LVGL ohnehin keine Entsprechung.
+
+Ein viertes Mockup (`Device Face.dc.html`, Claude-Design-Projekt „Animierter
+Charakter rundes Display") ist die Vorlage für `page_face`: zwei leuchtende
+Augen und ein Mund, vier Zustände (Warten, Zuhören, Denken, Reden). Übernommen
+sind Geometrie, Zeiten und die Zufallsbereiche der Marotten; nicht übernommen
+ist das eckenselektive `border-radius` der Zunge (LVGL kann nur alle vier Ecken
+zugleich, siehe unten). Der Glow ist im Mockup ein CSS-`box-shadow` und hier
+ein LVGL-`shadow_*` am Widget selbst — das ist der eine Fall im Projekt, in dem
+es dafür keinen Hilfskreis braucht, weil Augen und Mund gefüllte Rechtecke sind
+und ihren Schatten selbst tragen können.
 
 Ein drittes Mockup (`Runde Zeitanzeige.dc.html`, Claude-Design-Projekt
 „Runde Zeitanzeige") ist die Vorlage für die Standby-Seite `page_dial`:

@@ -1,17 +1,23 @@
 # Oberflaeche auf dem runden 466x466-AMOLED.
 #
-# Fuenf Seiten:
+# Sechs Seiten:
 #   page_main      Statusicon, Punkte oder Balken - je nach Phase
 #   page_standby   Uhr - nach einem Tippen, bis der Bildschirm wieder ausgeht
 #   page_dial      Zifferblatt (Alternative zur Uhr, waehlbar)
+#   page_face      Gesicht (dritte Alternative, siehe unten)
 #   page_off       leer und schwarz - Bildschirm aus
 #   page_config    IP-Adresse und QR-Code zur Weboberflaeche
 #
 # Der Standby ist der ausgeschaltete Bildschirm, nicht ein gedimmter: nach
 # ${standby_timeout} ohne Beruehrung legt sleep_display die leere page_off vor
-# und schaltet das Licht aus. page_standby und page_dial sind deshalb keine
-# Dauerzustaende mehr, sondern das, was ein Tippen zeigt - welche von beiden,
-# entscheidet sel_standby_page (packages/web.yaml) ueber show_standby_page.
+# und schaltet das Licht aus. page_standby, page_dial und page_face sind deshalb
+# keine Dauerzustaende, sondern das, was ein Tippen zeigt - welche von den
+# dreien, entscheidet sel_standby_page (packages/web.yaml) ueber
+# show_standby_page.
+#
+# page_face ist dabei die eine Seite, die mehr ist als eine Standby-Seite: ist
+# sie gewaehlt, traegt sie auch Zuhoeren, Verarbeitung und Sprachausgabe. Das
+# entscheidet wake_display, nicht update_ui - siehe dort.
 #
 # Der Touchscreen kennt zwei Gesten: Tippen (wecken, laufenden Sprachvorgang
 # abbrechen, Konfigurationsseite verlassen) und Gedrueckthalten fuer
@@ -51,6 +57,14 @@ font:
     id: font_dial
     size: 32
     glyphs: ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
+
+  # Fragezeichen ueber dem Gesicht beim Denken (page_face). Ein einziger Glyph,
+  # deshalb ein eigener Font statt einer Vergroesserung von font_date: 56 px ist
+  # die Groesse aus dem Design-Mockup.
+  - file: "gfonts://Figtree@700"
+    id: font_face
+    size: 56
+    glyphs: ["?"]
 
   # Countdown eines laufenden Timers und Zahl eines Messwerts. Kleiner als
   # font_clock, damit auch sieben Zeichen ("1:23:45") in den runden Bildschirm
@@ -636,6 +650,115 @@ lvgl:
               - label: {id: dial_n11, styles: [dial_st_num], x: -84, y: -145, text: "11"}
               - label: {id: dial_n12, styles: [dial_st_num], x: 0, y: -168, text: "12"}
 
+    # ---------------------------------------------------- Standby: Gesicht
+    # Dritte, ueber sel_standby_page waehlbare Standby-Seite und Umsetzung des
+    # Designs "Animierter Charakter rundes Display" (Device Face.dc.html).
+    #
+    # Sie ist die einzige Standby-Seite, die auch waehrend eines Sprachvorgangs
+    # vorne liegt: ist das Gesicht gewaehlt, ersetzt es Mikrofon-Icon, Punkte
+    # und Balken - also genau die drei animierten Phasen. Wer stattdessen Uhr
+    # oder Zifferblatt gewaehlt hat, bekommt unveraendert die bisherigen
+    # Animationen auf page_main. Entschieden wird das in wake_display.
+    #
+    # Alle uebrigen Zustaende bleiben auch im Gesichtsmodus bei page_main:
+    # Messwert, Haken, Fehler, stumm, nicht bereit, klingelnder Timer und der
+    # Hinweis von aussen tragen Information und sind keine Animation, fuer die
+    # das Mockup eine Entsprechung haette.
+    #
+    # Hier stehen nur die Ruhezustaende - Groesse, Position und Sichtbarkeit
+    # schreibt der `interval: ${face_step_time}` am Dateiende. Die Reihenfolge
+    # ist Z-Ordnung: die Zunge liegt unter dem Mund, damit dessen Rechteck ihre
+    # oberen Ecken verdeckt.
+    - id: page_face
+      bg_color: 0x000000
+      bg_opa: COVER
+      scrollable: false
+      widgets:
+        - obj:
+            id: face_tongue
+            align: CENTER
+            x: 0
+            y: ${face_tongue_dy}
+            width: ${face_tongue_w}
+            height: ${face_tongue_h}
+            radius: 20
+            bg_color: ${color_face}
+            bg_opa: COVER
+            border_width: 0
+            pad_all: 0
+            clickable: false
+            shadow_width: ${face_glow}
+            shadow_spread: 0
+            shadow_color: ${color_face}
+            shadow_opa: ${face_glow_opa}
+            hidden: true
+
+        - obj:
+            id: face_mouth
+            align: CENTER
+            x: 0
+            y: ${face_mouth_dy}
+            width: ${face_mouth_w}
+            height: ${face_mouth_h}
+            radius: ${face_mouth_radius}
+            bg_color: ${color_face}
+            bg_opa: COVER
+            border_width: 0
+            pad_all: 0
+            clickable: false
+            shadow_width: ${face_glow}
+            shadow_spread: 0
+            shadow_color: ${color_face}
+            shadow_opa: ${face_glow_opa}
+
+        - obj:
+            id: face_eye_l
+            align: CENTER
+            x: -${face_eye_dx}
+            y: -${face_eye_dy}
+            width: ${face_eye_w}
+            height: ${face_eye_h}
+            radius: ${face_eye_radius}
+            bg_color: ${color_face}
+            bg_opa: COVER
+            border_width: 0
+            pad_all: 0
+            clickable: false
+            shadow_width: ${face_glow}
+            shadow_spread: 0
+            shadow_color: ${color_face}
+            shadow_opa: ${face_glow_opa}
+        - obj:
+            id: face_eye_r
+            align: CENTER
+            x: ${face_eye_dx}
+            y: -${face_eye_dy}
+            width: ${face_eye_w}
+            height: ${face_eye_h}
+            radius: ${face_eye_radius}
+            bg_color: ${color_face}
+            bg_opa: COVER
+            border_width: 0
+            pad_all: 0
+            clickable: false
+            shadow_width: ${face_glow}
+            shadow_spread: 0
+            shadow_color: ${color_face}
+            shadow_opa: ${face_glow_opa}
+
+        # Seite und Sichtbarkeit setzt der Takt; die Werte hier sind die
+        # Stellung, in der das Fragezeichen zuerst erscheinen wuerde.
+        - label:
+            id: face_question
+            align: CENTER
+            x: ${face_q_dx}
+            y: -${face_q_dy}
+            text: "?"
+            text_font: font_face
+            text_color: ${color_face}
+            text_align: CENTER
+            hidden: true
+
     # ------------------------------------------------------ Bildschirm aus
     # Leere schwarze Seite - der Standby-Zustand des Geraets. Sie ist der
     # zweite Teil des Ausschaltens: die Helligkeit allein genuegt nicht, weil
@@ -1008,11 +1131,37 @@ script:
           brightness: ${active_brightness}
 
   # ------------------------------------------------------- Display aufwecken
+  #
+  # Hier faellt die eine Entscheidung des Gesichtsmodus: Welche Seite traegt die
+  # laufende Phase - page_main mit Icon/Punkten/Balken oder page_face?
+  #
+  # Sie steht bewusst *nicht* in update_ui. update_ui fuellt die Widgets von
+  # page_main und weiss nichts von Seiten; wake_display ist ohnehin die einzige
+  # Stelle, die page_main vorlegt, und wird von update_ui und von
+  # on_screen_touch gleichermassen gerufen. Damit gibt es genau einen Ort, an
+  # dem die Auswahl haengt.
+  #
+  # Das Gesicht bekommt nur die drei animierten Phasen. Alles andere - Messwert,
+  # Haken, Fehler, stumm, nicht bereit, klingelnder Timer - bleibt auf
+  # page_main, weil es Information traegt, fuer die das Design-Mockup keine
+  # Miene kennt. Ein Hinweis von aussen (hint_active) ebenso: seine beiden
+  # Widgets liegen auf page_main.
   - id: wake_display
     mode: restart
     then:
       - script.stop: standby_return
-      - lvgl.page.show: page_main
+      - if:
+          condition:
+            lambda: |-
+              return id(sel_standby_page).active_index().value_or(0) == 2
+                  && !id(hint_active)
+                  && (id(voice_assistant_phase) == ${phase_listening}
+                      || id(voice_assistant_phase) == ${phase_thinking}
+                      || id(voice_assistant_phase) == ${phase_replying});
+          then:
+            - lvgl.page.show: page_face
+          else:
+            - lvgl.page.show: page_main
       - light.turn_on:
           id: display_brightness
           brightness: ${active_brightness}
@@ -1060,12 +1209,15 @@ script:
       - script.execute: sleep_display
 
   # Welche Standby-Seite gezeigt wird, entscheidet sel_standby_page aus
-  # packages/web.yaml. Wer eine weitere hinzufuegt, muss drei Stellen
-  # anfassen: eine Option in sel_standby_page, einen Zweig hier und die
-  # is_showing-Bedingung des Minutentakts in packages/core.yaml.
+  # packages/web.yaml, und zwar ueber den Index: 0 Uhr, 1 Zifferblatt,
+  # 2 Gesicht. Wer eine weitere hinzufuegt, muss drei Stellen anfassen: eine
+  # Option am *Ende* von sel_standby_page, einen Zweig hier und - sofern die
+  # Seite Zeit anzeigt - die is_showing-Bedingung des Minutentakts in
+  # packages/core.yaml.
   #
   # Der Inhalt wird jeweils *vor* dem Seitenwechsel aufgefrischt, damit keine
-  # veraltete Uhrzeit aufblitzt.
+  # veraltete Uhrzeit aufblitzt. Das Gesicht braucht das nicht: es zeigt keine
+  # Zeit, und sein Takt laeuft von selbst an, sobald die Seite vorne liegt.
   - id: show_standby_page
     mode: restart
     then:
@@ -1076,8 +1228,14 @@ script:
             - script.execute: update_dial
             - lvgl.page.show: page_dial
           else:
-            - script.execute: update_clock
-            - lvgl.page.show: page_standby
+            - if:
+                condition:
+                  lambda: return id(sel_standby_page).active_index().value_or(0) == 2;
+                then:
+                  - lvgl.page.show: page_face
+                else:
+                  - script.execute: update_clock
+                  - lvgl.page.show: page_standby
       # Erst nach dem Seitenwechsel: update_timer_ui schreibt den Countdown nur,
       # wenn die Standby-Seite auch wirklich vorne liegt. Der Aufruf raeumt
       # ausserdem auf, wenn der letzte Timer ablief, waehrend eine andere Seite
@@ -1294,29 +1452,39 @@ script:
 #
 # Der Takt laeuft immer, macht aber ausserhalb der Verarbeitung nichts - die
 # Punkte sind dann ohnehin versteckt (update_ui).
+#
+# Der `is_showing`-Guard davor ist seit dem Gesichtsmodus noetig: liegt page_face
+# vorne, tragen dieselben Phasen ein Gesicht, und die Punkte auf page_main
+# waeren reine Rechenlast auf einer unsichtbaren Seite. Er ist gefahrlos, weil
+# das Lambda keinen Zustand zurueckzusetzen hat - anders als beim Mikrofon, das
+# darum ohne Guard bleibt.
 interval:
   - interval: ${dot_step_time}
     then:
-      - lambda: |-
-          if (id(voice_assistant_phase) != ${phase_thinking})
-            return;
-          static uint8_t step = 0;
-          static const int16_t X[3] = {-${dot_gap}, 0, ${dot_gap}};
-          lv_obj_t *const dots[3] = {id(dot_1), id(dot_2), id(dot_3)};
-          const uint8_t versatz = ${dot_cycle_steps} / 3;
-          for (uint8_t i = 0; i < 3; i++) {
-            uint8_t p = (step + ${dot_cycle_steps} - versatz * i) % ${dot_cycle_steps};
-            float a = 0.5f * (1.0f + cosf(6.2831853f * p / ${dot_cycle_steps}));
-            int16_t groesse = ${dot_size} + (int16_t) (a * (${dot_size_max} - ${dot_size}));
-            lv_obj_set_size(dots[i], groesse, groesse);
-            // Nach jeder Groessenaenderung neu ausrichten, sonst waechst der
-            // Punkt nach rechts unten statt aus seiner Mitte heraus.
-            lv_obj_align(dots[i], LV_ALIGN_CENTER, X[i], -(int16_t) (a * ${dot_lift}));
-            lv_obj_set_style_bg_opa(
-                dots[i], (lv_opa_t) (${dot_opa_min} + a * (255 - ${dot_opa_min})),
-                LV_PART_MAIN);
-          }
-          step = (step + 1) % ${dot_cycle_steps};
+      - if:
+          condition:
+            lvgl.page.is_showing: page_main
+          then:
+            - lambda: |-
+                if (id(voice_assistant_phase) != ${phase_thinking})
+                  return;
+                static uint8_t step = 0;
+                static const int16_t X[3] = {-${dot_gap}, 0, ${dot_gap}};
+                lv_obj_t *const dots[3] = {id(dot_1), id(dot_2), id(dot_3)};
+                const uint8_t versatz = ${dot_cycle_steps} / 3;
+                for (uint8_t i = 0; i < 3; i++) {
+                  uint8_t p = (step + ${dot_cycle_steps} - versatz * i) % ${dot_cycle_steps};
+                  float a = 0.5f * (1.0f + cosf(6.2831853f * p / ${dot_cycle_steps}));
+                  int16_t groesse = ${dot_size} + (int16_t) (a * (${dot_size_max} - ${dot_size}));
+                  lv_obj_set_size(dots[i], groesse, groesse);
+                  // Nach jeder Groessenaenderung neu ausrichten, sonst waechst
+                  // der Punkt nach rechts unten statt aus seiner Mitte heraus.
+                  lv_obj_align(dots[i], LV_ALIGN_CENTER, X[i], -(int16_t) (a * ${dot_lift}));
+                  lv_obj_set_style_bg_opa(
+                      dots[i], (lv_opa_t) (${dot_opa_min} + a * (255 - ${dot_opa_min})),
+                      LV_PART_MAIN);
+                }
+                step = (step + 1) % ${dot_cycle_steps};
 
   # -------------------------------------------------- Animation des Zuhoerens
   # Zuhoeren hat keinen Ring mehr, sondern nur das blaue Mikrofon-Icon in der
@@ -1370,35 +1538,240 @@ interval:
   # waechst der Balken nach unten statt aus seiner Mitte. Ein Ruecksetzen wie
   # beim Mikrofon braucht es nicht: die Balken sind ausserhalb der Phase
   # versteckt (update_ui) und der erste Takt schreibt alle Werte neu.
+  #
+  # Der `is_showing`-Guard hat denselben Grund wie bei den Punkten: im
+  # Gesichtsmodus traegt page_face die Sprachausgabe, page_main liegt hinten.
   - interval: ${bar_step_time}
     then:
-      - lambda: |-
-          static bool aktiv = false;
-          static uint8_t step = 0;
-          if (id(voice_assistant_phase) != ${phase_replying}) {
-            aktiv = false;
-            return;
-          }
-          if (!aktiv) {
-            aktiv = true;
-            step = 0;
-          }
-          static const int16_t X[5] = {-2 * ${bar_gap}, -${bar_gap}, 0,
-                                       ${bar_gap}, 2 * ${bar_gap}};
-          static const float SKALA[5] = {0.45f, 0.75f, 1.0f, 0.75f, 0.45f};
-          lv_obj_t *const bars[5] = {id(bar_1), id(bar_2), id(bar_3),
-                                     id(bar_4), id(bar_5)};
-          const uint8_t versatz = ${bar_cycle_steps} / 5;
-          for (uint8_t i = 0; i < 5; i++) {
-            uint8_t p = (step + ${bar_cycle_steps} - versatz * i) % ${bar_cycle_steps};
-            float a = 0.5f * (1.0f + cosf(6.2831853f * p / ${bar_cycle_steps}));
-            a *= SKALA[i];
-            int16_t hoehe = ${bar_size_min}
-                          + (int16_t) (a * (${bar_size_max} - ${bar_size_min}));
-            lv_obj_set_size(bars[i], ${bar_width}, hoehe);
-            lv_obj_align(bars[i], LV_ALIGN_CENTER, X[i], 0);
-            lv_obj_set_style_bg_opa(
-                bars[i], (lv_opa_t) (${bar_opa_min} + a * (255 - ${bar_opa_min})),
-                LV_PART_MAIN);
-          }
-          step = (step + 1) % ${bar_cycle_steps};
+      - if:
+          condition:
+            lvgl.page.is_showing: page_main
+          then:
+            - lambda: |-
+                static bool aktiv = false;
+                static uint8_t step = 0;
+                if (id(voice_assistant_phase) != ${phase_replying}) {
+                  aktiv = false;
+                  return;
+                }
+                if (!aktiv) {
+                  aktiv = true;
+                  step = 0;
+                }
+                static const int16_t X[5] = {-2 * ${bar_gap}, -${bar_gap}, 0,
+                                             ${bar_gap}, 2 * ${bar_gap}};
+                static const float SKALA[5] = {0.45f, 0.75f, 1.0f, 0.75f, 0.45f};
+                lv_obj_t *const bars[5] = {id(bar_1), id(bar_2), id(bar_3),
+                                           id(bar_4), id(bar_5)};
+                const uint8_t versatz = ${bar_cycle_steps} / 5;
+                for (uint8_t i = 0; i < 5; i++) {
+                  uint8_t p = (step + ${bar_cycle_steps} - versatz * i) % ${bar_cycle_steps};
+                  float a = 0.5f * (1.0f + cosf(6.2831853f * p / ${bar_cycle_steps}));
+                  a *= SKALA[i];
+                  int16_t hoehe = ${bar_size_min}
+                                + (int16_t) (a * (${bar_size_max} - ${bar_size_min}));
+                  lv_obj_set_size(bars[i], ${bar_width}, hoehe);
+                  lv_obj_align(bars[i], LV_ALIGN_CENTER, X[i], 0);
+                  lv_obj_set_style_bg_opa(
+                      bars[i], (lv_opa_t) (${bar_opa_min} + a * (255 - ${bar_opa_min})),
+                      LV_PART_MAIN);
+                }
+                step = (step + 1) % ${bar_cycle_steps};
+
+  # ------------------------------------------------------ Takt des Gesichts
+  # Ein einziger Takt fuer alle vier Zustaende des Mockups - und zwar bewusst
+  # *einer*: Punkte, Balken und Mikrofon haben je einen eigenen, weil sie sich
+  # gegenseitig nie sehen (jede Phase versteckt die anderen). Das Gesicht ist
+  # umgekehrt in jeder Phase dasselbe Gesicht; nur seine Zielwerte wechseln.
+  #
+  # Genau daran haengt die Forderung nach einem fliessenden Uebergang. Jede
+  # Groesse hat ein Ziel und einen laufenden Wert, und der laufende Wert
+  # naehert sich dem Ziel je Takt um einen festen Bruchteil:
+  #
+  #     wert += (ziel - wert) * k
+  #
+  # Das ist ein exponentieller Einlauf, kein Abfahren einer Zeitachse. Er hat
+  # keinen Anfang und kein Ende, die man treffen muesste - wechselt mitten in
+  # der Bewegung die Phase, aendert sich nur das Ziel und die Augen biegen ab,
+  # statt zu springen. Mit k = 0.14 bei 33 ms sind rund 0,45 s vergangen, bis
+  # 90 % des Weges zurueckgelegt sind; das entspricht dem `transition:
+  # transform .5s cubic-bezier(.4,0,.2,1)` des Mockups.
+  #
+  # Zwei Dinge laufen absichtlich *nicht* eingeschliffen:
+  #   - Das Blinzeln (eigenes k = 0.5). Ein Lidschlag ist ein Schnappen, kein
+  #     Gleiten; im Mockup sind es 120 ms.
+  #   - Der Sprung auf ein neues Mundziel beim Reden. Das Ziel selbst wechselt
+  #     alle 140 ms zufaellig, der Weg dorthin bleibt eingeschliffen - so
+  #     entsteht das Zappeln des Mundes, ohne dass er flackert.
+  #
+  # Geschrieben wird nur, was sich in ganzen Pixeln geaendert hat. Das ist hier
+  # kein Feinschliff, sondern der Grund, warum der Glow bezahlbar bleibt: im
+  # Warten stehen die Augen die meiste Zeit still, und dann laeuft der Takt
+  # ohne einen einzigen LVGL-Aufruf durch. Bewegt wird nur waehrend eines
+  # Uebergangs, also in Schueben von einer knappen halben Sekunde.
+  #
+  # Der `is_showing`-Guard steht in YAML statt im Lambda, weil es die Bedingung
+  # dafuer schon gibt - und er ersetzt zugleich die Pruefung auf den
+  # Gesichtsmodus: page_face liegt nur vorne, wenn das Gesicht gewaehlt ist.
+  - interval: ${face_step_time}
+    then:
+      - if:
+          condition:
+            lvgl.page.is_showing: page_face
+          then:
+            - lambda: |-
+                // --- Zustand ueber die Takte hinweg ---
+                static uint16_t t = 0;              // Takte, seit es laeuft
+                static int last_phase = -1;
+                static float ex = 0, ey = 0;        // Blickversatz, laufend
+                static float tx = 0, ty = 0;        //                 Ziel
+                static float es = 1.0f, ts = 1.0f;  // Augenskalierung
+                static float mh = ${face_mouth_h};  // Mundhoehe, laufend
+                static float tmh = ${face_mouth_h}; //            Ziel
+                static float lid = 1.0f;            // 1 offen, 0.08 zu
+                static uint16_t look_at = 0, blink_at = 0, blink_bis = 0;
+                static uint16_t quirk_at = 0, quirk_bis = 0, talk_at = 0;
+                static uint8_t quirk = 0;   // 0 keine, 1 Zunge, 2 Augen, 3 Mund
+                static int8_t seite = 1;    // Kopfneigung beim Denken
+                t++;
+
+                // esphome::random_uint32() statt rand(): der Hardware-RNG des
+                // ESP32 braucht keinen Startwert und liefert nach dem Booten
+                // nicht bei jedem Geraet dieselbe Folge - sonst blinzelten alle
+                // Satelliten im Gleichtakt.
+                auto wuerfel = [](uint16_t n) -> uint16_t {
+                  return (uint16_t) (esphome::random_uint32() % n);
+                };
+
+                const int phase = id(voice_assistant_phase);
+                if (phase != last_phase) {
+                  last_phase = phase;
+                  // Marotten und Lidschlag gehoeren dem Warten. Wer angesprochen
+                  // wird, streckt nicht die Zunge heraus.
+                  quirk = 0;
+                  blink_bis = 0;
+                  if (phase == ${phase_thinking})
+                    seite = wuerfel(2) ? 1 : -1;
+                  if (phase == ${phase_idle})
+                    look_at = t;  // sofort einen neuen Blick werfen
+                }
+
+                // --- Ziele der laufenden Phase ---
+                ts = 1.0f;
+                switch (phase) {
+                  case ${phase_listening}:
+                    // Aufmerksam: Blick geradeaus, Augen eine Spur groesser.
+                    tx = 0; ty = 0; ts = 1.06f;
+                    tmh = ${face_mouth_h};
+                    break;
+
+                  case ${phase_thinking}:
+                    // Blick nach schraeg oben - die Richtung, in die Menschen
+                    // sehen, wenn sie ueberlegen. Dazu das Fragezeichen.
+                    tx = 34.0f * seite; ty = -26.0f;
+                    tmh = ${face_mouth_h};
+                    break;
+
+                  case ${phase_replying}:
+                    tx = 0; ty = 0;
+                    // Alle 140 ms (4 Takte) eine neue Mundhoehe. Der Weg
+                    // dorthin bleibt eingeschliffen, deshalb zappelt der Mund,
+                    // statt zu flackern.
+                    if (t >= talk_at) {
+                      tmh = 8.0f + wuerfel(35);
+                      talk_at = t + 4;
+                    }
+                    break;
+
+                  default:
+                    // Warten. Drei unabhaengige Uhren laufen nebeneinander:
+                    // der wandernde Blick (2,2 s), der Lidschlag (2,4-5,6 s)
+                    // und die Marotten (3,2-6,2 s). Alle drei Zeiten stammen
+                    // aus dem Mockup, in Takte zu 33 ms umgerechnet.
+                    if (t >= look_at) {
+                      const float a = wuerfel(628) / 100.0f;
+                      tx = cosf(a) * (30 + wuerfel(56));
+                      ty = sinf(a) * (16 + wuerfel(33));
+                      look_at = t + 66;
+                    }
+                    if (t >= blink_at) {
+                      blink_at = t + 72 + wuerfel(97);
+                      blink_bis = t + 4;  // rund 120 ms geschlossen
+                    }
+                    if (t >= quirk_at) {
+                      quirk = 1 + (uint8_t) wuerfel(3);
+                      quirk_at = t + 96 + wuerfel(91);
+                      quirk_bis = t + 20;  // rund 650 ms
+                    }
+                    if (quirk != 0 && t >= quirk_bis)
+                      quirk = 0;
+
+                    if (quirk == 2) ts = 1.16f;
+                    tmh = (quirk == 3) ? ${face_mouth_h_max} : ${face_mouth_h};
+                    break;
+                }
+
+                // --- Einlauf ---
+                const float k = 0.14f;
+                ex += (tx - ex) * k;
+                ey += (ty - ey) * k;
+                es += (ts - es) * k;
+                mh += (tmh - mh) * (phase == ${phase_replying} ? 0.45f : 0.20f);
+                lid += (((t < blink_bis) ? 0.08f : 1.0f) - lid) * 0.5f;
+
+                // --- Schreiben, aber nur bei echter Aenderung ---
+                // Ein `lv_obj_set_size` invalidiert die alte *und* die neue
+                // Flaeche; mit Glow ist das je Auge rund 122x172 px. Ohne diese
+                // Pruefung liefe das 30-mal je Sekunde auch dann, wenn sich
+                // nichts bewegt.
+                int32_t aw = (int32_t) lroundf(${face_eye_w} * es);
+                int32_t ah = (int32_t) lroundf(${face_eye_h} * es * lid);
+                if (ah < 2) ah = 2;  // eine Box ohne Flaeche zeichnet LVGL nicht
+                const int32_t px = (int32_t) lroundf(ex);
+                const int32_t py = (int32_t) lroundf(ey);
+                static int32_t a_aw = -1, a_ah = -1, a_px = 0, a_py = 0;
+                if (aw != a_aw || ah != a_ah || px != a_px || py != a_py) {
+                  a_aw = aw; a_ah = ah; a_px = px; a_py = py;
+                  lv_obj_set_size(id(face_eye_l), aw, ah);
+                  lv_obj_set_size(id(face_eye_r), aw, ah);
+                  // Nach jedem set_size neu ausrichten, sonst waechst das Auge
+                  // aus seiner linken oberen Ecke statt aus seiner Mitte.
+                  lv_obj_align(id(face_eye_l), LV_ALIGN_CENTER,
+                               px - ${face_eye_dx}, py - ${face_eye_dy});
+                  lv_obj_align(id(face_eye_r), LV_ALIGN_CENTER,
+                               px + ${face_eye_dx}, py - ${face_eye_dy});
+                }
+
+                int32_t mund = (int32_t) lroundf(mh);
+                if (mund < 2) mund = 2;
+                static int32_t a_mund = -1;
+                if (mund != a_mund) {
+                  a_mund = mund;
+                  lv_obj_set_size(id(face_mouth), ${face_mouth_w}, mund);
+                  lv_obj_align(id(face_mouth), LV_ALIGN_CENTER, 0,
+                               ${face_mouth_dy});
+                }
+
+                const bool zunge = (quirk == 1);
+                static int8_t a_zunge = -1;
+                if ((int8_t) zunge != a_zunge) {
+                  a_zunge = (int8_t) zunge;
+                  if (zunge)
+                    lv_obj_remove_flag(id(face_tongue), LV_OBJ_FLAG_HIDDEN);
+                  else
+                    lv_obj_add_flag(id(face_tongue), LV_OBJ_FLAG_HIDDEN);
+                }
+
+                const bool frage = (phase == ${phase_thinking});
+                static int8_t a_frage = -1, a_seite = 0;
+                if ((int8_t) frage != a_frage || (frage && seite != a_seite)) {
+                  a_frage = (int8_t) frage;
+                  a_seite = seite;
+                  if (frage) {
+                    lv_obj_align(id(face_question), LV_ALIGN_CENTER,
+                                 ${face_q_dx} * seite, -${face_q_dy});
+                    lv_obj_remove_flag(id(face_question), LV_OBJ_FLAG_HIDDEN);
+                  } else {
+                    lv_obj_add_flag(id(face_question), LV_OBJ_FLAG_HIDDEN);
+                  }
+                }
