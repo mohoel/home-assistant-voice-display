@@ -90,6 +90,15 @@ globals:
     restore_value: false
     initial_value: "false"
 
+  # Kam das gerade endende "Ende" ueberhaupt aus einem Sprachvorgang? Bei einer
+  # Ansage aus Home Assistant naemlich nicht: on_announce feuert end_trigger
+  # sofort beim *Start* der Ansage (voice_assistant.cpp:1080), nicht an ihrem
+  # Ende. Gesetzt in on_listening, zurueckgesetzt in end_session.
+  - id: pipeline_session
+    type: bool
+    restore_value: false
+    initial_value: "false"
+
 micro_wake_word:
   id: mww
   microphone:
@@ -157,6 +166,9 @@ voice_assistant:
     - lambda: |-
         id(is_followup) = !id(wake_word_seen);
         id(wake_word_seen) = false;
+        // Ab hier laeuft ein echter Sprachvorgang - end_session darf danach
+        // ohne Bedenkzeit aufraeumen.
+        id(pipeline_session) = true;
         id(had_tts) = false;
         id(result_kind) = 0;
         // Ein vorgemerkter Ton aus einem abgebrochenen Durchgang gehoert nicht
@@ -208,6 +220,51 @@ voice_assistant:
         // deines Autos betraegt 72 Prozent."), schliessen aber die
         // ausformulierten Antworten eines Sprachmodells weiter aus.
         if (!t.empty() && t.size() <= 80) {
+          // --- Bestaetigung: kurzer, formelhafter Satz ---
+          //
+          // Steht *vor* der Messwerterkennung, und das ist der ganze Punkt:
+          // "Rollo auf 50 Prozent gestellt" enthaelt eine Zahl mit Einheit,
+          // ist aber die Rueckmeldung zu einem Befehl und kein Messwert.
+          // Umgekehrt gelesen: eine Bestaetigung schlaegt eine Zahl im selben
+          // Satz. Was geschaltet wurde, sagt der Haken so wenig wie bei jeder
+          // anderen Entitaet - mehr weiss das Geraet ohnehin nicht.
+          //
+          // Gesucht wird das Wort ueberall im Satz, nicht nur am Anfang. Der
+          // Satzanfang allein traf nur die knappste Form ("Eingeschaltet.");
+          // Home Assistant antwortet je nach Intent und Sprachpaket auch mit
+          // "Das Licht wurde eingeschaltet", und dann liefen die fuenf Balken,
+          // obwohl gar nichts gesprochen wurde.
+          //
+          // Die Laengengrenze von 45 Zeichen ist der Preis dafuer: sie haelt
+          // Saetze draussen, die das Wort nur beilaeufig enthalten ("Im
+          // Wohnzimmer sind drei von fuenf Lampen eingeschaltet"). Der Preis
+          // der Reihenfolge ist ein anderer: "Die Heizung ist auf 21 Grad
+          // eingestellt" zeigt jetzt den Haken statt der Zahl. Das ist die
+          // bewusste Entscheidung - Befehle sind der haeufigere Fall.
+          {
+            std::string k = t;
+            while (!k.empty() &&
+                   (k.back() == '.' || k.back() == '!' || k.back() == ' '))
+              k.pop_back();
+            for (char &c : k)
+              if (c >= 'A' && c <= 'Z') c += 32;
+            // "gestellt" deckt "eingestellt" mit ab (Teilzeichenkette) und
+            // faengt zugleich das Rollo: "auf 50 Prozent gestellt".
+            static const char *const BESTAETIGUNG[] = {
+                "eingeschaltet", "ausgeschaltet", "angeschaltet", "abgeschaltet",
+                "gestellt", "gesetzt", "erledigt", "fertig", "ok", "okay",
+                "gestartet", "gestoppt", "angehalten", "fortgesetzt",
+                "geöffnet", "geschlossen", "aktiviert", "deaktiviert", "gedimmt"};
+            if (k.size() <= 45) {
+              for (const char *b : BESTAETIGUNG) {
+                if (k.find(b) != std::string::npos) {
+                  id(result_kind) = 2;
+                  break;
+                }
+              }
+            }
+          }
+
           // --- Messwert: Zahl mit bekannter Einheit ---
           //
           // *Jede* Ziffernfolge wird geprueft, nicht nur die erste. Sonst
@@ -215,8 +272,12 @@ voice_assistant:
           // um die Erkennung zu verlieren: die erste Ziffernfolge haette dann
           // keine Einheit hinter sich, und der Messwert weiter hinten im Satz
           // waere nie angesehen worden.
+          // "Uhr" stand hier einmal, ist aber wieder entfallen: Home Assistant
+          // antwortet auf die Frage nach der Zeit mit "Es ist 22:26" - ohne
+          // die Einheit hinter der Zahl. Sie haette also ohnehin nur bei
+          // Formulierungen gegriffen, die so nicht vorkommen.
           static const char *const EINHEITEN[] = {
-              "°C", "°F", "°", "%", "Prozent", "Grad", "Uhr", "km/h",
+              "°C", "°F", "°", "%", "Prozent", "Grad", "km/h",
               "hPa", "lx", "ppm", "kWh", "kW", "Wh", "W", "V", "A", "dB",
               "km", "cm", "mm", "m"};
 
@@ -266,29 +327,6 @@ voice_assistant:
             i = j;
           }
 
-          // --- Bestaetigung: kurzer, formelhafter Satz ---
-          if (id(result_kind) == 0) {
-            std::string k = t;
-            while (!k.empty() &&
-                   (k.back() == '.' || k.back() == '!' || k.back() == ' '))
-              k.pop_back();
-            for (char &c : k)
-              if (c >= 'A' && c <= 'Z') c += 32;
-            static const char *const BESTAETIGUNG[] = {
-                "eingeschaltet", "ausgeschaltet", "angeschaltet", "abgeschaltet",
-                "eingestellt", "gesetzt", "erledigt", "fertig", "ok", "okay",
-                "gestartet", "gestoppt", "angehalten", "fortgesetzt",
-                "geöffnet", "geschlossen", "aktiviert", "deaktiviert", "gedimmt"};
-            if (k.size() <= 25) {
-              for (const char *b : BESTAETIGUNG) {
-                const std::string wort(b);
-                if (k.compare(0, wort.size(), wort) == 0) {
-                  id(result_kind) = 2;
-                  break;
-                }
-              }
-            }
-          }
         }
 
         id(voice_assistant_phase) =
@@ -326,6 +364,36 @@ voice_assistant:
             return !id(had_tts)
                 && id(voice_assistant_phase) == ${phase_thinking};
         then:
+          # Muss als *erstes* stehen und ist der Grund, warum das Geraet nach
+          # einer Antwort ohne Sprachausgabe taub wurde.
+          #
+          # Endet die Pipeline, waehrend das Mikrofon noch abgebaut wird, ist
+          # der Zustand STOP_MICROPHONE und der Wunschzustand AWAITING_RESPONSE
+          # (gesetzt vom vorangegangenen "STT by VAD end"). Der RUN_END-Handler
+          # kennt genau diesen Zustand nicht (voice_assistant.cpp:903: er prueft
+          # START_PIPELINE, STARTING_PIPELINE, STREAMING_MICROPHONE und
+          # AWAITING_RESPONSE) und laesst den Wunsch stehen - die Komponente
+          # landet also in AWAITING_RESPONSE und wartet dort auf eine Antwort,
+          # die Home Assistant laengst geschickt hat. Verlassen wird der
+          # Zustand nur durch ein Ereignis ("State changed by events",
+          # voice_assistant.cpp:433), und es kommt keines mehr.
+          #
+          # Ab da ist das Geraet still taub: das Wake Word wird weiter erkannt,
+          # aber voice_assistant.start steigt wortlos aus, weil request_start
+          # nur aus IDLE heraus etwas tut (voice_assistant.cpp:682). Genau das
+          # stand im Log - "Detected 'Okay Nabu'" ohne jede Folge. Auch ein
+          # spaeteres voice_assistant.stop half nicht: aus AWAITING_RESPONSE
+          # heraus signalisiert es nur nach Home Assistant und laesst den
+          # Zustand stehen (Zeile 713).
+          #
+          # Hier dagegen ist der Zustand noch STOP_MICROPHONE/
+          # STOPPING_MICROPHONE, und dafuer gibt es den Zweig
+          # `desired_state_ = IDLE` (Zeile 709) - der Abbau laeuft zu Ende und
+          # die Komponente landet sauber im Leerlauf.
+          #
+          # Ungefaehrlich ist das nur an dieser Stelle: `!had_tts` heisst, es
+          # spielt keine Sprachausgabe, die abgeschnitten werden koennte.
+          - voice_assistant.stop:
           - lambda: |-
               id(result_kind) = 2;
               id(voice_assistant_phase) = ${phase_result};
@@ -591,6 +659,26 @@ script:
               - not:
                   speaker.is_playing:
           timeout: 30s
+      # Bedenkzeit nach einer Ansage aus Home Assistant. on_announce feuert
+      # end_trigger schon beim *Start* der Ansage (voice_assistant.cpp:1080),
+      # dieses Skript laeuft also die ganze Ansage lang mit - und raeumte
+      # danach sofort auf. Bei assist_satellite.ask_question ist das genau
+      # falsch: die Pipeline geht nach der Frage in START_MICROPHONE weiter
+      # (voice_assistant.cpp:513), und der Aufraeumteil unten hat ihr das mit
+      # dem voice_assistant.stop aus start_wake_word wieder abgedreht. Auf dem
+      # Geraet sah man die Frage, danach sofort Standby und kein Fragezeichen.
+      #
+      # Zwei Sekunden reichen, denn abgebrochen wird dieses Skript nicht hier,
+      # sondern von on_listening (script.stop: end_session), sobald Home
+      # Assistant wirklich aufnimmt. Bleibt die Aufnahme aus - eine gewoehnliche
+      # Ansage ohne Rueckfrage -, kostet es nur diese zwei Sekunden bis zum
+      # Scharfstellen.
+      - if:
+          condition:
+            lambda: return !id(pipeline_session);
+          then:
+            - delay: 2s
+      - lambda: id(pipeline_session) = false;
       # Die fuenf Balken sind die Sprachausgabe, nicht ihr Nachklang: hoert der
       # Ton auf, hoeren sie auf. Frueher lief die Animation noch die 8 s des
       # Nachlaufs unten weiter - der Nachlauf ist aber fuer die
@@ -629,6 +717,43 @@ script:
                   not:
                     speaker.is_playing:
                 timeout: 5s
+            # Dieselben 500 ms wie beim Engine-Wechsel und beim Klingelton:
+            # speaker.is_playing wird false, sobald die letzten Samples
+            # abgegeben sind - den I2S-Bus gibt der Lautsprechertask aber erst
+            # danach frei. Ohne diese Pause scheitert micro_wake_word beim
+            # Griff aufs Mikrofon, und weil danach nichts mehr nachfasst, blieb
+            # das Geraet nach einem still ausgefuehrten Befehl taub.
+            - delay: 500ms
+      # Erst scharfstellen, wenn die Komponente wirklich im Leerlauf ist - sonst
+      # loescht das Scharfstellen die Rueckfrage, die es gerade auszuwerten
+      # gilt.
+      #
+      # Home Assistant meldet eine offene Rueckfrage im INTENT_END-Ereignis
+      # (continue_conversation, esphome/assist_satellite.py; gesetzt, sobald die
+      # Antwort mit einem Fragezeichen endet, conversation/chat_log.py). Die
+      # Komponente merkt sie sich und wertet sie erst aus, wenn der Ton durch
+      # ist: RESPONSE_FINISHED geht dann nach START_MICROPHONE statt nach IDLE
+      # (voice_assistant.cpp:513). Zwischen "Ton fertig" und dieser Auswertung
+      # liegen rund 100 ms - und genau dort lag bisher start_wake_word, dessen
+      # voice_assistant.stop den Merker bedingungslos loescht
+      # (voice_assistant.cpp:692). Das Geraet hat sich seine eigene Rueckfrage
+      # abgeraeumt; im Log stand danach RESPONSE_FINISHED → IDLE.
+      #
+      # Laeuft die Rueckfrage weiter, wird dieses Skript ohnehin von
+      # on_listening abgebrochen - das Warten laeuft dann ins Timeout und die
+      # fuenf Sekunden sieht nie jemand. Nur fuer die lokale Engine: dort ist
+      # continuous_ false, `voice_assistant.is_running` meint also wirklich
+      # "Zustand != IDLE". In der HA-Engine waere die Bedingung immer wahr
+      # (voice_assistant.h:383) und das Warten liefe jedes Mal ins Leere.
+      - if:
+          condition:
+            lambda: return id(wake_word_engine_location).current_option() == "Auf dem Geraet";
+          then:
+            - wait_until:
+                condition:
+                  not:
+                    voice_assistant.is_running:
+                timeout: 5s
       # Ueber das Skript statt direkt micro_wake_word.start: das beruecksichtigt
       # die gewaehlte Engine und respektiert eine waehrend des Vorgangs
       # gesetzte Stummschaltung.
@@ -642,8 +767,17 @@ script:
             lambda: return id(voice_assistant_phase) == ${phase_result};
           then:
             - delay: ${result_hold_time}
-      - script.execute: set_idle_or_muted
-      - script.execute: update_ui
+      # Eine Fehleranzeige gehoert clear_error und niemandem sonst. Viele
+      # Fehler loesen *beides* aus - erst on_error, gleich danach on_end -,
+      # und ohne diesen Guard raeumte end_session das Fragezeichen nach
+      # Sekundenbruchteilen wieder weg, obwohl clear_error es drei Sekunden
+      # stehen lassen wollte. Von aussen sah das aus wie ein Aufblitzen.
+      - if:
+          condition:
+            lambda: return id(voice_assistant_phase) != ${phase_error};
+          then:
+            - script.execute: set_idle_or_muted
+            - script.execute: update_ui
       # Die Textsensoren sind die einzige Stelle, an der Frage und Antwort in
       # Home Assistant landen - sie behalten ihre Standzeit unabhaengig davon,
       # wie lange die Anzeige auf dem Geraet stehen bleibt.
@@ -778,6 +912,61 @@ script:
           then:
             - script.execute: start_wake_word
 
+  # ------------------------------------------- Ansage aus Home Assistant
+  # Gerufen vom on_announcement des Media Players (packages/hardware.yaml),
+  # und zwar nur aus dem Leerlauf heraus - waehrend eines Sprachvorgangs ist
+  # die Ansage die TTS-Antwort, um die sich end_session kuemmert.
+  #
+  # Der Grund ist derselbe wie beim Klingelton: das Board hat einen einzigen
+  # I2S-Controller. Trifft eine Ansage aus Home Assistant ein, waehrend die
+  # Wake-Word-Erkennung den Bus mit 16 kHz haelt, scheitert der Lautsprecher
+  # mit "Parent bus is busy" - die Ansage blieb stumm, und
+  # assist_satellite.ask_question hing daran fest: Home Assistant wartet auf
+  # das Ende der Frage, bevor es die Antwort aufnimmt. Auf dem Geraet sah man
+  # deshalb die fuenf Balken und danach nichts mehr.
+  #
+  # Das Geraet raeumt den Bus selbst nur in der HA-Engine: on_announce schickt
+  # die Pipeline nach STOP_MICROPHONE, aber ausdruecklich nur
+  # `if (this->continuous_)` (voice_assistant.cpp:1070). Das lokale
+  # micro_wake_word laeuft unabhaengig davon weiter und haelt das Mikrofon -
+  # dagegen hilft nur dieses Skript.
+  #
+  # Gestoppt wird gezielt `micro_wake_word.stop` und *nicht* das Skript
+  # stop_wake_word: dessen `voice_assistant.stop` wuerde die Ansage abwuergen,
+  # die ja gerade aus der Pipeline kommt.
+  #
+  # Scharfgestellt wird erst eine Sekunde nach dem letzten Ton, und nur, wenn
+  # inzwischen niemand sonst das Mikrofon hat: nach einer Rueckfrage nimmt
+  # Home Assistant sofort wieder auf, und nach einer gewoehnlichen Antwort hat
+  # end_session laengst selbst scharfgestellt.
+  - id: announcement_guard
+    mode: restart
+    then:
+      - micro_wake_word.stop:
+      - wait_until:
+          condition:
+            not:
+              media_player.is_announcing:
+          timeout: 60s
+      - wait_until:
+          condition:
+            not:
+              speaker.is_playing:
+          timeout: 10s
+      - delay: 1s
+      - if:
+          condition:
+            and:
+              - lambda: |-
+                  return id(voice_assistant_phase) == ${phase_idle}
+                      || id(voice_assistant_phase) == ${phase_muted};
+              - not:
+                  voice_assistant.is_running:
+              - not:
+                  micro_wake_word.is_running:
+          then:
+            - script.execute: start_wake_word
+
   - id: clear_error
     mode: restart
     then:
@@ -799,3 +988,79 @@ script:
           id: text_response
           state: ""
       - script.execute: update_ui
+
+# ------------------------------------------------------ Wake-Word-Wachhund
+# Das Geraet kann taub werden, ohne dass es jemand merkt: micro_wake_word
+# braucht das Mikrofon, und das Mikrofon haengt am selben I2S-Controller wie
+# der Lautsprecher. Scheitert ein Start (der Lautsprechertask gibt den Bus
+# etwas spaeter frei, als speaker.is_playing es sagt), versucht es niemand
+# erneut - das Geraet steht dann still im Leerlauf und hoert nichts mehr.
+# Genau das ist beim Bestaetigungston und nach einer Rueckfrage passiert.
+#
+# Die einzelnen Stellen sind repariert (500 ms Pause, announcement_guard,
+# pipeline_session), aber sie sind alle vom selben Muster - deshalb hier ein
+# Netz darunter statt einer weiteren Einzelkorrektur. Der Wachhund fasst nur
+# an, was eindeutig ist: Leerlauf, nicht stumm, lokale Engine, kein Ton
+# unterwegs und micro_wake_word laeuft trotzdem nicht.
+#
+# Nur fuer die lokale Engine. In der HA-Engine gibt es kein micro_wake_word,
+# das laufen koennte - dort ist die Dauerverbindung selbst das Wake Word.
+interval:
+  - interval: 30s
+    then:
+      - if:
+          condition:
+            and:
+              - lambda: return !id(init_in_progress);
+              - lambda: return id(voice_assistant_phase) == ${phase_idle};
+              - switch.is_off: mute
+              - lambda: return id(wake_word_engine_location).current_option() == "Auf dem Geraet";
+              - not:
+                  micro_wake_word.is_running:
+              - not:
+                  media_player.is_announcing:
+              - not:
+                  speaker.is_playing:
+          then:
+            # Bleibt dauerhaft drin und laeuft auf WARN: schlaegt der Wachhund
+            # regelmaessig an, ist eine der Einzelkorrekturen unvollstaendig -
+            # ohne diese Zeile faellt das nie auf, weil er es ja repariert.
+            - logger.log:
+                level: WARN
+                format: "Wake Word stand still im Leerlauf - wird neu gestartet"
+            - script.execute: start_wake_word
+
+      # Zweiter Fall, und der gefaehrlichere: das Wake Word laeuft, wird auch
+      # erkannt - aber die Pipeline steht in einem Zwischenzustand, und
+      # voice_assistant.start steigt deshalb wortlos aus (request_start tut nur
+      # aus IDLE heraus etwas, voice_assistant.cpp:682). Von aussen sieht das
+      # aus wie ein taubes Geraet, obwohl alles zu laufen scheint.
+      #
+      # In der lokalen Engine ist continuous_ false, `voice_assistant.is_running`
+      # meint hier also wirklich "Zustand != IDLE" - in der HA-Engine waere die
+      # Bedingung dagegen immer wahr (voice_assistant.h:383), deshalb steht die
+      # Engine-Pruefung mit drin.
+      #
+      # Der Versuch, es zu richten, ist bewusst nur ein voice_assistant.stop:
+      # aus den meisten Zwischenzustaenden fuehrt das nach IDLE zurueck. Aus
+      # AWAITING_RESPONSE nicht - dagegen hilft nur der Zweig in on_end, der
+      # diesen Zustand gar nicht erst entstehen laesst. Bleibt die Meldung
+      # trotzdem stehen, fehlt noch ein Pfad.
+      - if:
+          condition:
+            and:
+              - lambda: return !id(init_in_progress);
+              - lambda: return id(voice_assistant_phase) == ${phase_idle};
+              - switch.is_off: mute
+              - lambda: return id(wake_word_engine_location).current_option() == "Auf dem Geraet";
+              - micro_wake_word.is_running:
+              - voice_assistant.is_running:
+              - not:
+                  media_player.is_announcing:
+              - not:
+                  speaker.is_playing:
+          then:
+            - logger.log:
+                level: WARN
+                format: "Pipeline haengt im Leerlauf - Wake Word wird nicht angenommen"
+            - voice_assistant.stop:

@@ -110,15 +110,17 @@ font:
   # Kleines Icon ueber einem Messwert. Was gemessen wurde, weiss das Geraet
   # nicht (on_intent_end hat keine Parameter) - die erkannte *Einheit* traegt
   # aber weit genug, um das Ergebnis einzuordnen: Grad -> Thermometer,
-  # Prozent -> Prozentzeichen, Watt -> Blitz. Die Zuordnung steht in update_ui.
+  # Watt -> Blitz. Die Zuordnung steht in update_ui.
   # Codepoints wie oben aus dem Material-Symbols-Register.
+  #
+  # Fuer Prozent gibt es bewusst *kein* Icon: das Prozentzeichen steht schon
+  # als Einheit hinter der Zahl, ein Prozent-Icon darueber sagte dasselbe
+  # zweimal. In dem Fall bleibt die Zeile ueber dem Wert leer.
   - file: "gfonts://Material+Symbols+Outlined"
     id: font_icon_small
     size: 96
     glyphs:
       - "\U0000E1FF" # device_thermostat - °C, °F, °, Grad
-      - "\U0000EB58" # percent           - %, Prozent
-      - "\U0000EFD6" # schedule          - Uhr
       - "\U0000E9E4" # speed             - km/h
       - "\U0000E94D" # compress          - hPa
       - "\U0000E518" # light_mode        - lx
@@ -912,6 +914,14 @@ globals:
     restore_value: false
     initial_value: "false"
 
+  # Der Hinweis kam ohne brauchbaren Iconnamen - dann steht nur der Text da.
+  # Gesetzt von show_hint, gelesen von update_ui, das den Hinweis nach einem
+  # Sprachvorgang wieder aufbaut und dabei sonst beide Widgets zeigte.
+  - id: hint_text_only
+    type: bool
+    restore_value: false
+    initial_value: "false"
+
   # Zwischenstand des ausblendenden Timer-Rings (ring_fade_out). Als Globals
   # und nicht als static im Lambda, weil das Skript ueber mehrere Durchlaeufe
   # eines repeat: laeuft und mode: restart jederzeit neu ansetzen kann.
@@ -941,7 +951,47 @@ script:
       sekunden: int
     then:
       - lambda: |-
-          lv_label_set_text(id(lbl_hint_icon), icon.c_str());
+          // icon ist ein *Name* aus der Liste unten, nicht "mdi:irgendwas".
+          // Material Design Icons gibt es auf dem Geraet nicht, und der Font
+          // traegt nur die sieben eingebetteten Glyphen - alles andere ergab
+          // bisher das leere Kaestchen des Fonts. Unbekannte Namen zeigen
+          // deshalb gar kein Icon, nur den Text.
+          //
+          // Ein roher Codepoint funktioniert weiterhin (alles, was ein Byte
+          // >= 0x80 enthaelt, geht unveraendert durch) - dann muss der Glyph
+          // aber in font_icon eingebettet sein.
+          struct Eintrag { const char *name; const char *glyph; };
+          static const Eintrag ICONS[] = {
+              {"mikrofon", "\U0000E31D"}, {"stumm", "\U0000E02B"},
+              {"warnung",  "\U0000F083"}, {"offline", "\U0000E648"},
+              {"frage",    "\U0000EB8B"}, {"haken",   "\U0000E668"},
+              {"glocke",   "\U0000E7F7"}};
+
+          std::string name = icon;
+          for (char &c : name)
+            if (c >= 'A' && c <= 'Z') c += 32;
+
+          const char *glyph = nullptr;
+          for (const Eintrag &e : ICONS)
+            if (name == e.name) { glyph = e.glyph; break; }
+          if (glyph == nullptr)
+            for (unsigned char c : name)
+              if (c >= 0x80) { glyph = icon.c_str(); break; }
+
+          if (glyph != nullptr) {
+            lv_label_set_text(id(lbl_hint_icon), glyph);
+            lv_obj_remove_flag(id(lbl_hint_icon), LV_OBJ_FLAG_HIDDEN);
+          } else {
+            lv_label_set_text(id(lbl_hint_icon), "");
+            lv_obj_add_flag(id(lbl_hint_icon), LV_OBJ_FLAG_HIDDEN);
+          }
+          // Wie die ergebnis-Zeile in voice.yaml: ohne sie ist nicht zu
+          // unterscheiden, ob der Name nicht erkannt wurde oder die Anzeige
+          // klemmt - und diese Frage kostet sonst eine Runde aus Compile
+          // und OTA.
+          ESP_LOGI("hinweis", "icon='%s' -> %s", icon.c_str(),
+                   glyph == nullptr ? "kein Glyph" : "erkannt");
+          id(hint_text_only) = (glyph == nullptr);
           lv_label_set_text(id(lbl_hint_text), nachricht.c_str());
           id(hint_active) = true;
       - script.execute: update_ui
@@ -989,7 +1039,9 @@ script:
           if (id(hint_active) &&
               (id(voice_assistant_phase) == ${phase_idle} ||
                id(voice_assistant_phase) == ${phase_muted})) {
-            lv_obj_remove_flag(id(lbl_hint_icon), LV_OBJ_FLAG_HIDDEN);
+            // Ohne erkanntes Icon bleibt es beim Text - siehe show_hint.
+            if (!id(hint_text_only))
+              lv_obj_remove_flag(id(lbl_hint_icon), LV_OBJ_FLAG_HIDDEN);
             lv_obj_remove_flag(id(lbl_hint_text), LV_OBJ_FLAG_HIDDEN);
             return;
           }
@@ -1024,10 +1076,13 @@ script:
                 // eine leere Parameterliste). Unbekanntes und alles Gradartige
                 // bekommt das Thermometer: Temperatur ist der mit Abstand
                 // haeufigste Fall.
+                //
+                // Prozent bekommt als einzige Einheit *kein* Icon: das Zeichen
+                // steht schon hinter der Zahl, ein Prozent-Icon darueber waere
+                // dieselbe Aussage zweimal.
                 const std::string &e = id(result_unit);
                 const char *ico = "\U0000E1FF";  // device_thermostat
-                if (e == "%" || e == "Prozent")      ico = "\U0000EB58";  // percent
-                else if (e == "Uhr")                 ico = "\U0000EFD6";  // schedule
+                if (e == "%" || e == "Prozent")      ico = nullptr;
                 else if (e == "km/h")                ico = "\U0000E9E4";  // speed
                 else if (e == "hPa")                 ico = "\U0000E94D";  // compress
                 else if (e == "lx")                  ico = "\U0000E518";  // light_mode
@@ -1038,9 +1093,11 @@ script:
                                                      ico = "\U0000EA0B";  // bolt
                 else if (e == "km" || e == "m" || e == "cm" || e == "mm")
                                                      ico = "\U0000E41C";  // straighten
-                lv_label_set_text(id(lbl_result_icon), ico);
                 lv_obj_remove_flag(id(box_result), LV_OBJ_FLAG_HIDDEN);
-                lv_obj_remove_flag(id(lbl_result_icon), LV_OBJ_FLAG_HIDDEN);
+                if (ico != nullptr) {
+                  lv_label_set_text(id(lbl_result_icon), ico);
+                  lv_obj_remove_flag(id(lbl_result_icon), LV_OBJ_FLAG_HIDDEN);
+                }
               } else {
                 glyph = "\U0000E668";  // check
                 farbe = ${color_result};
@@ -1508,6 +1565,12 @@ script:
                   // legt `x:` als Style-Property an (lv_obj_set_style_x im
                   // generierten main.cpp), und `lvgl.widget.update` schreibt
                   // dorthin zurueck.
+                  // Ab zehn Stunden kommt links eine Ziffer dazu, und der
+                  // Countdown steht dann nicht mehr sauber im runden Bild.
+                  // Ein zweiter Versatz war der naheliegende Versuch und hat
+                  // es schlimmer gemacht: die Gruppe rutschte sichtbar aus der
+                  // Mitte. Es bleibt bei einem Versatz - Timer ueber zehn
+                  // Stunden sind der dokumentierte Grenzfall (README).
                   const int16_t versatz = stunden > 0 ? ${timer_hour_shift} : 0;
                   lv_obj_set_style_x(id(lbl_timer_pre),
                                      -${timer_part_offset} + versatz, LV_PART_MAIN);

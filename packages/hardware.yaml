@@ -204,6 +204,26 @@ media_player:
         file: sounds/timer_finished.flac
       - id: snd_confirm
         file: sounds/center_button_press.flac
+    # Eine Ansage, die *nicht* zu einem laufenden Sprachvorgang gehoert, kommt
+    # aus Home Assistant (tts.speak, assist_satellite.announce/ask_question).
+    # Dann laeuft gerade die Wake-Word-Erkennung und haelt den einzigen
+    # I2S-Bus - der Lautsprecher bekaeme ihn nicht. announcement_guard
+    # (packages/voice.yaml) raeumt ihn und stellt danach wieder scharf.
+    #
+    # Ohne Phasenpruefung, und das ist der Kern der Sache: hier stand einmal
+    # eine auf phase_idle/phase_muted, und genau daran ist der erste Versuch
+    # gescheitert. on_announce feuert *zuerst* den TTS-Start-Trigger
+    # (voice_assistant.cpp:1056) - die Phase steht also schon auf
+    # phase_replying, wenn der Media Player zu spielen beginnt, und der Guard
+    # lief nie. Sichtbar war das als "fuenf Balken, aber kein Ton".
+    #
+    # Ungefaehrlich ist das, weil das Skript nur micro_wake_word anfasst und
+    # die Pipeline in Ruhe laesst. Die eigenen Toene (Bestaetigung, Klingeln)
+    # laufen mit hinein, stoeren sich aber nicht daran: beide haben das Wake
+    # Word ohnehin selbst gestoppt, und der Wiederanlauf am Ende prueft, ob
+    # inzwischen jemand anders das Mikrofon hat.
+    on_announcement:
+      - script.execute: announcement_guard
 
 switch:
   # Verstaerker-Enable. GPIO46 ist ein Strapping-Pin des ESP32-S3.

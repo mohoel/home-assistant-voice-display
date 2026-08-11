@@ -93,7 +93,7 @@ substitutions:
   # Sprachausgabe stehen bleibt. Die fuenf Balken der Sprachausgabe bekommen
   # diese Nachlaufzeit bewusst *nicht*: sie sind die Visualisierung des Tons
   # und enden mit ihm - siehe end_session in packages/voice.yaml.
-  result_hold_time: 5s
+  result_hold_time: 3s
 
   # Timer. Home Assistant schickt Timer-Ereignisse von sich aus an den
   # Satelliten (on_timer_* in packages/voice.yaml) - dafuer braucht es keine
@@ -134,6 +134,11 @@ substitutions:
   # ganze Gruppe um diesen Betrag nach rechts - die Ziffern stehen weiterhin
   # ruhig, nur der Ankerpunkt ist ein anderer.
   timer_hour_shift: "48"
+  # Ab zehn Stunden ("12:34:56") kommt links eine Ziffer dazu und der
+  # Countdown steht nicht mehr sauber in der Mitte. Ein zweiter Versatz war der
+  # naheliegende Versuch und hat es auf dem Geraet schlimmer gemacht - die
+  # Gruppe rutschte sichtbar heraus. Es bleibt bei einem Versatz; Timer ueber
+  # zehn Stunden sind der dokumentierte Grenzfall (README).
   # Ausblenden des Rings, wenn ein Timer abgebrochen wird oder ablaeuft. Er
   # laeuft dabei auf null und wird transparent; Dauer = Schritte * Schrittzeit.
   ring_fade_steps: "14"

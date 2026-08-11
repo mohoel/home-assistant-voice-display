@@ -42,10 +42,48 @@ psram:
 
 logger:
   hardware_uart: USB_SERIAL_JTAG
-  # DEBUG loggt jeden Wake-Word-Inferenzschritt und jeden Audio-Chunk - das
-  # kostet auf dem Geraet spuerbar CPU und kann waehrend eines Sprachvorgangs
-  # zu Aussetzern fuehren. Zur Fehlersuche voruebergehend auf DEBUG stellen.
+  # INFO im Normalbetrieb. DEBUG loggt jeden Wake-Word-Inferenzschritt und
+  # jeden Audio-Chunk - das kostet auf dem Geraet spuerbar CPU und kann
+  # waehrend eines Sprachvorgangs zu Aussetzern fuehren.
   level: INFO
+
+  # Zur Fehlersuche an den drei Komponenten, die sich den einzigen
+  # I2S-Controller teilen, den folgenden Block einkommentieren und `level`
+  # oben auf DEBUG stellen. Er hat die vier Fehler dieses Abends gefunden und
+  # steht deshalb hier statt in der Historie:
+  #
+  #   level: DEBUG
+  #   logs:
+  #     api: INFO
+  #     api.service: INFO
+  #     lvgl: INFO
+  #     light: INFO
+  #     sensor: INFO
+  #     text_sensor: INFO
+  #     switch: INFO
+  #     select: INFO
+  #     audio: INFO
+  #     speaker: INFO
+  #     esp-idf: INFO
+  #     component: INFO
+  #     scheduler: INFO
+  #     display.mipi_spi: INFO
+  #     touchscreen: INFO
+  #     cst9220: INFO
+  #     online_image: INFO
+  #     md5: INFO
+  #
+  # Zwei Dinge, die dabei Zeit gekostet haben:
+  #
+  # 1. Per-Tag-Level koennen nur *weniger* ausfuehrlich sein als das globale
+  #    (logger/__init__.py prueft das). Deshalb global DEBUG und alles Laute
+  #    einzeln herunterdrehen, nicht umgekehrt.
+  # 2. Der Displaytreiber schreibt auf DEBUG "Setting MADCTL" pro Bild und
+  #    flutet damit alles. Sein Tag heisst display.mipi_spi, nicht mipi_spi.
+  #
+  # Was auf INFO fehlt und den Unterschied macht: "Starting wake word
+  # detection" und "Stopping" sind DEBUG (micro_wake_word.cpp:369/379), und
+  # die Zustandswechsel der Pipeline ebenso (voice_assistant.cpp:607).
 
 wifi:
   ssid: !secret wifi_ssid
@@ -74,10 +112,13 @@ api:
   # beim Schalten, ein Hinweis bei der Tuerklingel - kann von HA aus
   #
   #   action: esphome.assist_satellit_zeige_hinweis
-  #   data: {icon: "\U0000E31D", nachricht: "Post da", sekunden: 10}
+  #   data: {icon: "glocke", nachricht: "Post da", sekunden: 10}
   #
-  # rufen. icon ist ein Codepoint aus dem Font font_icon (packages/ui.yaml);
-  # nur die dort gelisteten Glyphen sind eingebettet, andere bleiben leer.
+  # rufen. icon ist einer von sieben Namen - mikrofon, stumm, warnung,
+  # offline, frage, haken, glocke -, weil der Font font_icon (packages/ui.yaml)
+  # genau diese sieben Glyphen eingebettet hat. "mdi:..." funktioniert *nicht*:
+  # Material Design Icons gibt es auf dem Geraet nicht. Ein unbekannter Name
+  # zeigt nur den Text; ein roher Codepoint ("\U0000E31D") geht weiterhin durch.
   #
   # Der Parameter heisst nachricht und nicht text, weil cv.validate_id_name die
   # Namen der ESPHome-Plattformen sperrt - "text" ist eine davon.
