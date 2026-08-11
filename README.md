@@ -48,7 +48,7 @@ Statusanzeige statt eines LED-Rings.
   aktuelle Stunde als farbig hervorgehobene Ziffer und die Minute als längerer,
   ebenso hervorgehobener Strich im Kranz stehen, oder ein **Gesicht**, das
   wartend umherblickt, blinzelt und gelegentlich die Zunge herausstreckt;
-  umschaltbar auf der Weboberfläche.
+  umschaltbar über eine Select-Entity in Home Assistant.
   Nach 30 Sekunden geht der Bildschirm wieder aus
 - **Das Gesicht ist mehr als eine Standby-Seite.** Ist es gewählt, übernimmt es
   auch Zuhören, Verarbeiten und Antworten: die Augen richten sich auf, blicken
@@ -59,11 +59,13 @@ Statusanzeige statt eines LED-Rings.
   Zifferblatt bleibt es unverändert bei Mikrofon, Punkten und Balken
 - Antippen bricht außerdem einen laufenden Sprachvorgang ab (Zuhören,
   Verarbeitung oder Sprachausgabe)
-- Drei Sekunden gedrückt halten zeigt IP-Adresse und QR-Code zur
-  Weboberfläche
-- Stummschaltung, Wake-Word-Empfindlichkeit und Displayhelligkeit als HA-Entities
-- Weboberfläche unter der Geräte-IP für Ausrichtung und Standby-Seite — ohne
-  Home Assistant und ohne Neubau der Firmware
+- **Läuft ein Timer, sticht der Countdown die gewählte Standby-Seite aus.**
+  Zifferblatt und Gesicht treten so lange zurück, weil nur die Standby-Uhr die
+  Restzeit in Ziffern zeigen kann. Während eines Sprachvorgangs bleibt es beim
+  Gesicht — der Countdown kommt, sobald die Sprachausgabe durch ist
+- Drei Sekunden gedrückt halten zeigt Gerätename und IP-Adresse
+- Bedient wird über Home Assistant: Ausrichtung, Standby-Seite,
+  Stummschaltung, Wake-Word-Optionen und Displayhelligkeit sind Entities
 
 ## Warum nicht das ESPHome-Add-on in Home Assistant?
 
@@ -154,47 +156,34 @@ Das Gerät meldet sich per mDNS. Unter *Einstellungen → Geräte & Dienste* tau
 Danach unter *Einstellungen → Sprachassistenten* eine Assist-Pipeline mit
 deutschem STT/TTS zuweisen.
 
-## Bedienung über die Weboberfläche
+## Bedienung
 
-Das Gerät hat eine eigene Seite unter **<http://assist-satellit.local/>** (oder
-direkt unter seiner IP). Sie funktioniert unabhängig von Home Assistant und
-braucht keinen Internetzugang — Oberfläche und Stylesheet liegen im Flash. Auf
-dem Touchscreen selbst gibt es bewusst keine Bedienelemente.
+Bedient wird ausschließlich über **Home Assistant**. Auf dem Touchscreen gibt
+es bewusst keine Bedienelemente: Tippen weckt bzw. bricht ab, Gedrückthalten
+zeigt die Adresse — mehr nicht.
 
-Die Seite ist **nicht** das ESPHome-Standard-Dashboard, sondern eigener Code
-(`web/app.js`, `web/app.css`) nach einem eigenen Entwurf. Sie zeigt genau die
-beiden Gruppen unten und sonst nichts. Warum das so ist und was beim
-Aktualisieren zu beachten wäre, steht in [web/README.md](web/README.md).
+Eine eigene Bedienseite unter der Geräte-IP gab es einmal; sie ist ersatzlos
+entfallen, zusammen mit dem Webserver. Der Grund: Farben sind
+Compile-Zeit-Werte und damit ohnehin nicht zur Laufzeit einstellbar — übrig
+blieben zwei Auswahlfelder, die als HA-Entities schon existieren. Das Gerät
+beantwortet jetzt keine HTTP-Anfragen mehr (außer dem Fallback-Hotspot, wenn
+das WLAN fehlt).
 
-Wer die Adresse nicht zur Hand hat: **drei Sekunden auf das Display drücken**.
-Das Gerät zeigt dann unter der Überschrift „Konfiguration" seine IP-Adresse und
-einen QR-Code, der direkt auf diese Seite führt. Ein Tippen führt zurück, und
-nach der Standby-Zeit verschwindet die Seite von selbst.
+| Entity | Wirkung |
+|---|---|
+| **Ausrichtung** | Dreht das Bild in 90-Grad-Schritten (0/90/180/270). Die Touch-Koordinaten dreht LVGL mit. 45 Grad gibt die Grafikbibliothek nicht her. |
+| **Standby-Seite** | Welche Seite im Standby erscheint: **Uhr** (große Uhrzeit mit Datum), **Zifferblatt** (Strichkranz mit Ziffern, ohne Zeiger) oder **Gesicht** (zwei Augen und ein Mund). Die Umschaltung wirkt sofort, wenn das Gerät gerade im Standby steht. Das **Gesicht** ersetzt zusätzlich die Phasenanimationen — siehe oben. Läuft ein Timer, zeigt der Standby unabhängig davon den Countdown. |
+| **Display** | Helligkeit; Einschalten aus HA weckt den Bildschirm für die Standby-Zeit. |
+| **Mikrofon stumm**, **Wake-Word-Engine**, **Wake-Word-Empfindlichkeit** | Sprachbetrieb. |
+| **Erkannter Text**, **Antwort** | Frage und Antwort des letzten Vorgangs. |
 
-| Gruppe | Einstellung | Wirkung |
-|---|---|---|
-| Anzeige | **Ausrichtung** | Dreht das Bild in 90-Grad-Schritten (0/90/180/270). Die Touch-Koordinaten dreht LVGL mit. 45 Grad gibt die Grafikbibliothek nicht her. |
-| Anzeige | **Standby-Seite** | Welche Seite im Standby erscheint: **Uhr** (große Uhrzeit mit Datum), **Zifferblatt** (Strichkranz mit Ziffern, ohne Zeiger) oder **Gesicht** (zwei Augen und ein Mund). Die Umschaltung wirkt sofort, wenn das Gerät gerade im Standby steht. Das **Gesicht** ersetzt zusätzlich die Phasenanimationen — siehe oben. |
-| Anzeige | **PV Übersicht** | Blendet die PV-Seite ein (Ring aus Erzeugung, Batterie und Netz). Sie bleibt stehen, bis der Schalter wieder aus ist oder jemand das Display antippt. |
+Alle Einstellungen überstehen einen Neustart. Die Symbolfarben sind fest in
+`assist-satellit.yaml` hinterlegt — eine Änderung braucht einen Neubau der
+Firmware.
 
-Die Seite ist **eigener Code** (`web/app.js`, `web/app.css`), nicht das
-ESPHome-Dashboard: dunkle Fläche, Kacheln, und die beiden Auswahlfelder sind
-keine Dropdowns, sondern je eine Miniatur des runden Displays pro Option. Die
-angeklickte Kachel wird hervorgehoben, sobald das Gerät den Wert bestätigt hat.
-
-Alle Einstellungen überstehen einen Neustart. Mehr zeigt die Seite nicht:
-Helligkeit, Stummschaltung, Wake-Word-Optionen, Diagnose und Neustart stehen in
-Home Assistant. Die Symbolfarben sind fest in `assist-satellit.yaml` hinterlegt
-und bewusst nicht über die Weboberfläche einstellbar — eine Änderung braucht
-einen Neubau der Firmware.
-
-Wer das Gerät neu in Home Assistant einrichtet, findet die übrigen Entities
-dort zunächst **deaktiviert** und muss sie einmal einschalten. Bei einem
-bereits eingebundenen Gerät ändert sich nichts.
-
-Die Seite ist **ohne Passwort** im lokalen Netz erreichbar. Wer das nicht will,
-ergänzt in `packages/web.yaml` einen `auth:`-Block mit Zugangsdaten aus
-`secrets.yaml`.
+Wer die Adresse für `esphome run` oder `esphome logs` nicht zur Hand hat:
+**drei Sekunden auf das Display drücken**. Ein Tippen führt zurück, und nach
+der Standby-Zeit verschwindet die Seite von selbst.
 
 ## Updates
 
@@ -219,9 +208,8 @@ git checkout v0.1.0 && esphome run assist-satellit.yaml --device assist-satellit
 | `packages/core.yaml` | SoC, PSRAM, WLAN, API, OTA, Zeit, Diagnose |
 | `packages/hardware.yaml` | I2C, QSPI-Display, Touch, I2S-Audio, Codecs, Media Player |
 | `packages/voice.yaml` | Wake Word, Voice Assistant, Selects, Mute, Text-Sensoren |
-| `packages/ui.yaml` | Fonts, LVGL-Seiten, Phasen-Animationen, Standby-Uhr, Zifferblatt, Gesicht, PV-Übersicht |
-| `packages/web.yaml` | Weboberfläche: Webserver, Ausrichtung, Standby-Seite, PV-Schalter |
-| `web/` | Die Weboberfläche selbst — eigene Seite statt ESPHome-Dashboard (Aufbau und Pflege stehen dort) |
+| `packages/ui.yaml` | Fonts, LVGL-Seiten, Phasen-Animationen, Standby-Uhr, Zifferblatt, Gesicht, Timer-Ring |
+| `packages/settings.yaml` | Ausrichtung und Standby-Seite als HA-Entities |
 | `sounds/` | Klingel- und Bestätigungston, direkt in die Firmware eingebettet (Herkunft und Lizenz stehen dort) |
 
 Farben, Phasen-IDs und Standby-Zeiten stehen als Substitutions in
@@ -283,8 +271,8 @@ die Select-Entity erhöhen.
 - **Deutsches Wake Word.** Bräuchte ein eigenes microWakeWord-Modell.
 - **Bedienelemente am Touchscreen.** Bewusst entfernt: Der Touchscreen kennt
   nur Tippen (wecken, Sprachvorgang abbrechen) und Gedrückthalten
-  (Konfigurationsseite). Alles Einstellbare liegt auf der Weboberfläche und in
-  Home Assistant. Lautstärke und Stummschaltung bleiben HA-Entities.
+  (Adresse anzeigen). Alles Einstellbare liegt in Home Assistant, Lautstärke
+  und Stummschaltung inbegriffen.
 - **Weitere Standby-Seiten.** Zur Auswahl stehen Uhr, Zifferblatt und
   Gesicht; Seiten mit Sensorwerten aus Home Assistant fehlen noch.
 - **Das Gesicht deckt nur die vier Grundzustände ab.** Warten, Zuhören, Denken
@@ -296,9 +284,10 @@ die Select-Entity erhöhen.
   jede andere Seite in den Standby, der Bildschirm wird also schwarz statt in
   ein wartendes Gesicht zurückzufallen. Das ist dasselbe Verhalten wie bei Uhr
   und Zifferblatt; ein Nachlauf müsste `standby_timeout` für alle drei ändern.
-- **Kein Countdown auf dem Zifferblatt.** Läuft ein Timer, zeigt das
-  Zifferblatt nur den Ring am Bildschirmrand — die Restzeit in Ziffern gibt es
-  weiterhin nur auf der Standby-Uhr.
+- **Kein Countdown auf Zifferblatt und Gesicht.** Beide können die Restzeit
+  nicht in Ziffern zeigen — die Ziffern stünden mitten im Kranz bzw. im
+  Gesicht. Statt nur den Ring am Rand zu zeigen, tritt bei einem laufenden
+  Timer deshalb die Standby-Uhr an ihre Stelle.
 - **Der ausgeschaltete Bildschirm zeigt auch einen laufenden Timer nicht.**
   Nach `standby_timeout` geht alles aus, Ring inbegriffen; ein Tippen holt die
   Anzeige für weitere 30 Sekunden zurück. Klingelt der Timer, weckt das Gerät

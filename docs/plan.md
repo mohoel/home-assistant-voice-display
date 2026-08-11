@@ -25,8 +25,9 @@ Anforderungen aus dem Gespräch:
 8. Display-Texte auf Deutsch, Touch weckt das Display,
    ~~Lautstärke/Mute auf dem Touchscreen~~ — verworfen: auf dem Gerät gibt es
    keine Bedienseite mehr (513bd50). Lautstärke und Mute bleiben
-   Home-Assistant-Entities; alles, was sich am Gerät einstellen lässt, liegt auf
-   der Web-Bedienseite unter seiner IP (Phase 5).
+   Home-Assistant-Entities; alles, was sich am Gerät einstellen lässt, liegt
+   als Entity in Home Assistant. Die Web-Bedienseite aus Phase 5 gab es
+   zwischenzeitlich und ist wieder entfallen — siehe dort.
 
 **Entscheidende Randbedingung:** Kompilieren auf dem Raspberry Pi ist in der
 Vergangenheit an Voice-Assistant-Konfigurationen gescheitert (RAM/Zeit). Deshalb
@@ -311,7 +312,7 @@ bei der Verarbeitung, die fünf Balken schlagen bei der Sprachausgabe aus, und i
 den übrigen Phasen steht das passende Icon in der richtigen Farbe; deutsche
 Umlaute werden korrekt gerendert.
 
-### Phase 5 — Standby, Uhr, Web-Bedienseite ✅
+### Phase 5 — Standby, Uhr, ~~Web-Bedienseite~~ ✅
 
 - Standby-Page mit Uhr im Minutentakt (umgesetzt als
   `ha_time.on_time: seconds: 0` in `core.yaml`, nicht als `interval:` — nur
@@ -329,7 +330,13 @@ Umlaute werden korrekt gerendert.
   entsteht: **`volume_set` gehört an `on_release`, nicht an `on_value`** — der
   Speaker-Media-Player schreibt bei jedem Aufruf in den NVS-Flash, ein einziger
   Ziehvorgang auf `on_value` erzeugt sonst hunderte Schreibzugriffe.
-- Stattdessen **Web-Bedienseite** unter `http://assist-satellit.local/`
+- ~~**Web-Bedienseite** unter `http://assist-satellit.local/`~~ — es gab sie in
+  zwei Ausbaustufen (erst das ESPHome-Dashboard mit `sorting_groups`, dann eine
+  eigene Seite aus `web/app.js` und `web/app.css`), und sie ist auf Ansage
+  wieder entfallen: Farben sind Compile-Zeit-Werte, übrig blieben zwei Selects,
+  die als HA-Entities ohnehin existieren. `web_server`, `packages/web.yaml` und
+  `web/` sind weg, `sel_rotation` und `sel_standby_page` stehen jetzt in
+  `packages/settings.yaml`. Der ursprüngliche Stand zur Einordnung:
   (`packages/web.yaml`, `web_server: version: 3` mit `local: true`). ESPHome
   rendert dort nur sein Standard-Entity-Dashboard — eigenes HTML gibt es nicht,
   die Gestaltung besteht aus `sorting_groups`. Zwei Gruppen:
@@ -388,7 +395,7 @@ Saugroboter). Ohne Push aus HA technisch unmöglich, siehe oben. Der Haken
 
 Statt einer einzelnen Standby-Uhr mehrere Standby-Pages. Die Auswahl läuft
 **nicht** über eine Geste am Gerät, sondern über den Select `sel_standby_page`
-auf der Web-Bedienseite — passend zur Entscheidung gegen Bedienelemente am
+in Home Assistant — passend zur Entscheidung gegen Bedienelemente am
 Touchscreen.
 
 **Zifferblatt ✅** (umgesetzt, `page_dial` in `packages/ui.yaml`): Umsetzung des
@@ -412,7 +419,7 @@ Aktualisiert wird im Minutentakt (`update_dial`), alles Weitere steht unter
   Stromverbrauch, Temperaturkurve) — Datenversorgung über
   `sensor.on_value` in einen `chart`-Series-Puffer.
 - Auswahl der aktiven Standby-Page: der Select `sel_standby_page`
-  (`packages/web.yaml`) wird von `show_standby_page` in `ui.yaml` über den
+  (`packages/settings.yaml`) wird von `show_standby_page` in `ui.yaml` über den
   **Index** ausgewertet — „Uhr" ist 0, „Zifferblatt" ist 1. Eine neue Seite
   braucht drei Ergänzungen: eine Option am **Ende** des Selects, einen Zweig im
   Skript und einen eigenen `is_showing`-Zweig im Minutentakt in `core.yaml`.
@@ -425,19 +432,18 @@ Aktualisiert wird im Minutentakt (`update_dial`), alles Weitere steht unter
 
 Ein Settings-Menü auf dem Touchscreen (`page_settings`, erreichbar über die
 Control-Page) ist mit der Entscheidung gegen jede Bedienseite auf dem Gerät
-hinfällig. Was davon bleibt, liegt auf der **Web-Bedienseite** (Phase 5) bzw. in
-Home Assistant:
+hinfällig. Was davon bleibt, liegt in **Home Assistant** (die Web-Bedienseite
+aus Phase 5 ist inzwischen ebenfalls entfallen):
 
-- Ausrichtung, Standby-Seite und Symbolfarben: Web-Bedienseite, Gruppen
-  „Anzeige" und „Farben"
-- Wake-Word-Engine-Standort, Lautstärke, Mute: bestehende ESPHome-Entities,
-  sichtbar in HA **und** auf derselben Web-Seite
+- Ausrichtung und Standby-Seite: die Selects aus `packages/settings.yaml`
+- Symbolfarben: bleiben Compile-Zeit-Substitutions, nicht einstellbar
+- Wake-Word-Engine-Standort, Lautstärke, Mute: bestehende ESPHome-Entities
 - Firmware-Version, WLAN-Signal, freier Heap/PSRAM, Neustart: die
-  Diagnose-Entities aus `core.yaml`, ebenfalls auf beiden Oberflächen
+  Diagnose-Entities aus `core.yaml`
 - Standby-Helligkeit und -Timeout sind weiterhin Substitutions und damit
   compile-zeitlich; falls sie zur Laufzeit einstellbar werden sollen, ist der
   Weg derselbe wie bei den Farben (Global mit `restore_value`, `initial_value`
-  aus der Substitution, dazu ein `number:`-Entity in `web.yaml`)
+  aus der Substitution, dazu ein `number:`-Entity in `settings.yaml`)
 
 Nicht möglich bleibt der Anstoß eines Updates vom Gerät aus: ESPHome hat keinen
 „Check for update"-Trigger im `ota:`-Kern, und das Gerät erreicht GitHub nicht.
@@ -544,22 +550,19 @@ cd /Users/moritzholzer/Claude/Assist && git pull && esphome run assist-satellit.
 - Speicher prüfen: `debug:`-Komponente aktivieren und Free-Heap/PSRAM im Log
   beobachten. Bei Boot-Loops oder LVGL-Allokationsfehlern `buffer_size` senken.
 
-**Phase 5 — Web-Bedienseite**
+**Phase 5 — Einstellungen (früher Web-Bedienseite)**
 
-- `http://assist-satellit.local/` öffnen — die Gruppen „Anzeige" und „Farben"
-  müssen da sein. Ohne `local: true` bliebe die Seite ohne Internetzugang leer.
 - Ausrichtung auf 90° stellen → das Bild dreht sofort, ein Tippen landet an der
   richtigen Stelle (LVGL dreht die Touch-Koordinaten mit); nach einem Neustart
   steht die Ausrichtung noch.
-- „Farbe Verarbeitung" auf `FF00FF` setzen → die Punkte färben sich beim
-  nächsten Sprachvorgang um; Unsinn wie `xyz` eingeben → keine Änderung, kein
-  Absturz. Nach einem Neustart zeigen die Felder wieder den gespeicherten Stand
-  (`sync_color_texts`).
-- Freien Heap gegen den Stand vor dem Webserver halten: Baseline v0.1 lag bei
-  172 732 B, mit Webserver und Konfig-Entities bei rund 161 700 B.
-- Die REST-Endpunkte (`GET /text/<object_id>`) antworten auf diesem Build mit
-  404 — geprüft wurde stattdessen über den Event-Stream `GET /events`, der alle
-  Entities mit Werten und Sortiergruppen ausgibt.
+- Standby-Seite auf „Gesicht" stellen → das Gesicht erscheint sofort, wenn
+  gerade eine Standby-Seite vorne liegt; nach einem Neustart steht die Auswahl
+  noch.
+- Timer stellen und den Standby aufrufen → unabhängig von der Auswahl steht der
+  Countdown da (Zifferblatt und Gesicht treten zurück). Timer abbrechen → die
+  gewählte Seite kommt von selbst zurück.
+- Freien Heap prüfen: ohne Webserver muss er über dem alten Stand von rund
+  161 700 B liegen (Baseline v0.1 ohne Webserver: 172 732 B).
 
 ---
 
