@@ -56,6 +56,31 @@ sind ganz normale Home-Assistant-Entities.
   Laufzeit-Einstellung dafür — wer die Optik ändern will, ändert die
   Substitutions in `assist-satellit.yaml` und baut neu.
 
+## Verhältnis zu den offiziellen ESPHome-Voice-Projekten
+
+Lumi ist **kein Fork** von Nabu Casas offizieller Firmware, sondern eine
+eigenständige Neuentwicklung für andere Hardware. Die Logik hinter Wake Word,
+Sprachsitzungen, Timern und Phasenwechseln folgt aber bewusst den Mustern aus
+zwei offiziellen ESPHome-Beispielprojekten:
+
+- [`esphome/home-assistant-voice-pe`](https://github.com/esphome/home-assistant-voice-pe) — Nabu Casas Home Assistant Voice Preview Edition
+- [`esphome/wake-word-voice-assistants`](https://github.com/esphome/wake-word-voice-assistants) — Referenzkonfiguration für den ESP32-S3-Box-3
+
+Warum kein Fork: Die Hardware ist komplett verschieden — beide offiziellen
+Projekte steuern einen LED-Ring bzw. ein rechteckiges Display an, Lumi
+dagegen ein rundes 466×466-AMOLED über LVGL. Es gibt keine gemeinsame
+Codebasis, die sich forken ließe; übernommen ist nur das *Muster*, wie eine
+Sprachsitzung, Timer und Fehlerzustände als ESPHome-Skripte modelliert
+werden — für dieses Board von Grund auf neu geschrieben.
+
+Das hat eine Konsequenz für Updates: **Neue Features oder Fixes an der
+Sprachlogik in den offiziellen Repos kommen nicht automatisch hier an.**
+`assist-satellit.yaml` bindet über `packages:` ausschließlich lokale Dateien
+aus diesem Repo ein (siehe *Aufbau*), keine externe Paket-Abhängigkeit — wer
+Änderungen von dort übernehmen will, muss sie von Hand nachbauen. Bei neuen
+Features lohnt sich deshalb immer zuerst ein Blick in die beiden Repos, wie
+Nabu Casa bzw. ESPHome das offiziell gelöst haben.
+
 ## Features
 
 ### Sprachsteuerung
