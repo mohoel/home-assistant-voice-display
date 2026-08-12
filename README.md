@@ -201,6 +201,10 @@ Assistant braucht nur die **ESPHome-Integration**, nicht das Builder-Add-on.
 
 ## Einrichtung
 
+Wer nur schnell flashen will: Schritte 1 und 2 sind nur für den manuellen Weg
+nötig. Mit der Browser-Flash-Seite in Schritt 3 direkt einsteigen, ganz ohne
+lokales ESPHome oder eigenes `secrets.yaml`.
+
 ### 1. Voraussetzungen
 
 ```bash
@@ -233,6 +237,28 @@ Beispieldatei im Repo.
 
 ### 3. Erstmaliges Flashen per USB
 
+**Der einfachste Weg ist die Browser-Flash-Seite** — kein `esphome`, kein
+Terminal, keine Installation:
+[mohoel.github.io/home-assistant-voice-lumi](https://mohoel.github.io/home-assistant-voice-lumi/)
+(`docs/index.html`) flasht per [ESP Web Tools](https://esphome.github.io/esp-web-tools/)
+über Web Serial in Chrome/Edge — Board per USB anschließen, Button klicken,
+fertig. Installiert wird dabei ein **anonymer Standard-Build ohne
+persönliche Daten**, kompiliert automatisch bei jedem Git-Tag durch
+[`.github/workflows/release.yml`](.github/workflows/release.yml) aus
+[`secrets.public.yaml`](secrets.public.yaml) statt aus dem eigenen, nie
+committeten `secrets.yaml`. Das Gerät kennt danach kein WLAN und öffnet einen
+Fallback-Hotspot mit Captive Portal zum Eintragen der eigenen Zugangsdaten —
+alle Details dazu stehen selbsterklärend auf der Seite selbst. Für den
+dauerhaften Betrieb mit eigenem Verschlüsselungsschlüssel folgt danach am
+besten einmal der manuelle Weg unten, mit eigenem `secrets.yaml`.
+
+Diese Seite läuft über **GitHub Pages** und braucht dafür ein **öffentliches
+Repository** — solange das Repo privat bleibt, ist sie nicht erreichbar (dafür
+gibt es GitHub Pages aus einem privaten Repo nur mit bezahltem Account-Plan).
+
+<details>
+<summary>Manuell flashen (eigener Build, eigenes <code>secrets.yaml</code>)</summary>
+
 Board per USB-C an den Mac anschließen. Port suchen:
 
 ```bash
@@ -263,25 +289,7 @@ Update-Workflow mit getaggten Versionen (siehe unten) sollte weiterhin die
 CLI (`esphome run … --device assist-satellit.local`) genutzt werden, damit
 Commits bewusst gesetzt werden.
 
-**Alternative: Browser-Flash-Seite, ganz ohne ESPHome lokal.**
-[mohoel.github.io/home-assistant-voice-lumi](https://mohoel.github.io/home-assistant-voice-lumi/)
-(`docs/index.html`) flasht per [ESP Web Tools](https://esphome.github.io/esp-web-tools/)
-über Web Serial in Chrome/Edge — kein `esphome compile`, kein lokaler
-Webserver, nur Browser und USB-Kabel. Installiert wird dabei nicht die
-eigene Firmware, sondern ein **anonymer Standard-Build ohne persönliche
-Daten**, kompiliert automatisch bei jedem Git-Tag durch
-[`.github/workflows/release.yml`](.github/workflows/release.yml) aus
-[`secrets.public.yaml`](secrets.public.yaml) statt aus dem eigenen, nie
-committeten `secrets.yaml`. Das Gerät kennt danach kein WLAN und öffnet einen
-Fallback-Hotspot mit Captive Portal zum Eintragen der eigenen Zugangsdaten —
-alle Details dazu stehen selbsterklärend auf der Seite selbst. Für den
-dauerhaften Betrieb mit eigenem Verschlüsselungsschlüssel folgt danach am
-besten einmal der Weg oben (`esphome run` mit eigenem `secrets.yaml`).
-
-Diese Seite läuft über **GitHub Pages** und braucht dafür ein **öffentliches
-Repository** — GitHub Pages aus einem privaten Repo gibt es nur mit einem
-bezahlten Account-Plan. Solange das Repo privat bleibt, ist die Seite nicht
-erreichbar; die Dateien liegen aber unabhängig davon schon im Repo bereit.
+</details>
 
 ### 4. In Home Assistant einbinden
 
