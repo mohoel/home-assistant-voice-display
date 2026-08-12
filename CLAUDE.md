@@ -402,9 +402,27 @@ Punkte, die man beim Ändern leicht übersieht:
   mitten in der Bewegung die Phase, biegen die Augen ab, statt zu springen.
   Bei 33 ms sind rund 0,45 s bis 90 % des Weges, das entspricht dem
   `transform .5s cubic-bezier(.4,0,.2,1)` des Mockups. Bewusst **nicht**
-  eingeschliffen sind zwei Dinge: der Lidschlag (eigenes `k = 0.5`, ein
-  Schnappen) und der Wechsel des Mundziels beim Reden (alle 140 ms neu, der
-  Weg dorthin bleibt weich — daher zappelt der Mund, statt zu flackern).
+  eingeschliffen sind vier Dinge: der Lidschlag (eigenes `k = 0.5`, ein
+  Schnappen; das Müde-Werden umgekehrt mit `k = 0.18`), der Wechsel des
+  Mundziels beim Reden (alle 140 ms neu, der Weg dorthin bleibt weich — daher
+  zappelt der Mund, statt zu flackern), der Versatz des Zitterns (kommt erst
+  nach dem Einlauf dazu, geglättet wäre es ein Wackeln) und der Mundradius
+  (zwischen Pille und rundem „O" gibt es keine Zwischenform, die gemeint wäre).
+  **Das Warten kennt zwölf Marotten** — Zunge, große Augen, offener Mund,
+  Doppelblinzler, müde, Augenrollen, doppelter Blick, Zwinkern, skeptisch,
+  Staunen, Grinsen, Zittern. Gezogen werden sie **nicht gewürfelt, sondern aus
+  einem Mischbeutel**: alle zwölf liegen einmal darin, werden per Fisher-Yates
+  gemischt und der Reihe nach abgearbeitet; beim Nachfüllen wird getauscht,
+  falls die erste der neuen Runde die letzte der alten wäre. Damit kommt keine
+  zweimal hintereinander, jede gleich oft, und die Reihenfolge ist in jeder
+  Runde eine andere. Wer eine Marotte einschiebt, muss ihre Nummer im `enum`,
+  ihre Dauer in `QUIRK_DAUER` und ihren Zweig im inneren `switch` zusammen
+  pflegen — die Nummern sind Indizes, kein Zufallsbereich mehr.
+  **Zwinkern und Skeptisch sind der Grund, warum die Augen getrennte Werte
+  haben** (`esl`/`esr`, `lidl`/`lidr`, eigene Cache-Paare). Vorher teilten sie
+  sich Größe und Cache; die Position gilt weiterhin beiden, deshalb steht sie
+  als `pos_neu` vor den zwei Zweigen und ihr Merker wird erst danach
+  nachgezogen.
   **Geschrieben wird nur, was sich in ganzen Pixeln geändert hat.** Das ist
   kein Feinschliff, sondern der Grund, warum der Glow bezahlbar bleibt: ein
   `lv_obj_set_size` invalidiert alte *und* neue Fläche, mit Glow je Auge rund

@@ -213,6 +213,16 @@ substitutions:
   face_mouth_h_max: "46"
   face_mouth_radius: "9"
   face_mouth_dy: "104"
+  # Zwei Mundformen, die nur als Marotte im Warten vorkommen: das Staunen ist
+  # ein rundes "O" (Radius genau die halbe Kantenlaenge), das Grinsen ein
+  # breiterer, flacherer Strich. Der Radius wird dafuer zur Laufzeit gesetzt -
+  # ein dauerhaft grosser Radius machte auch den offenen Mund zur Pille und
+  # naehme ihm die Form, die face_mouth_h_max meint.
+  face_mouth_o_w: "46"
+  face_mouth_o_h: "46"
+  face_mouth_o_radius: "23"
+  face_mouth_w_grin: "170"
+  face_mouth_h_grin: "14"
   # Zunge (nur als Marotte im Warten). Sie liegt *unter* dem Mund in der
   # Z-Ordnung und ragt 6 px in ihn hinein, damit ihre oberen Ecken verdeckt
   # sind - LVGL kann Radien nur fuer alle vier Ecken zugleich.

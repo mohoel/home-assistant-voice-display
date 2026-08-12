@@ -1912,18 +1912,32 @@ interval:
   # 90 % des Weges zurueckgelegt sind; das entspricht dem `transition:
   # transform .5s cubic-bezier(.4,0,.2,1)` des Mockups.
   #
-  # Zwei Dinge laufen absichtlich *nicht* eingeschliffen:
+  # Vier Dinge laufen absichtlich *nicht* eingeschliffen:
   #   - Das Blinzeln (eigenes k = 0.5). Ein Lidschlag ist ein Schnappen, kein
-  #     Gleiten; im Mockup sind es 120 ms.
+  #     Gleiten; im Mockup sind es 120 ms. Das Muede-Werden nimmt umgekehrt ein
+  #     eigenes, langsameres k = 0.18 - und das Aufschrecken danach ist wieder
+  #     das schnappende.
   #   - Der Sprung auf ein neues Mundziel beim Reden. Das Ziel selbst wechselt
   #     alle 140 ms zufaellig, der Weg dorthin bleibt eingeschliffen - so
   #     entsteht das Zappeln des Mundes, ohne dass er flackert.
+  #   - Das Zittern. Sein Versatz kommt erst nach dem Einlauf dazu, sonst waere
+  #     daraus ein Wackeln geworden.
+  #   - Der Mundradius. Zwischen Pille und rundem "O" gibt es keine Form, die
+  #     gemeint waere.
+  #
+  # Im Warten kommen zu Blick und Lidschlag die Marotten: zwoelf kleine Mienen
+  # (Zunge, grosse Augen, offener Mund, Doppelblinzler, muede, Augenrollen,
+  # doppelter Blick, Zwinkern, skeptisch, Staunen, Grinsen, Zittern). Gezogen
+  # werden sie nicht gewuerfelt, sondern aus einem gemischten Beutel - Begruendung
+  # unten am Beutel selbst.
   #
   # Geschrieben wird nur, was sich in ganzen Pixeln geaendert hat. Das ist hier
   # kein Feinschliff, sondern der Grund, warum der Glow bezahlbar bleibt: im
   # Warten stehen die Augen die meiste Zeit still, und dann laeuft der Takt
   # ohne einen einzigen LVGL-Aufruf durch. Bewegt wird nur waehrend eines
-  # Uebergangs, also in Schueben von einer knappen halben Sekunde.
+  # Uebergangs, also in Schueben von einer knappen halben Sekunde - und
+  # waehrend der beiden dauerbewegten Marotten Augenrollen und Zittern, die
+  # deshalb auch die ersten Kandidaten sind, wenn es ruckelt.
   #
   # Der `is_showing`-Guard steht in YAML statt im Lambda, weil es die Bedingung
   # dafuer schon gibt - und er ersetzt zugleich die Pruefung auf den
@@ -1935,19 +1949,51 @@ interval:
             lvgl.page.is_showing: page_face
           then:
             - lambda: |-
+                // --- Die Marotten des Wartens ---
+                // Die Nummern stehen unten im Zielblock und in QUIRK_DAUER -
+                // wer eine einschiebt, muss beides mitziehen.
+                enum : uint8_t {
+                  Q_ZUNGE = 1, Q_AUGEN, Q_MUND, Q_DOPPELBLINK, Q_MUEDE,
+                  Q_ROLLEN, Q_DOPPELBLICK, Q_ZWINKERN, Q_SKEPTISCH, Q_STAUNEN,
+                  Q_GRINSEN, Q_ZITTERN, Q_ANZAHL = Q_ZITTERN
+                };
+                // Dauer je Marotte in Takten zu 33 ms. Index 0 bleibt leer,
+                // damit die Nummer direkt als Index taugt. Ein Zwinkern ist
+                // nach 260 ms vorbei, das Muede-Werden darf 1,2 s stehen.
+                static const uint8_t QUIRK_DAUER[Q_ANZAHL + 1] = {
+                  0, 20, 16, 20, 20, 36, 24, 28, 8, 27, 24, 24, 12
+                };
+
                 // --- Zustand ueber die Takte hinweg ---
                 static uint16_t t = 0;              // Takte, seit es laeuft
                 static int last_phase = -1;
                 static float ex = 0, ey = 0;        // Blickversatz, laufend
                 static float tx = 0, ty = 0;        //                 Ziel
-                static float es = 1.0f, ts = 1.0f;  // Augenskalierung
+                static float esl = 1.0f, esr = 1.0f;  // Augenskalierung l/r
                 static float mh = ${face_mouth_h};  // Mundhoehe, laufend
-                static float tmh = ${face_mouth_h}; //            Ziel
-                static float lid = 1.0f;            // 1 offen, 0.08 zu
+                static float mw = ${face_mouth_w};  // Mundbreite, laufend
+                static float mdy = ${face_mouth_dy};  // Mundmitte, laufend
+                static float talk_h = ${face_mouth_h};  // Mundziel beim Reden
+                static float lidl = 1.0f, lidr = 1.0f;  // 1 offen, 0.08 zu
                 static uint16_t look_at = 0, blink_at = 0, blink_bis = 0;
-                static uint16_t quirk_at = 0, quirk_bis = 0, talk_at = 0;
-                static uint8_t quirk = 0;   // 0 keine, 1 Zunge, 2 Augen, 3 Mund
+                static uint16_t blink_again = 0;    // zweiter Lidschlag
+                static uint16_t quirk_at = 0, quirk_ab = 0, quirk_bis = 0;
+                static uint16_t talk_at = 0;
+                static uint8_t quirk = 0;   // 0 keine, sonst Q_*
                 static int8_t seite = 1;    // Kopfneigung beim Denken
+                static int8_t qseite = 1;   // Seite der seitigen Marotten
+                static int8_t jx = 0, jy = 0;  // Versatz des Zitterns
+
+                // Mischbeutel statt Wuerfeln bei jeder Marotte: alle Nummern
+                // liegen einmal darin, werden gemischt und der Reihe nach
+                // abgearbeitet. Damit kommt keine zweimal hintereinander, jede
+                // gleich oft, und die Reihenfolge ist in jeder Runde eine
+                // andere. Beim Nachfuellen wird zusaetzlich getauscht, falls
+                // die erste der neuen Runde die letzte der alten waere - sonst
+                // haette der Beutel doch eine Wiederholung an der Naht.
+                static uint8_t beutel[Q_ANZAHL];
+                static uint8_t beutel_i = Q_ANZAHL;  // leer, wird gefuellt
+                static uint8_t zuletzt = 0;
                 t++;
 
                 // esphome::random_uint32() statt rand(): der Hardware-RNG des
@@ -1965,6 +2011,7 @@ interval:
                   // wird, streckt nicht die Zunge heraus.
                   quirk = 0;
                   blink_bis = 0;
+                  blink_again = 0;
                   if (phase == ${phase_thinking})
                     seite = wuerfel(2) ? 1 : -1;
                   if (phase == ${phase_idle})
@@ -1972,19 +2019,30 @@ interval:
                 }
 
                 // --- Ziele der laufenden Phase ---
-                ts = 1.0f;
+                // Erst die Ruhewerte fuer alles, danach greift die Phase (und
+                // im Warten die Marotte) nur noch heraus, was sie wirklich
+                // veraendert. Ohne diese Vorbelegung muesste jeder Zweig
+                // saemtliche Groessen zuruecksetzen, und eine vergessene
+                // bliebe von der letzten Marotte stehen.
+                float tsl = 1.0f, tsr = 1.0f;
+                float tmh = ${face_mouth_h};
+                float tmw = ${face_mouth_w};
+                float tmdy = ${face_mouth_dy};
+                float tlidl = 1.0f, tlidr = 1.0f;
+                float lid_k = 0.5f;
+                int32_t m_radius = ${face_mouth_radius};
+                bool zunge = false;
+
                 switch (phase) {
                   case ${phase_listening}:
                     // Aufmerksam: Blick geradeaus, Augen eine Spur groesser.
-                    tx = 0; ty = 0; ts = 1.06f;
-                    tmh = ${face_mouth_h};
+                    tx = 0; ty = 0; tsl = 1.06f; tsr = 1.06f;
                     break;
 
                   case ${phase_thinking}:
                     // Blick nach schraeg oben - die Richtung, in die Menschen
                     // sehen, wenn sie ueberlegen. Dazu das Fragezeichen.
                     tx = 34.0f * seite; ty = -26.0f;
-                    tmh = ${face_mouth_h};
                     break;
 
                   case ${phase_replying}:
@@ -1993,12 +2051,13 @@ interval:
                     // dorthin bleibt eingeschliffen, deshalb zappelt der Mund,
                     // statt zu flackern.
                     if (t >= talk_at) {
-                      tmh = 8.0f + wuerfel(35);
+                      talk_h = 8.0f + wuerfel(35);
                       talk_at = t + 4;
                     }
+                    tmh = talk_h;
                     break;
 
-                  default:
+                  default: {
                     // Warten. Drei unabhaengige Uhren laufen nebeneinander:
                     // der wandernde Blick (2,2 s), der Lidschlag (2,4-5,6 s)
                     // und die Marotten (3,2-6,2 s). Alle drei Zeiten stammen
@@ -2013,61 +2072,213 @@ interval:
                       blink_at = t + 72 + wuerfel(97);
                       blink_bis = t + 4;  // rund 120 ms geschlossen
                     }
-                    if (t >= quirk_at) {
-                      quirk = 1 + (uint8_t) wuerfel(3);
-                      quirk_at = t + 96 + wuerfel(91);
-                      quirk_bis = t + 20;  // rund 650 ms
+                    if (blink_again != 0 && t >= blink_again) {
+                      blink_again = 0;
+                      blink_bis = t + 4;  // zweiter Schlag des Doppelblinzlers
                     }
-                    if (quirk != 0 && t >= quirk_bis)
+                    if (t >= quirk_at) {
+                      // Naechste Nummer aus dem Beutel; ist er leer, wird neu
+                      // gemischt (Fisher-Yates).
+                      if (beutel_i >= Q_ANZAHL) {
+                        for (uint8_t i = 0; i < Q_ANZAHL; i++)
+                          beutel[i] = i + 1;
+                        for (uint8_t i = Q_ANZAHL - 1; i > 0; i--) {
+                          const uint8_t j = (uint8_t) wuerfel(i + 1);
+                          const uint8_t s = beutel[i];
+                          beutel[i] = beutel[j];
+                          beutel[j] = s;
+                        }
+                        if (beutel[0] == zuletzt) {
+                          const uint8_t s = beutel[0];
+                          beutel[0] = beutel[Q_ANZAHL - 1];
+                          beutel[Q_ANZAHL - 1] = s;
+                        }
+                        beutel_i = 0;
+                      }
+                      quirk = beutel[beutel_i++];
+                      zuletzt = quirk;
+                      qseite = wuerfel(2) ? 1 : -1;
+                      quirk_ab = t;
+                      quirk_bis = t + QUIRK_DAUER[quirk];
+                      quirk_at = t + 96 + wuerfel(91);
+                      if (quirk == Q_DOPPELBLINK) {
+                        blink_bis = t + 4;
+                        blink_again = t + 9;  // rund 300 ms spaeter
+                      }
+                    }
+                    if (quirk != 0 && t >= quirk_bis) {
                       quirk = 0;
+                      // Marotten, die den Blick gefuehrt haben, lassen ein
+                      // Ziel irgendwo am Rand stehen. Sofort einen frischen
+                      // Blickpunkt ziehen, statt dort haengen zu bleiben.
+                      look_at = t;
+                    }
 
-                    if (quirk == 2) ts = 1.16f;
-                    tmh = (quirk == 3) ? ${face_mouth_h_max} : ${face_mouth_h};
+                    const uint16_t qt = t - quirk_ab;  // Takte seit Beginn
+                    switch (quirk) {
+                      case Q_ZUNGE:
+                        zunge = true;
+                        break;
+
+                      case Q_AUGEN:
+                        tsl = 1.16f; tsr = 1.16f;
+                        break;
+
+                      case Q_MUND:
+                        tmh = ${face_mouth_h_max};
+                        break;
+
+                      case Q_MUEDE:
+                        // Schwere Lider, und zwar langsam (eigenes lid_k).
+                        // Das Aufschrecken am Ende braucht keinen eigenen
+                        // Zweig: faellt die Marotte weg, gilt wieder der
+                        // Ruhewert 1.0 mit dem schnappenden lid_k = 0.5.
+                        tlidl = 0.55f; tlidr = 0.55f;
+                        lid_k = 0.18f;
+                        break;
+
+                      case Q_ROLLEN: {
+                        // Ein voller Umlauf in 24 Takten. Der Einlauf daempft
+                        // eine Schwingung dieser Frequenz auf knapp die
+                        // Haelfte, deshalb stehen hier groessere Radien als
+                        // beim wandernden Blick - sichtbar bleiben rund
+                        // 47 x 26 px.
+                        const float a = 6.2831853f * qt / 24.0f;
+                        tx = cosf(a) * 100.0f;
+                        ty = sinf(a) * 56.0f;
+                        break;
+                      }
+
+                      case Q_DOPPELBLICK:
+                        // Ruck zur Seite, halten, Ruck auf die andere, zurueck.
+                        tx = (qt < 9) ? -70.0f * qseite
+                                      : ((qt < 20) ? 70.0f * qseite : 0.0f);
+                        ty = 0;
+                        break;
+
+                      case Q_ZWINKERN:
+                        // Nur ein Auge zu - dafuer ueberhaupt die Trennung in
+                        // lidl und lidr.
+                        if (qseite > 0) tlidr = 0.08f; else tlidl = 0.08f;
+                        break;
+
+                      case Q_SKEPTISCH:
+                        // Ein Auge hoch, das andere zusammengekniffen, Blick
+                        // leicht zur Seite.
+                        if (qseite > 0) { tsl = 1.15f; tsr = 0.80f; }
+                        else            { tsl = 0.80f; tsr = 1.15f; }
+                        tx = 26.0f * qseite; ty = -8.0f;
+                        break;
+
+                      case Q_STAUNEN:
+                        tmw = ${face_mouth_o_w};
+                        tmh = ${face_mouth_o_h};
+                        m_radius = ${face_mouth_o_radius};
+                        tsl = 1.12f; tsr = 1.12f;
+                        break;
+
+                      case Q_GRINSEN:
+                        tmw = ${face_mouth_w_grin};
+                        tmh = ${face_mouth_h_grin};
+                        tmdy = ${face_mouth_dy} - 6;
+                        break;
+
+                      case Q_ZITTERN:
+                        // Alle zwei Takte ein neuer Versatz. Er laeuft
+                        // absichtlich *nicht* durch den Einlauf - geglaettet
+                        // waere aus dem Zittern ein Wackeln geworden.
+                        if ((qt & 1) == 0) {
+                          jx = (int8_t) wuerfel(9) - 4;
+                          jy = (int8_t) wuerfel(9) - 4;
+                        }
+                        break;
+                    }
+
+                    // Der Lidschlag steht ueber jeder Marotte: er kann in eine
+                    // hineinfallen, und dann sind die Augen zu.
+                    if (t < blink_bis) {
+                      tlidl = 0.08f; tlidr = 0.08f; lid_k = 0.5f;
+                    }
                     break;
+                  }
                 }
 
                 // --- Einlauf ---
                 const float k = 0.14f;
                 ex += (tx - ex) * k;
                 ey += (ty - ey) * k;
-                es += (ts - es) * k;
+                esl += (tsl - esl) * k;
+                esr += (tsr - esr) * k;
                 mh += (tmh - mh) * (phase == ${phase_replying} ? 0.45f : 0.20f);
-                lid += (((t < blink_bis) ? 0.08f : 1.0f) - lid) * 0.5f;
+                mw += (tmw - mw) * 0.20f;
+                mdy += (tmdy - mdy) * 0.20f;
+                lidl += (tlidl - lidl) * lid_k;
+                lidr += (tlidr - lidr) * lid_k;
 
                 // --- Schreiben, aber nur bei echter Aenderung ---
                 // Ein `lv_obj_set_size` invalidiert die alte *und* die neue
                 // Flaeche; mit Glow ist das je Auge rund 122x172 px. Ohne diese
                 // Pruefung liefe das 30-mal je Sekunde auch dann, wenn sich
                 // nichts bewegt.
-                int32_t aw = (int32_t) lroundf(${face_eye_w} * es);
-                int32_t ah = (int32_t) lroundf(${face_eye_h} * es * lid);
-                if (ah < 2) ah = 2;  // eine Box ohne Flaeche zeichnet LVGL nicht
-                const int32_t px = (int32_t) lroundf(ex);
-                const int32_t py = (int32_t) lroundf(ey);
-                static int32_t a_aw = -1, a_ah = -1, a_px = 0, a_py = 0;
-                if (aw != a_aw || ah != a_ah || px != a_px || py != a_py) {
-                  a_aw = aw; a_ah = ah; a_px = px; a_py = py;
-                  lv_obj_set_size(id(face_eye_l), aw, ah);
-                  lv_obj_set_size(id(face_eye_r), aw, ah);
+                // Das Zittern kommt erst hier dazu, weil es den Einlauf
+                // umgeht; es verschiebt Augen und Mund gemeinsam.
+                const int32_t jitx = (quirk == Q_ZITTERN) ? jx : 0;
+                const int32_t jity = (quirk == Q_ZITTERN) ? jy : 0;
+                const int32_t px = (int32_t) lroundf(ex) + jitx;
+                const int32_t py = (int32_t) lroundf(ey) + jity;
+
+                int32_t awl = (int32_t) lroundf(${face_eye_w} * esl);
+                int32_t ahl = (int32_t) lroundf(${face_eye_h} * esl * lidl);
+                int32_t awr = (int32_t) lroundf(${face_eye_w} * esr);
+                int32_t ahr = (int32_t) lroundf(${face_eye_h} * esr * lidr);
+                // eine Box ohne Flaeche zeichnet LVGL nicht
+                if (ahl < 2) ahl = 2;
+                if (ahr < 2) ahr = 2;
+                static int32_t a_awl = -1, a_ahl = -1, a_awr = -1, a_ahr = -1;
+                static int32_t a_px = 0, a_py = 0;
+                // Die Position gilt beiden Augen, die Groesse seit dem
+                // Zwinkern jedem fuer sich - deshalb erst pruefen, dann beide
+                // Zweige laufen lassen und den Positionsmerker zuletzt
+                // nachziehen.
+                const bool pos_neu = (px != a_px || py != a_py);
+                if (pos_neu || awl != a_awl || ahl != a_ahl) {
+                  a_awl = awl; a_ahl = ahl;
+                  lv_obj_set_size(id(face_eye_l), awl, ahl);
                   // Nach jedem set_size neu ausrichten, sonst waechst das Auge
                   // aus seiner linken oberen Ecke statt aus seiner Mitte.
                   lv_obj_align(id(face_eye_l), LV_ALIGN_CENTER,
                                px - ${face_eye_dx}, py - ${face_eye_dy});
+                }
+                if (pos_neu || awr != a_awr || ahr != a_ahr) {
+                  a_awr = awr; a_ahr = ahr;
+                  lv_obj_set_size(id(face_eye_r), awr, ahr);
                   lv_obj_align(id(face_eye_r), LV_ALIGN_CENTER,
                                px + ${face_eye_dx}, py - ${face_eye_dy});
                 }
+                a_px = px; a_py = py;
 
-                int32_t mund = (int32_t) lroundf(mh);
-                if (mund < 2) mund = 2;
-                static int32_t a_mund = -1;
-                if (mund != a_mund) {
-                  a_mund = mund;
-                  lv_obj_set_size(id(face_mouth), ${face_mouth_w}, mund);
-                  lv_obj_align(id(face_mouth), LV_ALIGN_CENTER, 0,
-                               ${face_mouth_dy});
+                int32_t mundh = (int32_t) lroundf(mh);
+                int32_t mundw = (int32_t) lroundf(mw);
+                if (mundh < 2) mundh = 2;
+                if (mundw < 2) mundw = 2;
+                const int32_t mundy = (int32_t) lroundf(mdy) + jity;
+                static int32_t a_mh = -1, a_mw = -1, a_my = 0, a_mx = 0;
+                if (mundh != a_mh || mundw != a_mw || mundy != a_my
+                    || jitx != a_mx) {
+                  a_mh = mundh; a_mw = mundw; a_my = mundy; a_mx = jitx;
+                  lv_obj_set_size(id(face_mouth), mundw, mundh);
+                  lv_obj_align(id(face_mouth), LV_ALIGN_CENTER, jitx, mundy);
+                }
+                // Der Radius springt (nur das Staunen braucht das runde "O"),
+                // eingeschliffen wird er nicht - dazwischen gaebe es keine
+                // Form, die gemeint waere.
+                static int32_t a_mr = -1;
+                if (m_radius != a_mr) {
+                  a_mr = m_radius;
+                  lv_obj_set_style_radius(id(face_mouth), m_radius,
+                                          LV_PART_MAIN);
                 }
 
-                const bool zunge = (quirk == 1);
                 static int8_t a_zunge = -1;
                 if ((int8_t) zunge != a_zunge) {
                   a_zunge = (int8_t) zunge;
