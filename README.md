@@ -326,46 +326,6 @@ HA zeigen den Speicherdruck.
 erst ab dem Befehl — Sprache und Antwort laufen über die HA-Pipeline.
 Empfindlichkeit über die Select-Entity erhöhen.
 
-## Nicht umgesetzt
-
-- **Akku-Telemetrie.** Das AXP2101-PMIC ist nicht im ESPHome-Core; für
-  Netzbetrieb irrelevant.
-- **Symbole je nach geschaltetem Gerät** — also eine Glühbirne beim Licht,
-  ein Rollo beim Cover. Das geht nicht: Der Voice Assistant bekommt von Home
-  Assistant weder Domain noch Entität noch Ergebniswert zurück, der
-  entsprechende Trigger hat schlicht keine Parameter. Was das Gerät sieht,
-  ist allein der Antwortsatz — und „Eingeschaltet" verrät nicht, was
-  eingeschaltet wurde. Deshalb erkennt die Firmware nur *Messwert*,
-  *Bestätigung* und *alles Übrige*. Wer mehr will, kann die optionale
-  API-Aktion `zeige_hinweis` aus einer eigenen HA-Automation aufrufen
-  (dokumentiert in `packages/core.yaml`); für den Normalbetrieb wird sie
-  nicht gebraucht.
-- **Deutsches Wake Word.** Bräuchte ein eigenes microWakeWord-Modell.
-- **Bedienelemente am Touchscreen.** Bewusst entfernt: Der Touchscreen kennt
-  nur Tippen (wecken, Sprachvorgang abbrechen) und Gedrückthalten (Adresse
-  anzeigen). Alles Einstellbare liegt in Home Assistant, Lautstärke und
-  Stummschaltung inbegriffen.
-- **Weitere Standby-Seiten.** Zur Auswahl stehen Uhr, Zifferblatt und
-  Gesicht; Seiten mit Sensorwerten aus Home Assistant fehlen noch.
-- **Das Gesicht deckt nur die vier Grundzustände ab.** Warten, Zuhören,
-  Denken und Reden hat es; Messwerte, Bestätigungen, Fehler, Stummschaltung
-  und der klingelnde Timer greifen auch im Gesichtsmodus auf die gewohnte
-  Anzeige mit Zahl bzw. Icon zurück — dafür kennt der Entwurf keine Miene,
-  und ein Messwert ist als Zahl schlicht nützlicher.
-- **Nach dem Antworten verschwindet das Gesicht sofort.** Es geht dann wie
-  jede andere Seite in den Standby, der Bildschirm wird also schwarz statt
-  in ein wartendes Gesicht zurückzufallen. Das ist dasselbe Verhalten wie
-  bei Uhr und Zifferblatt; ein Nachlauf müsste `standby_timeout` für alle
-  drei ändern.
-- **Kein Countdown auf Zifferblatt und Gesicht.** Beide können die Restzeit
-  nicht in Ziffern zeigen — die Ziffern stünden mitten im Kranz bzw. im
-  Gesicht. Statt nur den Ring am Rand zu zeigen, tritt bei einem laufenden
-  Timer deshalb die Standby-Uhr an ihre Stelle.
-- **Der ausgeschaltete Bildschirm zeigt auch einen laufenden Timer nicht.**
-  Nach `standby_timeout` geht alles aus, Ring inbegriffen; ein Tippen holt
-  die Anzeige für weitere 30 Sekunden zurück. Klingelt der Timer, weckt das
-  Gerät den Bildschirm von selbst.
-
 ## Lizenz
 
 Der Code steht unter der [MIT-Lizenz](LICENSE). Die eingebetteten Klänge in
