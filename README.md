@@ -28,11 +28,12 @@ am Bildschirmrand die Restzeit ab, sichtbar auf jeder Seite — auch mitten in
 der Standby-Uhr, die dafür kurzerhand den Countdown übernimmt.
 
 Bedient wird Lumi ausschließlich über Home Assistant — keine eigene
-Bedienseite, keine Cloud, keine App. Der Touchscreen selbst kennt nur zwei
-Gesten: antippen weckt das Display oder bricht einen laufenden Sprachvorgang
-ab, gedrückt halten zeigt die Geräteadresse fürs Debugging. Alles andere
-— Ausrichtung, Standby-Seite, Wake-Word-Engine, Stummschaltung, Helligkeit —
-sind ganz normale Home-Assistant-Entities.
+Bedienseite, keine Cloud, keine App. Der Touchscreen selbst kennt nur eine
+Geste: antippen weckt das Display oder bricht einen laufenden Sprachvorgang
+ab. Zusätzlich meldet er jeden Tipp und Doppeltipp als Event nach Home
+Assistant, so wie ein smarter Schalter — für eigene Automationen. Alles
+andere — Ausrichtung, Standby-Seite, Wake-Word-Engine, Stummschaltung,
+Helligkeit — sind ganz normale Home-Assistant-Entities.
 
 ## Konzept
 
@@ -188,7 +189,8 @@ unverändert bei Mikrofon, Punkten und Balken.
 - **Volle Helligkeit nur beim Zuhören:** ein sichtbarer Bildschirm läuft
   normalerweise auf 80 %, das Wake Word hebt auf 100 % — der Sprung ist
   selbst das Zeichen, dass das Gerät jetzt zuhört
-- Drei Sekunden gedrückt halten zeigt Gerätename und IP-Adresse
+- Tipp und Doppeltipp auf den Bildschirm melden sich als Event in Home
+  Assistant (wie bei einem smarten Schalter), auswertbar per Automation
 - Bedient wird über Home Assistant: Ausrichtung, Standby-Seite,
   Stummschaltung, Wake-Word-Optionen und Displayhelligkeit sind Entities
 
@@ -301,8 +303,9 @@ deutschem STT/TTS zuweisen.
 ## Bedienung
 
 Bedient wird ausschließlich über **Home Assistant**. Auf dem Touchscreen gibt
-es bewusst keine Bedienelemente: Tippen weckt bzw. bricht ab, Gedrückthalten
-zeigt die Adresse — mehr nicht.
+es bewusst keine Bedienelemente: Tippen weckt bzw. bricht ab — mehr nicht.
+Tipp und Doppeltipp meldet das Gerät zusätzlich als Event nach Home
+Assistant.
 
 Eine eigene Bedienseite unter der Geräte-IP gab es einmal; sie ist ersatzlos
 entfallen, zusammen mit dem Webserver. Der Grund: Farben sind
@@ -318,14 +321,14 @@ das WLAN fehlt).
 | **Display** | Helligkeit; Einschalten aus HA weckt den Bildschirm für die Standby-Zeit. |
 | **Mikrofon stumm**, **Wake-Word-Engine**, **Wake-Word-Empfindlichkeit** | Sprachbetrieb. |
 | **Erkannter Text**, **Antwort** | Frage und Antwort des letzten Vorgangs. |
+| **Displayberührung** (Event) | `single_press` bei einem Tipp, `double_press` bei einem Doppeltipp — nur im Wartezustand, während eines Sprachvorgangs bricht Tippen stattdessen ab. |
 
 Alle Einstellungen überstehen einen Neustart. Die Symbolfarben sind fest in
 `assist-satellit.yaml` hinterlegt — eine Änderung braucht einen Neubau der
 Firmware.
 
-Wer die Adresse für `esphome run` oder `esphome logs` nicht zur Hand hat:
-**drei Sekunden auf das Display drücken**. Ein Tippen führt zurück, und nach
-der Standby-Zeit verschwindet die Seite von selbst.
+Die Geräteadresse für `esphome run` oder `esphome logs` zeigt Home Assistant
+am Geräteeintrag der ESPHome-Integration an.
 
 ## Updates
 
