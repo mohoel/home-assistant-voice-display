@@ -648,6 +648,18 @@ Zwei weitere Mockups betrafen die **Weboberfläche** des Geräts
 zusammen hinfällig; `web/mockup.py`, das Standbild für diese Entwürfe erzeugte,
 ist mit dem Verzeichnis `web/` entfallen.
 
+Ein fünftes Mockup (`Lumi Install.dc.html`, Claude-Design-Projekt „Seite mit
+Nocturne restylen") ist die Vorlage für `docs/index.html`, die gehostete
+Browser-Flash-Seite. Anders als bei den LVGL-Mockups oben ist das Ziel hier
+selbst eine Webseite — übernommen sind deshalb Struktur und Design-Tokens
+direkt: die Karten/Akkordeon-Gliederung und das komplette Farbschema des
+Nocturne-Design-Systems (`_ds/…/styles.css`, dunkles Theme, Inter-Schrift,
+Farbe `--color-accent` u. a.) sind inline in `docs/index.html` übernommen.
+Nicht übernommen ist das Laufzeit-Gerüst des Mockups selbst
+(`support.js`, `<x-dc>`-Wrapper, `_ds_bundle.js`) — das ist reines
+Editor-Tooling von Claude Design, keine Produktionsware; die Seite ist
+weiterhin reines statisches HTML/CSS ohne Build-Schritt.
+
 ## Bekannte Einschränkungen
 
 - **Es gibt keinen Phasen-Ring mehr — der Timer-Ring ist die eine Ausnahme.**

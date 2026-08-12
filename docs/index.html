@@ -1,164 +1,318 @@
 <!doctype html>
 <html lang="de">
 <head>
-  <meta charset="utf-8">
-  <title>Lumi – Firmware im Browser installieren</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Home-Assistant-Voice-Satellit-Firmware direkt aus dem Browser aufs Waveshare ESP32-S3-Touch-AMOLED-1.75 flashen.">
-  <script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js"></script>
-  <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      max-width: 680px;
-      margin: 3rem auto;
-      padding: 0 1.5rem;
-      line-height: 1.55;
-      color: #1a1a1a;
-    }
-    h1 { font-size: 1.5rem; margin-bottom: 0.25rem; }
-    .sub { color: #555; margin-top: 0; }
-    h2 { font-size: 1.1rem; margin-top: 2.5rem; }
-    code, pre {
-      background: #f0f0f0;
-      border-radius: 4px;
-      padding: 0.15rem 0.4rem;
-      font-size: 0.9em;
-    }
-    pre { padding: 0.75rem 1rem; overflow-x: auto; }
-    .box {
-      border-radius: 6px;
-      padding: 0.9rem 1.1rem;
-      margin: 1.25rem 0;
-      font-size: 0.95em;
-    }
-    .hint { background: #fff8e1; border: 1px solid #f0d878; }
-    .warn { background: #fdeceb; border: 1px solid #e8a29c; }
-    ol, ul { padding-left: 1.3rem; }
-    li { margin: 0.35rem 0; }
-    esp-web-install-button {
-      display: block;
-      margin: 1.75rem 0;
-    }
-    esp-web-install-button button {
-      font-size: 1rem;
-      padding: 0.6rem 1.2rem;
-      cursor: pointer;
-    }
-    footer {
-      margin-top: 3rem;
-      padding-top: 1.5rem;
-      border-top: 1px solid #e0e0e0;
-      font-size: 0.85em;
-      color: #666;
-    }
-    a { color: #0366d6; }
-  </style>
+<meta charset="utf-8">
+<title>Lumi – Firmware im Browser installieren</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Home-Assistant-Voice-Satellit-Firmware direkt aus dem Browser aufs Waveshare ESP32-S3-Touch-AMOLED-1.75 flashen.">
+<script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js"></script>
+<style>
+/* ============================================================
+   Nocturne — Design-System-Tokens und Komponentenklassen.
+   Übernommen aus dem Claude-Design-Projekt
+   "Seite mit Nocturne restylen" (_ds/nocturne-…/styles.css),
+   unverändert außer dem Fehlen der Foundations-Demoseiten.
+   ============================================================ */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  --color-bg: #161826;
+  --color-surface: #232532;
+  --color-text: #e9e9ed;
+  --color-accent: #9184d9;
+  --color-accent-2: #a7a1db;
+  --color-divider: color-mix(in srgb, #e9e9ed 16%, transparent);
+
+  --color-neutral-100: #f3f5fe;
+  --color-neutral-200: #e4e7f5;
+  --color-neutral-300: #cfd3e5;
+  --color-neutral-400: #b2b6ca;
+  --color-neutral-500: #9397ab;
+  --color-neutral-600: #75798c;
+  --color-neutral-700: #595d6c;
+  --color-neutral-800: #3f424d;
+  --color-neutral-900: #292b31;
+
+  --color-accent-100: #f5f4ff;
+  --color-accent-200: #e7e5fe;
+  --color-accent-300: #d2cefd;
+  --color-accent-400: #b5abfc;
+  --color-accent-500: #968ae0;
+  --color-accent-600: #796cbf;
+  --color-accent-700: #5d5294;
+  --color-accent-800: #423a6a;
+  --color-accent-900: #2b2741;
+
+  --color-accent-2-100: #f5f4ff;
+  --color-accent-2-200: #e7e5fe;
+  --color-accent-2-300: #d2cefd;
+  --color-accent-2-400: #b5afe8;
+  --color-accent-2-500: #9690c9;
+  --color-accent-2-600: #7972a9;
+  --color-accent-2-700: #5c5783;
+  --color-accent-2-800: #423e5d;
+  --color-accent-2-900: #2b293a;
+
+  --color-section: #262a60;
+  --color-section-glow: #353b80;
+  --color-section-ghost: #4c5397;
+
+  --font-heading: "Inter", system-ui, sans-serif;
+  --font-heading-weight: 500;
+  --font-body: "Inter", system-ui, sans-serif;
+
+  --space-1: 2.8px;
+  --space-2: 5.6px;
+  --space-3: 8.4px;
+  --space-4: 11.2px;
+  --space-6: 16.8px;
+  --space-8: 22.4px;
+
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 14px;
+
+  --shadow-sm: 0 0 0 1px #3f424d;
+  --shadow-md: 0 0 0 1px #595d6c, 0 6px 18px rgba(0,0,0,0.55);
+  --shadow-lg: 0 0 0 1px #9397ab, 0 16px 40px rgba(0,0,0,0.65);
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+}
+h1, h2, h3, h4 { font-family: var(--font-heading); font-weight: var(--font-heading-weight); }
+
+*, *::before, *::after { box-sizing: border-box; }
+body { margin: 0; font-size: 15px; line-height: 1.55; font-weight: 400; }
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading); font-weight: var(--font-heading-weight);
+  line-height: 1.12; letter-spacing: -0.015em; margin: 0 0 var(--space-2);
+}
+h1 { font-size: 42px; }
+h2 { font-size: 32px; }
+h3 { font-size: 25px; }
+h4 { font-size: 20px; }
+h5 { font-size: 16px; }
+h6 { font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; }
+p { margin: 0 0 var(--space-3); }
+a { color: var(--color-accent); text-underline-offset: 3px; }
+:focus { outline: none; }
+:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+::selection { background: color-mix(in srgb, var(--color-accent) 30%, transparent); }
+
+.hr {
+  height: 1px; border: 0; margin: var(--space-4) 0;
+  background: linear-gradient(to right,
+    transparent, var(--color-divider) 48px,
+    var(--color-divider) calc(100% - 48px), transparent);
+}
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  cursor: pointer; text-decoration: none;
+  font-family: var(--font-heading); font-weight: var(--font-heading-weight);
+  font-size: 14px; line-height: 1.2; color: var(--color-text);
+  background: transparent; border: 1px solid transparent;
+  padding: var(--space-2) calc(var(--space-3) * 1.2);
+  border-radius: var(--radius-md);
+}
+.btn svg { display: block; }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn-primary { color: var(--color-accent); border-color: var(--color-accent); }
+.btn-primary:hover { background: color-mix(in srgb, var(--color-accent) 12%, transparent); }
+.btn-primary:active { background: color-mix(in srgb, var(--color-accent) 22%, transparent); }
+.btn-ghost { color: var(--color-accent); padding-inline: var(--space-1); }
+.btn-ghost:hover { background: color-mix(in srgb, var(--color-accent) 10%, transparent); }
+.btn-ghost:active { background: color-mix(in srgb, var(--color-accent) 18%, transparent); }
+.btn-icon { width: 36px; height: 36px; padding: 0; }
+.btn-block { width: 100%; margin-top: var(--space-2); }
+
+.card {
+  display: flex; flex-direction: column; gap: var(--space-2);
+  padding: var(--space-3); border-radius: var(--radius-md); background: var(--color-surface);
+}
+.card-kicker { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-accent); }
+.card-title {
+  font-family: var(--font-heading); font-weight: var(--font-heading-weight);
+  font-size: 17px; line-height: 1.2;
+}
+.elev-sm { box-shadow: var(--shadow-sm); }
+.elev-md { box-shadow: var(--shadow-md); }
+.elev-lg { box-shadow: var(--shadow-lg); }
+
+.tag {
+  display: inline-flex; align-items: center; font-size: 11px;
+  letter-spacing: 0.02em; padding: 3px 10px;
+  border-radius: calc(var(--radius-md) * 0.75);
+}
+.tag-neutral { background: var(--color-neutral-800); color: var(--color-neutral-100); }
+.tag-outline { border: 1px solid var(--color-accent); color: var(--color-accent); }
+
+.nav {
+  display: flex; align-items: center; gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: none;
+}
+.nav-brand {
+  font-family: var(--font-heading); font-weight: var(--font-heading-weight);
+  font-size: 18px; margin-right: auto;
+}
+.nav a { color: inherit; text-decoration: none; font-size: 14px; }
+.nav a:hover, .nav a[aria-current='page'] { color: var(--color-accent); }
+
+/* ============================================================
+   Seitenspezifisch (aus Lumi Install.dc.html übernommen)
+   ============================================================ */
+code, pre { font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+a:hover { color: var(--color-accent-400); }
+esp-web-install-button [slot="unsupported"], esp-web-install-button [slot="not-allowed"] {
+  display: block; font-size: 12px; opacity: 0.7; margin-top: var(--space-2);
+}
+details > summary { cursor: pointer; list-style: none; }
+details > summary::-webkit-details-marker { display: none; }
+details .chev { transition: transform 0.15s ease; }
+details[open] .chev { transform: rotate(90deg); }
+</style>
 </head>
 <body>
-  <h1>Lumi im Browser installieren</h1>
-  <p class="sub">
+
+<div style="max-width: 620px; margin: 0 auto; padding: 48px 24px 40px;">
+
+  <div class="nav" style="padding: 0 0 28px;">
+    <div class="nav-brand">Lumi</div>
+    <a href="https://github.com/mohoel/home-assistant-voice-lumi" target="_blank" rel="noopener" class="btn btn-ghost btn-icon" aria-label="GitHub-Repository">
+      <svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor"><path d="M208.31,75.68A59.78,59.78,0,0,0,202.93,28,8,8,0,0,0,196,24a59.75,59.75,0,0,0-48,24H124A59.75,59.75,0,0,0,76,24a8,8,0,0,0-6.93,4,59.78,59.78,0,0,0-5.38,47.68A58.14,58.14,0,0,0,56,104v8a56.06,56.06,0,0,0,48.44,55.47A39.8,39.8,0,0,0,96,192v8H72a24,24,0,0,1-24-24A40,40,0,0,0,8,136a8,8,0,0,0,0,16,24,24,0,0,1,24,24,40,40,0,0,0,40,40H96v16a8,8,0,0,0,16,0V192a24,24,0,0,1,48,0v40a8,8,0,0,0,16,0V192a39.8,39.8,0,0,0-8.44-24.53A56.06,56.06,0,0,0,216,112v-8A58.14,58.14,0,0,0,208.31,75.68Z"/></svg>
+    </a>
+  </div>
+
+  <span class="tag tag-outline" style="margin-bottom: 12px;">Online-Flashtool</span>
+  <h1 style="font-size: 28px; margin-top: 10px;">Lumi im Browser installieren</h1>
+  <p style="opacity: 0.7; font-size: 14px; margin-bottom: 28px;">
     Home-Assistant-Voice-Satellit-Firmware für das
     <a href="https://www.waveshare.com/esp32-s3-touch-amoled-1.75.htm" target="_blank" rel="noopener">Waveshare ESP32-S3-Touch-AMOLED-1.75</a>
     — Quelltext auf
     <a href="https://github.com/mohoel/home-assistant-voice-lumi" target="_blank" rel="noopener">github.com/mohoel/home-assistant-voice-lumi</a>.
+    Läuft über <a href="https://esphome.github.io/esp-web-tools/" target="_blank" rel="noopener">ESP Web Tools</a> (Web Serial) in Chrome oder Edge am Desktop — ohne Installation, ohne Terminal.
   </p>
 
-  <p>
-    Diese Seite flasht die zuletzt veröffentlichte Firmware direkt über
-    <a href="https://esphome.github.io/esp-web-tools/" target="_blank" rel="noopener">ESP Web Tools</a>
-    (Web Serial) — ohne Installation, ohne Terminal, ohne ESPHome auf dem
-    eigenen Rechner. Funktioniert in <strong>Chrome oder Edge am Desktop</strong>
-    (Web Serial fehlt in Safari und Firefox, auf dem Handy gibt es keinen
-    USB-Seriell-Zugriff).
-  </p>
+  <div class="card elev-md" style="gap: var(--space-4);">
+    <div style="display: flex; align-items: center; justify-content: space-between;">
+      <div class="card-kicker" style="font-size: 11px;">Voraussetzungen</div>
+    </div>
+    <div class="row" style="display: flex; flex-wrap: wrap; gap: 6px;">
+      <span class="tag tag-neutral">Chrome oder Edge (Desktop)</span>
+      <span class="tag tag-neutral">USB-C-Kabel mit Datenleitung</span>
+      <span class="tag tag-neutral">Waveshare-Board per USB</span>
+    </div>
 
-  <div class="box warn">
-    <strong>Wichtig, bevor du klickst:</strong> Diese Firmware ist ein
-    <strong>anonymer Standard-Build</strong> ohne dein WLAN und ohne deinen
-    persönlichen Zugangsschlüssel — beides kann in eine öffentlich gehostete
-    Datei schließlich nicht hinein. Was das bedeutet, steht unten unter
-    <a href="#nach-dem-flashen">Nach dem Flashen</a>. Für den dauerhaften
-    Betrieb ist ein zweiter, lokaler Build mit eigenen Zugangsdaten sinnvoll
-    (Anleitung im <a href="https://github.com/mohoel/home-assistant-voice-lumi#einrichtung" target="_blank" rel="noopener">Haupt-README</a>)
-    — diese Seite ist der schnelle Weg, das Gerät überhaupt erst einmal zum
-    Laufen zu bringen.
+    <esp-web-install-button manifest="manifest.json" style="display: block; margin-top: 4px;">
+      <button slot="activate" class="btn btn-primary btn-block" style="font-size: 15px; padding: 12px 20px;">
+        Gerät verbinden &amp; flashen
+        <svg width="14" height="14" viewBox="0 0 256 256" fill="currentColor"><path d="M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z"/></svg>
+      </button>
+      <span slot="unsupported">
+        Dein Browser unterstützt Web Serial nicht. Bitte Chrome oder Edge am
+        Desktop verwenden.
+      </span>
+      <span slot="not-allowed">
+        Web Serial ist auf dieser Seite nicht erlaubt. Diese Seite muss über
+        <code>https://</code> aufgerufen werden (nicht als heruntergeladene
+        Datei).
+      </span>
+    </esp-web-install-button>
   </div>
 
-  <h2>Voraussetzungen</h2>
-  <ul>
-    <li>Chrome oder Edge am Laptop/Desktop</li>
-    <li>USB-C-Kabel mit Datenleitung (nicht jedes Ladekabel überträgt Daten)</li>
-    <li>das Waveshare-Board, per USB an diesen Rechner angeschlossen</li>
-  </ul>
+  <details class="card" style="margin-top: 16px;">
+    <summary style="display: flex; align-items: center; gap: 8px;">
+      <svg class="chev" width="12" height="12" viewBox="0 0 256 256" fill="currentColor"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></svg>
+      <span class="card-title" style="font-size: 15px;">So läuft das Flashen ab</span>
+    </summary>
+    <ol style="padding-left: 20px; margin: 10px 0 0; display: grid; gap: 8px; font-size: 14px; opacity: 0.85;">
+      <li>Board per USB anschließen.</li>
+      <li>Oben auf <strong>„Gerät verbinden &amp; flashen"</strong> klicken.</li>
+      <li>Im Auswahldialog des Browsers den seriellen Port des Boards wählen.</li>
+      <li>
+        Meldet sich kein Port: Board in den Download-Modus bringen —
+        <strong>BOOT</strong> gedrückt halten, kurz <strong>RESET</strong>
+        drücken, dann <strong>BOOT</strong> loslassen — und den Dialog erneut
+        öffnen.
+      </li>
+      <li>Flashvorgang abwarten (ein bis zwei Minuten). Nicht abstecken.</li>
+    </ol>
+  </details>
 
-  <h2>Flashen</h2>
-  <ol>
-    <li>Board per USB anschließen.</li>
-    <li>Unten auf <strong>„Gerät verbinden &amp; flashen"</strong> klicken.</li>
-    <li>Im Auswahldialog des Browsers den seriellen Port des Boards wählen.</li>
-    <li>
-      Meldet sich kein Port: Board in den Download-Modus bringen —
-      <strong>BOOT</strong> gedrückt halten, kurz <strong>RESET</strong>
-      drücken, dann <strong>BOOT</strong> loslassen — und den Dialog erneut
-      öffnen.
-    </li>
-    <li>Flashvorgang abwarten (ein bis zwei Minuten). Nicht abstecken.</li>
-  </ol>
+  <details class="card" style="margin-top: 12px;">
+    <summary style="display: flex; align-items: center; gap: 8px;">
+      <svg class="chev" width="12" height="12" viewBox="0 0 256 256" fill="currentColor"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></svg>
+      <span class="card-title" style="font-size: 15px; color: var(--color-accent-300);">Wichtig, bevor du klickst</span>
+    </summary>
+    <p style="margin: 10px 0 0; font-size: 14px; opacity: 0.85;">
+      Diese Firmware ist ein <strong>anonymer Standard-Build</strong> ohne dein
+      WLAN und ohne deinen persönlichen Zugangsschlüssel — beides kann in eine
+      öffentlich gehostete Datei schließlich nicht hinein. Was das bedeutet,
+      steht unten unter „Nach dem Flashen". Für den dauerhaften Betrieb ist
+      ein zweiter, lokaler Build mit eigenen Zugangsdaten sinnvoll (Anleitung
+      im
+      <a href="https://github.com/mohoel/home-assistant-voice-lumi#einrichtung" target="_blank" rel="noopener">Haupt-README</a>)
+      — diese Seite ist der schnelle Weg, das Gerät überhaupt erst einmal zum
+      Laufen zu bringen.
+    </p>
+  </details>
 
-  <esp-web-install-button manifest="manifest.json">
-    <button slot="activate">Gerät verbinden &amp; flashen</button>
-    <span slot="unsupported">
-      Dein Browser unterstützt Web Serial nicht. Bitte Chrome oder Edge am
-      Desktop verwenden.
-    </span>
-    <span slot="not-allowed">
-      Web Serial ist auf dieser Seite nicht erlaubt. Diese Seite muss über
-      <code>https://</code> aufgerufen werden (nicht als heruntergeladene
-      Datei).
-    </span>
-  </esp-web-install-button>
+  <details class="card" style="margin-top: 12px;" id="nach-dem-flashen">
+    <summary style="display: flex; align-items: center; gap: 8px;">
+      <svg class="chev" width="12" height="12" viewBox="0 0 256 256" fill="currentColor"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></svg>
+      <span class="card-title" style="font-size: 15px;">Nach dem Flashen</span>
+    </summary>
+    <div style="margin-top: 10px; font-size: 14px; opacity: 0.85; display: grid; gap: 12px;">
+      <p style="margin: 0;">
+        Das Gerät startet neu und findet — mit Absicht — kein WLAN, denn diese
+        Firmware kennt deines nicht. Es öffnet stattdessen einen eigenen
+        Hotspot, ungefähr <code style="background: var(--color-surface); padding: 2px 6px; border-radius: 4px; font-size: 0.88em;">Assist Satellit Fallback Hotspot</code>, mit
+        einer Konfigurationsseite dahinter (Captive Portal).
+      </p>
+      <ol style="padding-left: 20px; margin: 0; display: grid; gap: 8px;">
+        <li>Am Handy oder Laptop mit diesem Hotspot verbinden.</li>
+        <li>
+          Öffnet sich keine Konfigurationsseite von selbst, im Browser
+          <code style="background: var(--color-surface); padding: 2px 6px; border-radius: 4px; font-size: 0.88em;">http://192.168.4.1</code> aufrufen.
+        </li>
+        <li>Dort das eigene WLAN samt Passwort eintragen und speichern.</li>
+        <li>Das Gerät verbindet sich damit und meldet sich per mDNS im Netz.</li>
+      </ol>
+      <p style="margin: 0;">
+        In Home Assistant taucht es danach unter
+        <em>Einstellungen → Geräte &amp; Dienste</em> als ESPHome-Gerät auf. Beim
+        Hinzufügen fragt Home Assistant nach einem Verschlüsselungsschlüssel —
+        für diesen anonymen Build ist das ein fest hinterlegter, nicht geheimer
+        Platzhalter:
+      </p>
+      <pre style="background: var(--color-surface); border-radius: var(--radius-md); padding: 12px 16px; overflow-x: auto; font-size: 13px; color: var(--color-accent-300); margin: 0;">Bw1nT2P6zfBP++xn1gTvfloJweHwPrXXRj0I01RdKZk=</pre>
+      <p style="margin: 0;">
+        Dieser Schlüssel steht offen im Quelltext (<code style="background: color-mix(in srgb, var(--color-text) 10%, transparent); padding: 2px 6px; border-radius: 4px; font-size: 0.92em;">secrets.public.yaml</code>)
+        und schützt nichts — er ist nur nötig, damit Home Assistant sich
+        überhaupt verbindet. Für einen Schlüssel, der wirklich nur dir gehört,
+        einmal lokal neu flashen: <code style="background: color-mix(in srgb, var(--color-text) 10%, transparent); padding: 2px 6px; border-radius: 4px; font-size: 0.92em;">esphome run assist-satellit.yaml --device assist-satellit.local</code> mit einem eigenen
+        <code style="background: color-mix(in srgb, var(--color-text) 10%, transparent); padding: 2px 6px; border-radius: 4px; font-size: 0.92em;">secrets.yaml</code> (Anleitung im
+        <a href="https://github.com/mohoel/home-assistant-voice-lumi#einrichtung" target="_blank" rel="noopener">Haupt-README</a>).
+        Updates danach laufen normal per OTA, ganz ohne diese Seite.
+      </p>
+    </div>
+  </details>
 
-  <h2 id="nach-dem-flashen">Nach dem Flashen</h2>
-  <p>
-    Das Gerät startet neu und findet — mit Absicht — kein WLAN, denn diese
-    Firmware kennt deines nicht. Es öffnet stattdessen einen eigenen
-    Hotspot, ungefähr <code>Assist Satellit Fallback Hotspot</code>, mit
-    einer Konfigurationsseite dahinter (Captive Portal).
-  </p>
-  <ol>
-    <li>Am Handy oder Laptop mit diesem Hotspot verbinden.</li>
-    <li>
-      Öffnet sich keine Konfigurationsseite von selbst, im Browser
-      <code>http://192.168.4.1</code> aufrufen.
-    </li>
-    <li>Dort das eigene WLAN samt Passwort eintragen und speichern.</li>
-    <li>Das Gerät verbindet sich damit und meldet sich per mDNS im Netz.</li>
-  </ol>
-  <p>
-    In Home Assistant taucht es danach unter
-    <em>Einstellungen → Geräte &amp; Dienste</em> als ESPHome-Gerät auf. Beim
-    Hinzufügen fragt Home Assistant nach einem Verschlüsselungsschlüssel —
-    für diesen anonymen Build ist das ein fest hinterlegter, nicht geheimer
-    Platzhalter:
-  </p>
-  <pre>Bw1nT2P6zfBP++xn1gTvfloJweHwPrXXRj0I01RdKZk=</pre>
-  <div class="box hint">
-    Dieser Schlüssel steht offen im Quelltext (<code>secrets.public.yaml</code>)
-    und schützt nichts — er ist nur nötig, damit Home Assistant sich
-    überhaupt verbindet. Für einen Schlüssel, der wirklich nur dir gehört,
-    einmal lokal neu flashen: <code>esphome run assist-satellit.yaml
-    --device assist-satellit.local</code> mit einem eigenen
-    <code>secrets.yaml</code> (Anleitung im
-    <a href="https://github.com/mohoel/home-assistant-voice-lumi#einrichtung" target="_blank" rel="noopener">Haupt-README</a>).
-    Updates danach laufen normal per OTA, ganz ohne diese Seite.
-  </div>
+  <hr class="hr">
 
-  <footer>
+  <footer style="font-size: 12px; opacity: 0.6; padding-top: 8px;">
     Diese Seite ist Teil von
     <a href="https://github.com/mohoel/home-assistant-voice-lumi" target="_blank" rel="noopener">home-assistant-voice-lumi</a>
     und wird bei jedem Firmware-Release (Git-Tag) automatisch neu gebaut
-    (<code>.github/workflows/release.yml</code>). Quelltext, Hardware-Referenz
+    (<code style="background: var(--color-surface); padding: 1px 5px; border-radius: 4px; font-size: 0.92em;">.github/workflows/release.yml</code>). Quelltext, Hardware-Referenz
     und die volle Funktionsbeschreibung stehen im Haupt-README.
   </footer>
+
+</div>
+
 </body>
 </html>
