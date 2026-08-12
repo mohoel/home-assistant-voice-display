@@ -606,11 +606,12 @@ nie ein Global.
 
 ## Design-Referenz
 
-`design_handoff_voice_ui/voice-ui-mockup.html` ist das erste HTML/CSS-Mockup der
-vier Kernzustände (Standby, Listening, Thinking, Replying) — reine Vorlage, kein
-Code fürs Gerät. Es zeigt noch den Ring, den es auf dem Gerät nicht mehr gibt
-(siehe *Bekannte Einschränkungen*); sein Glow ist ein CSS-`drop-shadow` und hat in
-LVGL ohnehin keine Entsprechung.
+Das erste HTML/CSS-Mockup der vier Kernzustände (Standby, Listening, Thinking,
+Replying) lag als `design_handoff_voice_ui/voice-ui-mockup.html` im Repo und ist
+mit der README-Überarbeitung entfernt worden — es zeigte noch den Ring, den es
+auf dem Gerät nicht mehr gibt (siehe *Bekannte Einschränkungen*), war also nicht
+mehr die aktuelle Referenz. Wer es braucht, findet es in der Git-Historie vor
+diesem Commit.
 
 Ein viertes Mockup (`Device Face.dc.html`, Claude-Design-Projekt „Animierter
 Charakter rundes Display") ist die Vorlage für `page_face`: zwei leuchtende
