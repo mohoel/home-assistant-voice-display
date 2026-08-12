@@ -201,41 +201,7 @@ Assistant braucht nur die **ESPHome-Integration**, nicht das Builder-Add-on.
 
 ## Einrichtung
 
-Wer nur schnell flashen will: Schritte 1 und 2 sind nur für den manuellen Weg
-nötig. Mit der Browser-Flash-Seite in Schritt 3 direkt einsteigen, ganz ohne
-lokales ESPHome oder eigenes `secrets.yaml`.
-
-### 1. Voraussetzungen
-
-```bash
-brew install esphome
-```
-
-ESPHome muss mindestens **2026.7.0** sein — erst ab dieser Version ist der
-CST9217-Touchcontroller im Core enthalten.
-
-### 2. Secrets anlegen
-
-Im Projektordner eine Datei `secrets.yaml` mit diesen fünf Einträgen anlegen:
-
-```yaml
-wifi_ssid: "MeinWLAN"
-wifi_password: "..."
-ap_password: "..."            # Fallback-Hotspot, falls das WLAN fehlt
-api_encryption_key: "..."     # 32 Byte base64, für Home Assistant
-ota_password: "..."
-```
-
-Schlüssel und Passwörter erzeugen:
-
-```bash
-openssl rand -base64 32
-```
-
-Die Datei steht in `.gitignore` und wird nie committet. Es gibt bewusst keine
-Beispieldatei im Repo.
-
-### 3. Erstmaliges Flashen per USB
+### 1. Firmware flashen
 
 **Der einfachste Weg ist die Browser-Flash-Seite** — kein `esphome`, kein
 Terminal, keine Installation:
@@ -258,6 +224,38 @@ gibt es GitHub Pages aus einem privaten Repo nur mit bezahltem Account-Plan).
 
 <details>
 <summary>Manuell flashen (eigener Build, eigenes <code>secrets.yaml</code>)</summary>
+
+#### Voraussetzungen
+
+```bash
+brew install esphome
+```
+
+ESPHome muss mindestens **2026.7.0** sein — erst ab dieser Version ist der
+CST9217-Touchcontroller im Core enthalten.
+
+#### Secrets anlegen
+
+Im Projektordner eine Datei `secrets.yaml` mit diesen fünf Einträgen anlegen:
+
+```yaml
+wifi_ssid: "MeinWLAN"
+wifi_password: "..."
+ap_password: "..."            # Fallback-Hotspot, falls das WLAN fehlt
+api_encryption_key: "..."     # 32 Byte base64, für Home Assistant
+ota_password: "..."
+```
+
+Schlüssel und Passwörter erzeugen:
+
+```bash
+openssl rand -base64 32
+```
+
+Die Datei steht in `.gitignore` und wird nie committet. Es gibt bewusst keine
+Beispieldatei im Repo.
+
+#### Flashen per USB
 
 Board per USB-C an den Mac anschließen. Port suchen:
 
@@ -291,7 +289,7 @@ Commits bewusst gesetzt werden.
 
 </details>
 
-### 4. In Home Assistant einbinden
+### 2. In Home Assistant einbinden
 
 Das Gerät meldet sich per mDNS. Unter *Einstellungen → Geräte & Dienste*
 taucht `assist-satellit` als ESPHome-Gerät auf. Beim Hinzufügen den
