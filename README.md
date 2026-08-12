@@ -240,7 +240,27 @@ Seite [`web-flash/index.html`](web-flash/index.html) flasht sie per
 Chrome/Edge — kein `esphome run` nötig, nur einmalig ein lokaler Webserver
 (`python3 -m http.server 8000` im Projektordner, dann
 `http://localhost:8000/web-flash/` öffnen). Bei jeder neuen Kompilierung
-reicht Neuladen der Seite, da sie direkt auf die Build-Ausgabe zeigt.
+reicht Neuladen der Seite, da sie direkt auf die Build-Ausgabe zeigt. Das
+flasht die **eigene** Firmware mit dem eigenen `secrets.yaml`.
+
+**Alternative: gehostete Browser-Flash-Seite, ganz ohne ESPHome lokal.**
+[mohoel.github.io/home-assistant-voice-lumi](https://mohoel.github.io/home-assistant-voice-lumi/)
+(`docs/index.html`) flasht denselben Weg über ESP Web Tools, aber ohne jede
+lokale Installation — nur Browser und USB-Kabel. Der Unterschied: hier
+installiert man nicht die eigene Firmware, sondern einen **anonymen
+Standard-Build ohne persönliche Daten**, kompiliert automatisch bei jedem
+Git-Tag durch [`.github/workflows/release.yml`](.github/workflows/release.yml)
+aus [`secrets.public.yaml`](secrets.public.yaml) statt aus dem eigenen, nie
+committeten `secrets.yaml`. Das Gerät kennt danach kein WLAN und öffnet einen
+Fallback-Hotspot mit Captive Portal zum Eintragen der eigenen Zugangsdaten —
+alle Details dazu stehen selbsterklärend auf der Seite selbst. Für den
+dauerhaften Betrieb mit eigenem Verschlüsselungsschlüssel folgt danach am
+besten einmal der lokale Weg oben.
+
+Diese Seite läuft über **GitHub Pages** und braucht dafür ein **öffentliches
+Repository** — GitHub Pages aus einem privaten Repo gibt es nur mit einem
+bezahlten Account-Plan. Solange das Repo privat bleibt, ist die Seite nicht
+erreichbar; die Dateien liegen aber unabhängig davon schon im Repo bereit.
 
 ### 4. In Home Assistant einbinden
 
@@ -295,6 +315,12 @@ Rollback auf eine getaggte Version:
 git checkout v0.1.0 && esphome run assist-satellit.yaml --device assist-satellit.local
 ```
 
+Ein gepushter Tag `v*.*.*` löst zusätzlich
+[`.github/workflows/release.yml`](.github/workflows/release.yml) aus: baut die
+Firmware mit `secrets.public.yaml` neu und hängt sie als Release-Asset an —
+davon lädt die gehostete Browser-Flash-Seite (siehe *Einrichtung*). Der eigene
+Build oben ist davon unabhängig und bleibt der Weg für den laufenden Betrieb.
+
 ## Aufbau
 
 | Datei | Inhalt |
@@ -307,6 +333,9 @@ git checkout v0.1.0 && esphome run assist-satellit.yaml --device assist-satellit
 | `packages/settings.yaml` | Ausrichtung und Standby-Seite als HA-Entities |
 | `sounds/` | Klingel- und Bestätigungston, direkt in die Firmware eingebettet (Herkunft und Lizenz stehen dort) |
 | `web-flash/` | Lokale Browser-Flash-Seite über ESP Web Tools (siehe *Einrichtung*) |
+| `docs/` | Gehostete Browser-Flash-Seite (GitHub Pages), siehe *Einrichtung* |
+| `secrets.public.yaml` | Platzhalter-Secrets für den Release-Build hinter `docs/` — keine echten Zugangsdaten, wird committet |
+| `.github/workflows/release.yml` | Baut bei jedem Git-Tag `v*.*.*` die Firmware für `docs/` und veröffentlicht sie als Release-Asset |
 
 Farben, Phasen-IDs und Standby-Zeiten stehen als Substitutions in
 `assist-satellit.yaml` — dort anpassen, nicht in den Packages. Wie lange der

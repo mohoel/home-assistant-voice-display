@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <title>Lumi – Firmware im Browser installieren</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Home-Assistant-Voice-Satellit-Firmware direkt aus dem Browser aufs Waveshare ESP32-S3-Touch-AMOLED-1.75 flashen.">
+  <script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js"></script>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      max-width: 680px;
+      margin: 3rem auto;
+      padding: 0 1.5rem;
+      line-height: 1.55;
+      color: #1a1a1a;
+    }
+    h1 { font-size: 1.5rem; margin-bottom: 0.25rem; }
+    .sub { color: #555; margin-top: 0; }
+    h2 { font-size: 1.1rem; margin-top: 2.5rem; }
+    code, pre {
+      background: #f0f0f0;
+      border-radius: 4px;
+      padding: 0.15rem 0.4rem;
+      font-size: 0.9em;
+    }
+    pre { padding: 0.75rem 1rem; overflow-x: auto; }
+    .box {
+      border-radius: 6px;
+      padding: 0.9rem 1.1rem;
+      margin: 1.25rem 0;
+      font-size: 0.95em;
+    }
+    .hint { background: #fff8e1; border: 1px solid #f0d878; }
+    .warn { background: #fdeceb; border: 1px solid #e8a29c; }
+    ol, ul { padding-left: 1.3rem; }
+    li { margin: 0.35rem 0; }
+    esp-web-install-button {
+      display: block;
+      margin: 1.75rem 0;
+    }
+    esp-web-install-button button {
+      font-size: 1rem;
+      padding: 0.6rem 1.2rem;
+      cursor: pointer;
+    }
+    footer {
+      margin-top: 3rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid #e0e0e0;
+      font-size: 0.85em;
+      color: #666;
+    }
+    a { color: #0366d6; }
+  </style>
+</head>
+<body>
+  <h1>Lumi im Browser installieren</h1>
+  <p class="sub">
+    Home-Assistant-Voice-Satellit-Firmware für das
+    <a href="https://www.waveshare.com/esp32-s3-touch-amoled-1.75.htm" target="_blank" rel="noopener">Waveshare ESP32-S3-Touch-AMOLED-1.75</a>
+    — Quelltext auf
+    <a href="https://github.com/mohoel/home-assistant-voice-lumi" target="_blank" rel="noopener">github.com/mohoel/home-assistant-voice-lumi</a>.
+  </p>
+
+  <p>
+    Diese Seite flasht die zuletzt veröffentlichte Firmware direkt über
+    <a href="https://esphome.github.io/esp-web-tools/" target="_blank" rel="noopener">ESP Web Tools</a>
+    (Web Serial) — ohne Installation, ohne Terminal, ohne ESPHome auf dem
+    eigenen Rechner. Funktioniert in <strong>Chrome oder Edge am Desktop</strong>
+    (Web Serial fehlt in Safari und Firefox, auf dem Handy gibt es keinen
+    USB-Seriell-Zugriff).
+  </p>
+
+  <div class="box warn">
+    <strong>Wichtig, bevor du klickst:</strong> Diese Firmware ist ein
+    <strong>anonymer Standard-Build</strong> ohne dein WLAN und ohne deinen
+    persönlichen Zugangsschlüssel — beides kann in eine öffentlich gehostete
+    Datei schließlich nicht hinein. Was das bedeutet, steht unten unter
+    <a href="#nach-dem-flashen">Nach dem Flashen</a>. Für den dauerhaften
+    Betrieb ist ein zweiter, lokaler Build mit eigenen Zugangsdaten sinnvoll
+    (Anleitung im <a href="https://github.com/mohoel/home-assistant-voice-lumi#einrichtung" target="_blank" rel="noopener">Haupt-README</a>)
+    — diese Seite ist der schnelle Weg, das Gerät überhaupt erst einmal zum
+    Laufen zu bringen.
+  </div>
+
+  <h2>Voraussetzungen</h2>
+  <ul>
+    <li>Chrome oder Edge am Laptop/Desktop</li>
+    <li>USB-C-Kabel mit Datenleitung (nicht jedes Ladekabel überträgt Daten)</li>
+    <li>das Waveshare-Board, per USB an diesen Rechner angeschlossen</li>
+  </ul>
+
+  <h2>Flashen</h2>
+  <ol>
+    <li>Board per USB anschließen.</li>
+    <li>Unten auf <strong>„Gerät verbinden &amp; flashen"</strong> klicken.</li>
+    <li>Im Auswahldialog des Browsers den seriellen Port des Boards wählen.</li>
+    <li>
+      Meldet sich kein Port: Board in den Download-Modus bringen —
+      <strong>BOOT</strong> gedrückt halten, kurz <strong>RESET</strong>
+      drücken, dann <strong>BOOT</strong> loslassen — und den Dialog erneut
+      öffnen.
+    </li>
+    <li>Flashvorgang abwarten (ein bis zwei Minuten). Nicht abstecken.</li>
+  </ol>
+
+  <esp-web-install-button manifest="manifest.json">
+    <button slot="activate">Gerät verbinden &amp; flashen</button>
+    <span slot="unsupported">
+      Dein Browser unterstützt Web Serial nicht. Bitte Chrome oder Edge am
+      Desktop verwenden.
+    </span>
+    <span slot="not-allowed">
+      Web Serial ist auf dieser Seite nicht erlaubt. Diese Seite muss über
+      <code>https://</code> aufgerufen werden (nicht als heruntergeladene
+      Datei).
+    </span>
+  </esp-web-install-button>
+
+  <h2 id="nach-dem-flashen">Nach dem Flashen</h2>
+  <p>
+    Das Gerät startet neu und findet — mit Absicht — kein WLAN, denn diese
+    Firmware kennt deines nicht. Es öffnet stattdessen einen eigenen
+    Hotspot, ungefähr <code>Assist Satellit Fallback Hotspot</code>, mit
+    einer Konfigurationsseite dahinter (Captive Portal).
+  </p>
+  <ol>
+    <li>Am Handy oder Laptop mit diesem Hotspot verbinden.</li>
+    <li>
+      Öffnet sich keine Konfigurationsseite von selbst, im Browser
+      <code>http://192.168.4.1</code> aufrufen.
+    </li>
+    <li>Dort das eigene WLAN samt Passwort eintragen und speichern.</li>
+    <li>Das Gerät verbindet sich damit und meldet sich per mDNS im Netz.</li>
+  </ol>
+  <p>
+    In Home Assistant taucht es danach unter
+    <em>Einstellungen → Geräte &amp; Dienste</em> als ESPHome-Gerät auf. Beim
+    Hinzufügen fragt Home Assistant nach einem Verschlüsselungsschlüssel —
+    für diesen anonymen Build ist das ein fest hinterlegter, nicht geheimer
+    Platzhalter:
+  </p>
+  <pre>Bw1nT2P6zfBP++xn1gTvfloJweHwPrXXRj0I01RdKZk=</pre>
+  <div class="box hint">
+    Dieser Schlüssel steht offen im Quelltext (<code>secrets.public.yaml</code>)
+    und schützt nichts — er ist nur nötig, damit Home Assistant sich
+    überhaupt verbindet. Für einen Schlüssel, der wirklich nur dir gehört,
+    einmal lokal neu flashen: <code>esphome run assist-satellit.yaml
+    --device assist-satellit.local</code> mit einem eigenen
+    <code>secrets.yaml</code> (Anleitung im
+    <a href="https://github.com/mohoel/home-assistant-voice-lumi#einrichtung" target="_blank" rel="noopener">Haupt-README</a>).
+    Updates danach laufen normal per OTA, ganz ohne diese Seite.
+  </div>
+
+  <footer>
+    Diese Seite ist Teil von
+    <a href="https://github.com/mohoel/home-assistant-voice-lumi" target="_blank" rel="noopener">home-assistant-voice-lumi</a>
+    und wird bei jedem Firmware-Release (Git-Tag) automatisch neu gebaut
+    (<code>.github/workflows/release.yml</code>). Quelltext, Hardware-Referenz
+    und die volle Funktionsbeschreibung stehen im Haupt-README.
+  </footer>
+</body>
+</html>

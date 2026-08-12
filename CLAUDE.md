@@ -37,6 +37,11 @@ Packages auf, prüft aber keine Lambdas — C++-Fehler in `!lambda` fallen erst 
   Builder-Add-on.
 - **`secrets.yaml` wird nie committet** und nie im Klartext ausgegeben. Änderungen an
   `.gitignore` nicht ohne Prüfung.
+  **`secrets.public.yaml` ist davon ausgenommen und gehört committet** — es
+  enthält bewusst keine echten Zugangsdaten, sondern feste Platzhalter für den
+  anonymen Release-Build hinter `docs/` (siehe `.github/workflows/release.yml`
+  und README, Abschnitt *Einrichtung*). Beim Anfassen dieser Datei nicht mit
+  `secrets.yaml` verwechseln.
 - **`min_version: 2026.7.0`** nicht senken — darunter fehlt der CST9217-Support.
 
 ## Verifizierte Hardware-Fakten
