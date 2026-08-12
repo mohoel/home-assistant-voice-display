@@ -56,6 +56,36 @@ sind ganz normale Home-Assistant-Entities.
   Laufzeit-Einstellung dafür — wer die Optik ändern will, ändert die
   Substitutions in `assist-satellit.yaml` und baut neu.
 
+## Lokal oder mit einer KI-Pipeline
+
+Lumi ist nur die Hardware-Seite — **wie Home Assistant eine Anfrage
+verarbeitet, entscheidet allein die Assist-Pipeline dort**, nicht die
+Firmware. Zwei grundverschiedene Wege sind möglich, und beide funktionieren
+mit Lumi ohne jede Änderung an der Firmware:
+
+- **Vollständig lokal.** Spracherkennung (z. B. Whisper), Intent-Erkennung
+  und Sprachausgabe (z. B. Piper) laufen alle in Home Assistant bzw. auf
+  eigener Hardware, ohne Internetverbindung und ohne dass Sprachdaten das
+  eigene Netz verlassen.
+- **Mit einer KI/LLM-Pipeline.** Statt der eingebauten Intent-Erkennung
+  übernimmt ein Sprachmodell als Konversationsagent, zum Beispiel Claude über
+  die [Anthropic-Integration](https://www.home-assistant.io/integrations/anthropic/).
+  Antworten sind dann freier Fließtext statt knapper Bestätigungen.
+
+Grundlage und Einrichtung dieser Pipelines sind ausführlich in der
+offiziellen [Assist-Dokumentation](https://www.home-assistant.io/voice_control/)
+von Home Assistant beschrieben — das betrifft die HA-Seite und ist unabhängig
+von diesem Projekt.
+
+Für Lumi macht das kaum einen Unterschied: Die Firmware bekommt in beiden
+Fällen nur erkannten Text und Antworttext zurück, nie Wissen über die
+konkrete Pipeline (siehe oben, *„Das Gerät weiß nie, was ein Befehl bewirkt
+hat"*). Ein Effekt bleibt sichtbar: Die Ergebnisanzeige (Messwert oder Haken statt der
+fünf Balken) ist eine Heuristik über kurze, formelhafte Antwortsätze wie
+„21,5 Grad" oder „Eingeschaltet". Ein LLM-Konversationsagent antwortet meist
+in ganzen Sätzen — dann greift die Heuristik seltener und es bleibt beim
+Balken-Äqualizer, technisch korrekt, aber ohne die Zusatzanzeige.
+
 ## Verhältnis zu den offiziellen ESPHome-Voice-Projekten
 
 Lumi ist **kein Fork** von Nabu Casas offizieller Firmware, sondern eine
