@@ -1,12 +1,11 @@
 # Oberflaeche auf dem runden 466x466-AMOLED.
 #
-# Sechs Seiten:
+# Fuenf Seiten:
 #   page_main      Statusicon, Punkte oder Balken - je nach Phase
 #   page_standby   Uhr bzw. Countdown eines laufenden Timers
 #   page_dial      Zifferblatt (Alternative zur Uhr, waehlbar)
 #   page_face      Gesicht (dritte Alternative, siehe unten)
 #   page_off       leer und schwarz - Bildschirm aus
-#   page_config    Geraetename und IP-Adresse (Gedrueckthalten)
 #
 # Der Standby ist der ausgeschaltete Bildschirm, nicht ein gedimmter: nach
 # ${standby_timeout} ohne Beruehrung legt sleep_display die leere page_off vor
@@ -25,9 +24,12 @@
 # sie gewaehlt, traegt sie auch Zuhoeren, Verarbeitung und Sprachausgabe. Das
 # entscheidet wake_display, nicht update_ui - siehe dort.
 #
-# Der Touchscreen kennt zwei Gesten: Tippen (wecken, laufenden Sprachvorgang
-# abbrechen, Konfigurationsseite verlassen) und Gedrueckthalten fuer
-# ${long_press_time} (Konfigurationsseite oeffnen).
+# Der Touchscreen kennt eine Geste: Tippen weckt bzw. bricht einen laufenden
+# Sprachvorgang ab. Im Wartezustand (idle/muted) meldet detect_tap zusaetzlich
+# Tipp und Doppeltipp als Event an Home Assistant (evt_display_touch in
+# packages/hardware.yaml) - wie bei einem smarten Schalter. Waehrend eines
+# Sprachvorgangs bleibt das aus, weil dieselbe Beruehrung dort schon
+# "abbrechen" bedeutet.
 #
 # Lautstaerke und Stummschaltung gibt es bewusst nicht als Touch-Bedienseite
 # auf dem Geraet - beides bleibt HA-Entities (`media_out`, `switch.mute`).
@@ -853,60 +855,14 @@ lvgl:
       bg_opa: COVER
       scrollable: false
 
-    # --------------------------------------------------------- Konfiguration
-    # Erreichbar nur ueber Gedrueckthalten (${long_press_time}), siehe
-    # detect_long_press. Jedes weitere Tippen fuehrt zurueck (on_screen_touch),
-    # und nach ${standby_timeout} ohne Beruehrung faellt on_idle ohnehin in den
-    # Standby.
-    #
-    # Hier stand einmal ein QR-Code zur Bedienseite des Geraets. Die gibt es
-    # nicht mehr (packages/web.yaml und web/ sind entfallen, bedient wird ueber
-    # Home Assistant), also fuehrte er ins Leere. Was bleibt, ist der
-    # eigentliche Zweck der Seite: nachsehen, unter welcher Adresse das Geraet
-    # fuer `esphome run`/`esphome logs` erreichbar ist, ohne im Router zu
-    # suchen.
-    #
-    # Die Y-Werte sind auf den runden Bildschirm abgestimmt: bei Radius 233
-    # bleibt auf Hoehe der zweizeiligen Hinweiszeile (y bis ~167) noch eine
-    # Sehne von rund 325 px - die 300 px breite Box passt also mit Rand.
-    - id: page_config
-      bg_color: 0x000000
-      bg_opa: COVER
-      widgets:
-        - label:
-            id: lbl_config_title
-            align: CENTER
-            y: -100
-            text: "${friendly_name}"
-            text_font: font_date
-            text_color: ${color_text}
-            text_align: CENTER
-
-        # Inhalt setzt show_config_page zur Laufzeit - beim Bauen ist die
-        # IP-Adresse noch unbekannt. Der Platzhalter erscheint nie, weil die
-        # Seite nur ueber show_config_page sichtbar wird.
-        - label:
-            id: lbl_config_ip
-            align: CENTER
-            y: -20
-            width: 400
-            text: ""
-            text_font: font_date
-            text_color: ${color_dial}
-            text_align: CENTER
-
-        - label:
-            id: lbl_config_hint
-            align: CENTER
-            y: 90
-            width: 300
-            text: ""
-            text_font: font_small
-            text_color: ${color_text_dim}
-            text_align: CENTER
-            long_mode: WRAP
-
 globals:
+  # Zaehlt Beruehrungen innerhalb des laufenden ${double_tap_window}-Fensters.
+  # Gelesen und zurueckgesetzt von detect_tap, siehe dort.
+  - id: tap_count
+    type: int
+    restore_value: false
+    initial_value: "0"
+
   # Ein Hinweis von aussen steht an (API-Aktion zeige_hinweis in
   # packages/core.yaml). Nur update_ui und show_hint fassen ihn an.
   - id: hint_active
@@ -1216,11 +1172,6 @@ script:
           else:
             - if:
                 condition:
-                  lvgl.page.is_showing: page_config
-                then:
-                  - script.execute: update_ui
-            - if:
-                condition:
                   lambda: |-
                     return id(voice_assistant_phase) == ${phase_listening}
                         || id(voice_assistant_phase) == ${phase_thinking}
@@ -1257,47 +1208,52 @@ script:
                       else:
                         - script.execute: wake_display
 
-  # --------------------------------------------------- Gedrueckthalten (3 s)
-  # Gestartet vom on_touch des Touchscreens, gestoppt vom on_release
-  # (packages/hardware.yaml). Wer frueher loslaesst, kommt nie beim
-  # script.execute an - das ist die ganze Gestenerkennung.
+  # ------------------------------------------------- Tipp / Doppeltipp an HA
+  # Gestartet vom on_touch des Touchscreens (packages/hardware.yaml), parallel
+  # zu on_screen_touch - das eine reagiert sofort (wecken/abbrechen), das hier
+  # meldet erst nach ${double_tap_window} ohne weitere Beruehrung, was daraus
+  # geworden ist. Genau das ist der Grund fuer den eigenen Takt statt eines
+  # einfachen Zaehlers in on_screen_touch: ein einzelner Tipp darf erst dann
+  # als "einfach" gelten, wenn das Fenster fuer einen zweiten verstrichen ist.
   #
-  # LVGL haette mit on_long_press ein eigenes Ereignis, das aber an einem
-  # Widget haengt: es feuert nur, wenn der Finger auch wirklich ein Widget
-  # trifft. Hier soll jede Stelle des Bildschirms zaehlen, deshalb der Weg
-  # ueber den Touchscreen-Treiber.
+  # mode: restart macht die Erkennung selbst: ein zweiter Touch innerhalb des
+  # Fensters bricht den wartenden Durchlauf ab und startet neu, zaehlt dabei
+  # aber weiter hoch (das Global ueberlebt den Abbruch, nur der delay wird neu
+  # aufgesetzt). Bleibt es beim einen Tipp, laeuft das Fenster ab und meldet
+  # "single_press"; folgt ein zweiter, steht beim Ablauf tap_count auf 2 und
+  # es wird "double_press". Ein dritter/vierter Tipp waehrend desselben
+  # Fensters zaehlt weiter hoch, wird aber ebenfalls nur als Doppeltipp
+  # gemeldet - fuer mehr als zwei kennt evt_display_touch keinen eigenen Typ.
   #
-  # Bleibt ein on_release aus (verschluckte Meldung des Controllers), erscheint
-  # die Seite ungewollt - ein Tippen fuehrt zurueck, und nach
-  # ${standby_timeout} raeumt on_idle sie ohnehin weg.
-  - id: detect_long_press
+  # Erkannt wird nur im Wartezustand (idle/muted). Waehrend eines
+  # Sprachvorgangs bedeutet Tippen "abbrechen" (on_screen_touch) - dieselbe
+  # Beruehrung soll dann nicht zusaetzlich als Klick-Event an HA gehen. Die
+  # Pruefung sitzt bewusst nur am Anfang, nicht auch nach dem delay: die Phase
+  # gilt fuer den Moment der Beruehrung, ein Wake Word waehrend des Wartens
+  # soll ein bereits gezaehltes single_press nicht mehr unterdruecken.
+  #
+  # Das gilt ausdruecklich auch im echten Standby (Bildschirm aus, page_off):
+  # die Pruefung haengt an der Phase, nicht an der gezeigten Seite, und dort
+  # steht die Phase weiterhin auf idle. Der erste Tipp weckt dabei ganz normal
+  # ueber on_screen_touch den Bildschirm (das laeuft synchron vor detect_tap),
+  # zaehlt aber trotzdem mit - ein zweiter Tipp im selben Fenster ergibt also
+  # double_press, nicht zwei einzelne single_press.
+  - id: detect_tap
     mode: restart
     then:
-      - delay: ${long_press_time}
-      - script.execute: show_config_page
-
-  # Konfigurationsseite mit der IP-Adresse. Sie wird erst hier gesetzt: beim
-  # Bauen ist sie unbekannt, und sie kann sich nach einem Reconnect aendern.
-  #
-  # Faellt die Adresse leer aus (noch kein DHCP-Lease), tritt der mDNS-Name an
-  # ihre Stelle - der funktioniert im selben Netz genauso und ist besser als
-  # eine leere Zeile.
-  - id: show_config_page
-    mode: restart
-    then:
-      - lambda: |-
-          const std::string host = id(device_ip).state.empty()
-              ? std::string("${name}.local")
-              : id(device_ip).state;
-          lv_label_set_text(id(lbl_config_ip), host.c_str());
-          lv_label_set_text(id(lbl_config_hint),
-                            "Bedient wird über Home Assistant. "
-                            "Diese Adresse gilt für Update und Logs.");
-      - script.stop: standby_return
-      - lvgl.page.show: page_config
-      - light.turn_on:
-          id: display_brightness
-          brightness: ${idle_brightness}
+      - if:
+          condition:
+            lambda: |-
+              return id(voice_assistant_phase) == ${phase_idle}
+                  || id(voice_assistant_phase) == ${phase_muted};
+          then:
+            - lambda: id(tap_count)++;
+            - delay: ${double_tap_window}
+            - lambda: |-
+                const bool doppelt = id(tap_count) > 1;
+                id(tap_count) = 0;
+                id(evt_display_touch).trigger(doppelt ? "double_press"
+                                                       : "single_press");
 
   # ------------------------------------------------------- Display aufwecken
   #
@@ -1383,8 +1339,8 @@ script:
   #
   # `mode: restart` ist Pflicht (delay in einem Skript), und jeder Weg, der das
   # Display absichtlich wach haelt, muss es stoppen - sonst faellt der
-  # Bildschirm mitten im Hinschauen ins Dunkle. Das sind wake_display,
-  # show_config_page und der Idle-Zweig von on_screen_touch.
+  # Bildschirm mitten im Hinschauen ins Dunkle. Das sind wake_display und der
+  # Idle-Zweig von on_screen_touch.
   - id: standby_return
     mode: restart
     then:
@@ -1514,6 +1470,14 @@ script:
                 lv_obj_set_style_arc_opa(id(ring_timer), LV_OPA_COVER,
                                          LV_PART_INDICATOR);
                 lv_obj_remove_flag(id(ring_timer), LV_OBJ_FLAG_HIDDEN);
+                // lv_arc_set_value invalidiert nur die Flaeche zwischen altem
+                // und neuem Winkel (inv_arc_area in lv_arc.c). Deren
+                // Quadrant-Aufteilung (lv_draw_arc_get_area, alle 90 Grad)
+                // lässt an genau diesen Grenzen - hier bei Wert 500, also
+                // 6-Uhr-Position - ein bis zwei Pixel der alten Fuellung
+                // stehen. Volles Invalidieren kostet hier nichts: der Wert
+                // aendert sich nur einmal pro Sekunde, nicht 25 Mal.
+                lv_obj_invalidate(id(ring_timer));
           else:
             # Der Ring verschwand bisher von einem Bild aufs naechste - beim
             # Abbrechen eines Timers wirkte das wie ein Anzeigefehler. Jetzt
@@ -1623,6 +1587,9 @@ script:
                 lv_obj_set_style_arc_opa(id(ring_timer),
                                          (lv_opa_t) (255.0f * f),
                                          LV_PART_INDICATOR);
+                // Siehe update_timer_ui: dieselbe Quadranten-Randluecke von
+                // lv_arc_set_value, hier bei jedem der 14 Schritte moeglich.
+                lv_obj_invalidate(id(ring_timer));
             - delay: ${ring_fade_step_time}
       - lambda: |-
           lv_obj_add_flag(id(ring_timer), LV_OBJ_FLAG_HIDDEN);

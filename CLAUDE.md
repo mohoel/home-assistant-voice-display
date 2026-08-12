@@ -100,8 +100,8 @@ Querverbindungen:
 | `core.yaml` → `ha_time.on_time` | `script: update_clock`, `lbl_clock`, `lbl_date` | `ui.yaml` |
 | `ui.yaml` → `show_standby_page`, `update_timer_ui` | `select: sel_standby_page` | `settings.yaml` |
 | `ui.yaml` → `on_screen_touch` | `script: abort_session` | `voice.yaml` |
-| `hardware.yaml` → `touchscreen.on_touch/on_release` | `script: detect_long_press` | `ui.yaml` |
-| `ui.yaml` → `show_config_page` | `text_sensor: device_ip` | `core.yaml` |
+| `hardware.yaml` → `touchscreen.on_touch` | `script: detect_tap` | `ui.yaml` |
+| `ui.yaml` → `detect_tap` | `event: evt_display_touch` | `hardware.yaml` |
 | `voice.yaml` → jedes `on_timer_*` | `script: update_timer_ui` | `ui.yaml` |
 | `voice.yaml` → Klingel- und Bestätigungston | `media_player: media_out`, `files: snd_timer/snd_confirm` | `hardware.yaml` |
 | `hardware.yaml` → `media_out.on_announcement` | `script: announcement_guard`, `global: voice_assistant_phase` | `voice.yaml` |
@@ -134,7 +134,7 @@ Die Skripte sind die Bedienoberfläche der Logik, nicht die Handler selbst:
   `timer_start_ringing`, `timer_ring_sound`, `timer_ring_guard`,
   `timer_stop_ringing`, `timer_ring_release`
 - `ui.yaml`: `update_ui`, `wake_display`, `sleep_display`, `standby_return`,
-  `show_standby_page`, `show_config_page`, `detect_long_press`, `update_clock`,
+  `show_standby_page`, `detect_tap`, `update_clock`,
   `update_dial`, `update_timer_ui`, `ring_fade_out`, `show_hint`
 
 **`wake_display` entscheidet, welche Seite die laufende Phase trägt** — nicht
@@ -200,18 +200,37 @@ Punkte, die man beim Ändern leicht übersieht:
   läuft nichts doppelt. Wichtig ist das `start_wake_word` am Ende, weil
   `request_stop()` `continuous_` löscht und das Gerät in der HA-Engine sonst
   taub bliebe.
-- **Gedrückthalten öffnet `page_config`.** Die Geste steckt nicht in LVGL,
-  sondern im Touchscreen-Treiber: `on_touch` startet `detect_long_press`
-  (`delay: ${long_press_time}`), `on_release` stoppt es wieder. LVGLs
-  `on_long_press` schied aus, weil es an einem Widget hängt und nur feuert,
-  wenn der Finger auch eins trifft — hier soll jede Stelle zählen. `on_touch`
-  feuert genau einmal je Berührung (`touchscreen.cpp`: `first_touch_`), das
-  `mode: restart` des Skripts wird also nicht von Bewegungen zurückgesetzt.
-  `show_config_page` füllt die Adresse erst zur Laufzeit aus `device_ip` —
-  beim Bauen ist sie unbekannt. Der QR-Code, der dort einmal stand, ist mit
-  der Weboberfläche entfallen: er hätte ins Leere geführt. Die Seite zeigt
-  jetzt Gerätename und Adresse, und ihr Zweck ist nur noch der eine —
-  nachsehen, wohin `esphome run`/`esphome logs` gehen müssen.
+- **Tipp und Doppeltipp melden sich als Event an Home Assistant**, so wie ein
+  smarter Schalter mit Klick-Events (`event: evt_display_touch`,
+  `hardware.yaml`, Typen `single_press`/`double_press`). Erkannt wird das in
+  `detect_tap` (`ui.yaml`), gestartet von `on_touch` des Touchscreens neben
+  `on_screen_touch`. `on_touch` feuert genau einmal je Berührung
+  (`touchscreen.cpp`: `first_touch_`); das Global `tap_count` zählt hoch, ein
+  `mode: restart`-Skript mit `delay: ${double_tap_window}` wartet danach ab,
+  ob ein zweiter Touch folgt — jeder weitere Touch innerhalb des Fensters
+  bricht den wartenden Durchlauf ab und startet ihn neu, `tap_count`
+  überlebt den Abbruch. Steht es beim Ablauf auf 1, wird `single_press`
+  gemeldet, sonst `double_press` (auch bei drei oder mehr — einen eigenen Typ
+  dafür kennt die Entity nicht).
+  **Erkannt wird nur im Wartezustand** (`phase_idle`/`phase_muted`), geprüft
+  einmal beim Touch, nicht erneut nach dem `delay`. Während eines
+  Sprachvorgangs bedeutet Tippen bereits „abbrechen" (`on_screen_touch`) —
+  dieselbe Berührung soll dafür nicht zusätzlich als Klick-Event laufen. Ein
+  Wake Word, das mitten im Wartefenster startet, unterdrückt ein schon
+  gezähltes `single_press` deshalb bewusst nicht mehr.
+  Das gilt genauso im echten Standby (Bildschirm aus, `page_off`): die Prüfung
+  hängt an der Phase, nicht an der gezeigten Seite, und die bleibt dort
+  `phase_idle`. Der erste Tipp weckt dabei ganz normal über `on_screen_touch`
+  den Bildschirm, zählt aber trotzdem mit — ein zweiter Tipp im selben Fenster
+  ergibt `double_press`, nicht zwei einzelne `single_press`.
+  **Das ersetzt die frühere Gedrückthalten-Geste zur Konfigurationsseite**
+  (`page_config`, `show_config_page`, `detect_long_press`, der diagnostische
+  `text_sensor: device_ip`) — die zeigte nur Gerätename und IP-Adresse fürs
+  Debugging, und die zeigt Home Assistant am Geräteeintrag der
+  ESPHome-Integration ohnehin an. LVGLs `on_long_press` schied damals wie
+  jetzt aus, weil es an einem Widget hängt und nur feuert, wenn der Finger
+  auch eins trifft — hier soll jede Stelle des Bildschirms zählen, deshalb der
+  Weg über den Touchscreen-Treiber statt über LVGL.
 
 - **Eigene Töne dürfen nur spielen, wenn das Wake Word nicht lauscht.** Das
   Board hat genau einen I2S-Controller für Mikrofon und Lautsprecher. Läuft die

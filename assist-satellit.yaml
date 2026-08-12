@@ -243,10 +243,10 @@ substitutions:
   # solange page_face vorne liegt.
   face_step_time: 33ms
 
-  # Gedrueckthalten oeffnet die Konfigurationsseite (Geraetename und
-  # IP-Adresse). Gemessen wird zwischen on_touch und on_release des
-  # Touchscreens, siehe detect_long_press in packages/ui.yaml.
-  long_press_time: 3s
+  # Wartezeit nach einem Tipp, bevor detect_tap (packages/ui.yaml) ihn als
+  # "single_press" an Home Assistant meldet statt auf einen zweiten Tipp zu
+  # warten. Bekannt aus mobilen Betriebssystemen als Doppeltipp-Fenster.
+  double_tap_window: 350ms
 
 packages:
   core: !include packages/core.yaml
