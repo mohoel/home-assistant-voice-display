@@ -263,29 +263,20 @@ Update-Workflow mit getaggten Versionen (siehe unten) sollte weiterhin die
 CLI (`esphome run … --device assist-satellit.local`) genutzt werden, damit
 Commits bewusst gesetzt werden.
 
-**Alternative: Browser-Flash ohne Terminal.** Nach einmal `esphome compile
-assist-satellit.yaml` liegt die fertige Firmware unter `.esphome/build/`. Die
-Seite [`web-flash/index.html`](web-flash/index.html) flasht sie per
-[ESP Web Tools](https://esphome.github.io/esp-web-tools/) über Web Serial in
-Chrome/Edge — kein `esphome run` nötig, nur einmalig ein lokaler Webserver
-(`python3 -m http.server 8000` im Projektordner, dann
-`http://localhost:8000/web-flash/` öffnen). Bei jeder neuen Kompilierung
-reicht Neuladen der Seite, da sie direkt auf die Build-Ausgabe zeigt. Das
-flasht die **eigene** Firmware mit dem eigenen `secrets.yaml`.
-
-**Alternative: gehostete Browser-Flash-Seite, ganz ohne ESPHome lokal.**
+**Alternative: Browser-Flash-Seite, ganz ohne ESPHome lokal.**
 [mohoel.github.io/home-assistant-voice-lumi](https://mohoel.github.io/home-assistant-voice-lumi/)
-(`docs/index.html`) flasht denselben Weg über ESP Web Tools, aber ohne jede
-lokale Installation — nur Browser und USB-Kabel. Der Unterschied: hier
-installiert man nicht die eigene Firmware, sondern einen **anonymen
-Standard-Build ohne persönliche Daten**, kompiliert automatisch bei jedem
-Git-Tag durch [`.github/workflows/release.yml`](.github/workflows/release.yml)
-aus [`secrets.public.yaml`](secrets.public.yaml) statt aus dem eigenen, nie
+(`docs/index.html`) flasht per [ESP Web Tools](https://esphome.github.io/esp-web-tools/)
+über Web Serial in Chrome/Edge — kein `esphome compile`, kein lokaler
+Webserver, nur Browser und USB-Kabel. Installiert wird dabei nicht die
+eigene Firmware, sondern ein **anonymer Standard-Build ohne persönliche
+Daten**, kompiliert automatisch bei jedem Git-Tag durch
+[`.github/workflows/release.yml`](.github/workflows/release.yml) aus
+[`secrets.public.yaml`](secrets.public.yaml) statt aus dem eigenen, nie
 committeten `secrets.yaml`. Das Gerät kennt danach kein WLAN und öffnet einen
 Fallback-Hotspot mit Captive Portal zum Eintragen der eigenen Zugangsdaten —
 alle Details dazu stehen selbsterklärend auf der Seite selbst. Für den
 dauerhaften Betrieb mit eigenem Verschlüsselungsschlüssel folgt danach am
-besten einmal der lokale Weg oben.
+besten einmal der Weg oben (`esphome run` mit eigenem `secrets.yaml`).
 
 Diese Seite läuft über **GitHub Pages** und braucht dafür ein **öffentliches
 Repository** — GitHub Pages aus einem privaten Repo gibt es nur mit einem
@@ -362,7 +353,6 @@ Build oben ist davon unabhängig und bleibt der Weg für den laufenden Betrieb.
 | `packages/ui.yaml` | Fonts, LVGL-Seiten, Phasen-Animationen, Standby-Uhr, Zifferblatt, Gesicht, Timer-Ring |
 | `packages/settings.yaml` | Ausrichtung und Standby-Seite als HA-Entities |
 | `sounds/` | Klingel- und Bestätigungston, direkt in die Firmware eingebettet (Herkunft und Lizenz stehen dort) |
-| `web-flash/` | Lokale Browser-Flash-Seite über ESP Web Tools (siehe *Einrichtung*) |
 | `docs/` | Gehostete Browser-Flash-Seite (GitHub Pages), siehe *Einrichtung* |
 | `secrets.public.yaml` | Platzhalter-Secrets für den Release-Build hinter `docs/` — keine echten Zugangsdaten, wird committet |
 | `.github/workflows/release.yml` | Baut bei jedem Git-Tag `v*.*.*` die Firmware für `docs/` und veröffentlicht sie als Release-Asset |

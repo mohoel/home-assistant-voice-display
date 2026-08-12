@@ -1,6 +1,9 @@
 # Echte Zugangsdaten — niemals ins Repo!
 secrets.yaml
 
+# Internes QA-Dokument, bleibt lokal statt im (kuenftig oeffentlichen) Repo
+docs/testplan.md
+
 # ESPHome Build-Artefakte
 .esphome/
 *.bin
