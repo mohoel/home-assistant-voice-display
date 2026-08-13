@@ -97,6 +97,17 @@ wifi:
 
 captive_portal:
 
+# Erlaubt, das WLAN direkt ueber die USB-Verbindung einzutragen - dieselbe,
+# ueber die ESP Web Tools flasht (logger.hardware_uart: USB_SERIAL_JTAG oben).
+# esp-web-install-button erkennt Improv-faehige Firmware nach dem Flashen
+# automatisch und zeigt einen zusaetzlichen "Wi-Fi verbinden"-Schritt direkt
+# im Browser - ganz ohne den Umweg ueber Fallback-Hotspot und Captive Portal.
+# Der Hotspot oben bleibt als Ruecksprungebene bestehen, falls jemand den
+# Improv-Schritt in ESP Web Tools uebergeht oder die Seite vor dem Verbinden
+# schliesst. Braucht kein eigenes uart:, sondern haengt sich an dieselbe
+# Konsolen-Verbindung wie logger.
+improv_serial:
+
 api:
   encryption:
     key: !secret api_encryption_key

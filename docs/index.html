@@ -268,10 +268,18 @@ details[open] .chev { transform: rotate(90deg); }
     </summary>
     <div style="margin-top: 10px; font-size: 14px; opacity: 0.85; display: grid; gap: 12px;">
       <p style="margin: 0;">
-        Das Gerät startet neu und findet — mit Absicht — kein WLAN, denn diese
-        Firmware kennt deines nicht. Es öffnet stattdessen einen eigenen
+        Direkt nach dem Flashen fragt ESP Web Tools über dieselbe
+        USB-Verbindung nach deinem WLAN (<a href="https://www.improv-wifi.com/" target="_blank" rel="noopener">Improv Wi-Fi</a>) —
+        SSID und Passwort einfach im Dialog eintragen, kein Hotspot, kein
+        Gerätewechsel nötig. Das Gerät verbindet sich direkt und meldet sich
+        per mDNS im Netz.
+      </p>
+      <p style="margin: 0;">
+        Überspringst du diesen Schritt oder schließt die Seite vorher, findet
+        das Gerät beim nächsten Start — mit Absicht — kein WLAN, denn diese
+        Firmware kennt deines nicht. Es öffnet dann ersatzweise einen eigenen
         Hotspot, ungefähr <code style="background: var(--color-surface); padding: 2px 6px; border-radius: 4px; font-size: 0.88em;">Assist Satellit Fallback Hotspot</code>, mit
-        einer Konfigurationsseite dahinter (Captive Portal).
+        einer Konfigurationsseite dahinter (Captive Portal):
       </p>
       <ol style="padding-left: 20px; margin: 0; display: grid; gap: 8px;">
         <li>Am Handy oder Laptop mit diesem Hotspot verbinden.</li>

@@ -214,9 +214,11 @@ fertig. Installiert wird dabei ein **anonymer Standard-Build ohne
 persönliche Daten**, kompiliert automatisch bei jedem Git-Tag durch
 [`.github/workflows/release.yml`](.github/workflows/release.yml) aus
 [`secrets.public.yaml`](secrets.public.yaml) statt aus dem eigenen, nie
-committeten `secrets.yaml`. Das Gerät kennt danach kein WLAN und öffnet einen
-Fallback-Hotspot mit Captive Portal zum Eintragen der eigenen Zugangsdaten —
-alle Details dazu stehen selbsterklärend auf der Seite selbst. Für den
+committeten `secrets.yaml`. Direkt im Anschluss fragt ESP Web Tools per
+[Improv Wi-Fi](https://www.improv-wifi.com/) über dieselbe USB-Verbindung nach
+dem eigenen WLAN — kein Hotspot, kein Captive Portal, kein Gerätewechsel
+nötig. Wird dieser Schritt übersprungen, öffnet das Gerät ersatzweise einen
+Fallback-Hotspot mit Captive Portal zum Eintragen der Zugangsdaten. Für den
 dauerhaften Betrieb mit eigenem Verschlüsselungsschlüssel folgt danach am
 besten einmal der manuelle Weg unten, mit eigenem `secrets.yaml`.
 

@@ -187,6 +187,17 @@ Punkte, die man beim Ändern leicht übersieht:
   wer Displayhelligkeit oder Media Player dort vergaß, verlor den
   `on_turn_on`-Weg in den Standby und die Announcements. `entity_category`
   sortiert in HA ohnehin.
+- **`improv_serial:` erspart den Umweg über den Fallback-Hotspot.** Es hängt
+  sich ohne eigenes `uart:` an dieselbe USB-Serial-JTAG-Verbindung, über die
+  ESP Web Tools flasht (`logger.hardware_uart: USB_SERIAL_JTAG`), und
+  `esp-web-install-button` erkennt Improv-fähige Firmware danach automatisch
+  — direkt im Browser lässt sich das WLAN eintragen, ohne dass sich irgendwer
+  mit einem zweiten Hotspot verbinden muss. Der `wifi: ap:`-Block bleibt
+  bewusst bestehen: er ist die Rücksprungebene, falls jemand den
+  Improv-Schritt in ESP Web Tools überspringt, die Seite vorher schließt,
+  oder außerhalb des Browser-Flashs flasht (z. B. `esphome run`, wo Improv
+  ohnehin nicht angezeigt wird). Beide Wege setzen dieselben
+  `wifi:`-Zugangsdaten, es gibt keinen zweiten Speicherort.
 - **Ein Tippen bricht den laufenden Sprachvorgang ab.** `on_screen_touch`
   verzweigt nach Phase: Zuhören/Verarbeitung/Sprachausgabe → `abort_session`,
   sonst wie bisher Display wecken bzw. nur aufhellen. `abort_session` ruft
