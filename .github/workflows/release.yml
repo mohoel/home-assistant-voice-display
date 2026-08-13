@@ -12,7 +12,10 @@ name: Firmware-Release
 # fetch() von der Pages-Seite darauf scheitert im Browser immer mit
 # "Failed to fetch" (CORS), unabhaengig vom Tag-Stand. manifest.json
 # referenziert deshalb einen relativen, same-origin Pfad statt der
-# Release-URL.
+# Release-URL. Der ?v=-Parameter am manifest-Attribut in docs/index.html
+# wird dabei auf den Tag-Namen gesetzt, damit GitHub Pages' eigener
+# Cache (Cache-Control: max-age=600) nach einem Release nie eine
+# veraltete manifest.json/firmware.factory.bin ausliefert.
 #
 # Manuelles Anstossen (workflow_dispatch) dient nur dem Testen des Builds
 # ohne einen Tag zu setzen - dabei wird kein Release veroeffentlicht und
@@ -67,10 +70,11 @@ jobs:
           git fetch origin main
           git checkout main
           cp firmware.factory.bin docs/firmware.factory.bin
-          git add -f docs/firmware.factory.bin
+          sed -i -E 's/manifest="manifest\.json(\?v=[^"]*)?"/manifest="manifest.json?v=${{ github.ref_name }}"/' docs/index.html
+          git add -f docs/firmware.factory.bin docs/index.html
           if git diff --cached --quiet; then
-            echo "docs/firmware.factory.bin unveraendert, kein Commit noetig"
+            echo "docs/ unveraendert, kein Commit noetig"
           else
-            git commit -m "docs: firmware.factory.bin auf ${{ github.ref_name }} aktualisieren"
+            git commit -m "docs: Firmware und Cache-Busting auf ${{ github.ref_name }} aktualisieren"
             git push origin main
           fi
