@@ -296,8 +296,20 @@ Commits bewusst gesetzt werden.
 ### 2. In Home Assistant einbinden
 
 Das Gerät meldet sich per mDNS. Unter *Einstellungen → Geräte & Dienste*
-taucht `assist-satellit` als ESPHome-Gerät auf. Beim Hinzufügen den
-`api_encryption_key` aus `secrets.yaml` eintragen.
+taucht `assist-satellit` als ESPHome-Gerät auf. Beim Hinzufügen fragt Home
+Assistant nach einem Verschlüsselungscode — welcher das ist, hängt davon ab,
+wie geflasht wurde:
+
+- **Manueller Build:** der `api_encryption_key` aus dem eigenen `secrets.yaml`.
+- **Browser-Flash (anonymer Build):** ein fester, nicht geheimer Platzhalter
+  aus [`secrets.public.yaml`](secrets.public.yaml) — steht auch auf der
+  Flash-Seite selbst im Akkordeon "Nach dem Flashen":
+  ```
+  Bw1nT2P6zfBP++xn1gTvfloJweHwPrXXRj0I01RdKZk=
+  ```
+  Home Assistant schlägt den Code nicht automatisch vor, ein Import über das
+  ESPHome-Dashboard/Builder-Add-on ist dafür nicht nötig — einfach von Hand
+  eintragen.
 
 Danach unter *Einstellungen → Sprachassistenten* eine Assist-Pipeline mit
 deutschem STT/TTS zuweisen.
