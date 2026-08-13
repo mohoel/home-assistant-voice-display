@@ -239,7 +239,19 @@ details[open] .chev { transform: rotate(90deg); }
         drücken, dann <strong>BOOT</strong> loslassen — und den Dialog erneut
         öffnen.
       </li>
+      <li>
+        Fragt ESP Web Tools vor dem Flashen „Gerät löschen?" — Haken setzen.
+        Nur dann öffnet sich direkt danach das WLAN-Fenster automatisch statt
+        eines zusätzlichen Klicks auf „Verbinden"/„Wi-Fi ändern".
+      </li>
       <li>Flashvorgang abwarten (ein bis zwei Minuten). Nicht abstecken.</li>
+      <li>
+        War das Board schon einmal mit diesem WLAN verbunden (z. B. ein
+        zweiter Testlauf), zeigt ESP Web Tools statt eines Auswahlfensters
+        direkt „Wi-Fi ändern" an — derselbe Dialog, nur mit anderer
+        Beschriftung, weil das Gerät sich schon als verbunden meldet.
+        Anklicken öffnet dieselbe Netzwerkauswahl.
+      </li>
     </ol>
   </details>
 
@@ -321,6 +333,22 @@ details[open] .chev { transform: rotate(90deg); }
   </footer>
 
 </div>
+
+<script>
+  // ESP Web Tools haengt seinen Installations-Dialog direkt an document.body
+  // (nicht ins esp-web-install-button hinein) und feuert beim Schliessen ein
+  // "closed"-CustomEvent mit bubbles+composed - deshalb reicht ein Listener
+  // auf document. Er greift beim Schliessen so oder so (auch bei Abbruch),
+  // das ist bewusst: die Sektion ist ohnehin hilfreicher Kontext, kein
+  // Hinweis auf einen erfolgreichen Abschluss.
+  document.addEventListener('closed', () => {
+    var details = document.getElementById('nach-dem-flashen');
+    if (details && !details.open) {
+      details.open = true;
+      details.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  });
+</script>
 
 </body>
 </html>

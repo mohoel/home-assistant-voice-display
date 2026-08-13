@@ -198,6 +198,32 @@ Punkte, die man beim Ändern leicht übersieht:
   oder außerhalb des Browser-Flashs flasht (z. B. `esphome run`, wo Improv
   ohnehin nicht angezeigt wird). Beide Wege setzen dieselben
   `wifi:`-Zugangsdaten, es gibt keinen zweiten Speicherort.
+  **Das automatische WLAN-Auswahlfenster kommt nur unter zwei Bedingungen
+  zugleich**, nachgelesen im Quelltext von `esp-web-tools`
+  (`install-dialog.ts`): `this._state = supportsImprov && this._installErase
+  ? "PROVISION" : "DASHBOARD"`. Heißt: Improv allein reicht nicht — nur wenn
+  ESP Web Tools den Flash als *neue* Installation erkennt (keine passende
+  Firmware-Kennung per Improv Serial gefunden) **und** die Nutzerin beim
+  Erase-Prompt (`new_install_prompt_erase: true` in `docs/manifest.json`) den
+  Haken bei „Gerät löschen" setzt, öffnet sich die Netzwerkauswahl von
+  selbst. Sonst landet der Dialog in `DASHBOARD` und zeigt nur einen Knopf —
+  „Connect to Wi-Fi", wenn Improv das Gerät als nicht verbunden meldet, oder
+  „Change Wi-Fi", wenn es sich (mit welchen Zugangsdaten auch immer, auch
+  alten) schon verbunden hat. Beide Knöpfe öffnen dieselbe Auswahlmaske,
+  „Change" ist kein Umweg und überschreibt nichts, bevor die Nutzerin dort
+  wirklich etwas einträgt. Ein Board, das schon einmal mit *irgendeiner*
+  Firmware dieses Projekts geflasht wurde (auch der eigene Build mit echtem
+  `secrets.yaml`), zeigt deshalb beim nächsten Browser-Flash meist
+  `DASHBOARD` statt `PROVISION`, weil Improv die Firmware wiedererkennt.
+  **`docs/index.html` gleicht das mit einem eigenen `<script>` am Ende aus**,
+  nicht mit einer esp-web-tools-Einstellung: `ewt-install-dialog` hängt sich
+  direkt an `document.body` (nicht ins `esp-web-install-button` hinein) und
+  feuert beim Schließen ein `closed`-CustomEvent mit `bubbles: true, composed:
+  true` — ein Listener auf `document` reicht deshalb, um das Akkordeon
+  „Nach dem Flashen" (mit dem API-Key) automatisch aufzuklappen und
+  dorthin zu scrollen. Der Listener unterscheidet nicht zwischen
+  erfolgreichem Abschluss und Abbruch — bewusst, die Sektion ist so oder so
+  hilfreicher Kontext, kein Erfolgsindikator.
 - **Ein Tippen bricht den laufenden Sprachvorgang ab.** `on_screen_touch`
   verzweigt nach Phase: Zuhören/Verarbeitung/Sprachausgabe → `abort_session`,
   sonst wie bisher Display wecken bzw. nur aufhellen. `abort_session` ruft
