@@ -1,0 +1,23 @@
+# Home Assistant Voice Satellite - oeffentlicher Build ohne einkompilierte
+# WLAN-Zugangsdaten (Waveshare ESP32-S3-Touch-AMOLED-1.75).
+#
+# Nur fuer den anonymen Browser-Flash gedacht (docs/index.html), kompiliert
+# von .github/workflows/release.yml mit secrets.public.yaml. Der einzige
+# Unterschied zu assist-satellit.yaml ist packages/wifi-public.yaml statt
+# packages/wifi-local.yaml - dort steht auch, warum: ohne einkompilierte SSID
+# meldet das Geraet Improv gegenueber ehrlich "nicht eingerichtet" und zeigt
+# im Browser sofort die Netzwerkauswahl, statt gegen eine Platzhalter-SSID zu
+# laufen, die nie existiert.
+#
+# Fuer den eigenen Betrieb: assist-satellit.yaml mit echtem secrets.yaml
+# verwenden, nicht diese Datei.
+
+substitutions: !include common-substitutions.yaml
+
+packages:
+  core: !include packages/core.yaml
+  wifi: !include packages/wifi-public.yaml
+  hardware: !include packages/hardware.yaml
+  voice: !include packages/voice.yaml
+  ui: !include packages/ui.yaml
+  settings: !include packages/settings.yaml

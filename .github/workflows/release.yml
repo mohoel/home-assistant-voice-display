@@ -2,10 +2,14 @@ name: Firmware-Release
 
 # Baut die Firmware ausschliesslich bei getaggten Versionen (v*.*.*) und
 # haengt firmware.factory.bin als Release-Asset an - passend zur Regel aus
-# der README ("Updates" / OTA per Git-Tag). Kompiliert wird mit
-# secrets.public.yaml, NICHT mit echten Zugangsdaten: dieser Build ist fuer
-# den anonymen Browser-Flash auf docs/index.html gedacht, nicht fuer den
-# eigenen Betrieb. Siehe secrets.public.yaml fuer die Begruendung.
+# der README ("Updates" / OTA per Git-Tag). Kompiliert wird
+# assist-satellit-public.yaml mit secrets.public.yaml, NICHT
+# assist-satellit.yaml mit echten Zugangsdaten: dieser Build ist fuer den
+# anonymen Browser-Flash auf docs/index.html gedacht, nicht fuer den eigenen
+# Betrieb, und kompiliert bewusst keine WLAN-SSID ein (siehe
+# packages/wifi-public.yaml). Das esphome.name-Substitution ist in beiden
+# Einstiegsdateien identisch (common-substitutions.yaml), der Build-Ordner
+# .esphome/build/assist-satellit/ bleibt deshalb derselbe.
 #
 # Zusaetzlich zum Release-Asset wird dieselbe Datei nach docs/ committet:
 # GitHub-Release-Assets senden kein Access-Control-Allow-Origin, ein
@@ -50,7 +54,7 @@ jobs:
         run: cp secrets.public.yaml secrets.yaml
 
       - name: Firmware kompilieren
-        run: esphome compile assist-satellit.yaml
+        run: esphome compile assist-satellit-public.yaml
 
       - name: Firmware-Datei einsammeln
         run: cp .esphome/build/assist-satellit/build/firmware.factory.bin firmware.factory.bin

@@ -1,0 +1,46 @@
+# WLAN-Package fuer den oeffentlichen Build (assist-satellit-public.yaml +
+# secrets.public.yaml, kompiliert von .github/workflows/release.yml fuer den
+# Browser-Flash auf docs/index.html). Der einzige, aber entscheidende
+# Unterschied zu packages/wifi-local.yaml: hier steht keine SSID/kein
+# Passwort im wifi:-Block.
+#
+# Grund: ESPHomes improv_serial-Komponente meldet dem Browser "provisioned",
+# sobald ueberhaupt eine SSID einkompiliert ist - unabhaengig davon, ob die
+# Verbindung je klappt (improv_serial_component.cpp, Setup:
+# `if (wifi::global_wifi_component->has_sta()) { this->state_ =
+# improv::STATE_PROVISIONED; }`; has_sta() prueft nur "ist irgendein SSID
+# konfiguriert", nicht "verbunden"). Mit einer - und sei es ungueltigen -
+# Platzhalter-SSID aus secrets.public.yaml galt das Geraet also ab dem ersten
+# Bootvorschlag als bereits eingerichtet, obwohl es in einer Endlosschleife
+# gegen ein nie existierendes Netz lief (WLAN-Log: "No matching network
+# found" / "Connecting to 'lumi-platzhalter-ssid'..." im Sekundentakt). ESP
+# Web Tools zeigte deshalb "Change Wi-Fi" statt der automatischen
+# Netzwerkauswahl - genau der ESPHome-Ready-made-Projects-Flow (siehe
+# esphome/home-assistant-voice-pe, dessen wifi:-Block ebenfalls ganz ohne
+# ssid/password auskommt), den wir hier nachbilden.
+#
+# Eine leere SSID ("") als Ausweg scheidet aus - ESPHomes wifi:-Schema lehnt
+# das mit "SSID can't be empty" ab. Der einzige Weg ist, ssid/password im
+# YAML komplett wegzulassen, nicht auf einen leeren Wert zu setzen. Deshalb
+# ein eigenes Package statt einer bedingten Substitution: ESPHome kann
+# Mapping-Schluessel nicht ueber ${...} bedingt weglassen, das ist reine
+# Textersetzung vor dem YAML-Parsing.
+#
+# Ohne einkompilierte SSID ist has_sta() beim allerersten Boot tatsaechlich
+# false, improv_serial meldet ehrlich "nicht eingerichtet", und das Geraet
+# unternimmt keinen einzigen aussichtslosen Verbindungsversuch - es wartet
+# einfach auf Zugangsdaten per Improv (ueber dieselbe USB-Verbindung, direkt
+# nach dem Flashen im Browser) oder, falls jemand den Improv-Schritt
+# uebergeht, auf jemanden, der sich mit dem Fallback-Hotspot verbindet und
+# das Captive Portal ausfuellt. Sobald ein Netz auf einem der beiden Wege
+# eingetragen wird, speichert save_wifi_sta() es dauerhaft im Flash
+# (Preferences) und verbindet - das ueberlebt auch ein OTA-Update, ein
+# vollstaendiges Neuflashen (Erase) loescht es wieder mit.
+wifi:
+  power_save_mode: none
+  ap:
+    password: !secret ap_password
+
+captive_portal:
+
+improv_serial:

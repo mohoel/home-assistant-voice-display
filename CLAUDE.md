@@ -23,6 +23,13 @@ esphome clean assist-satellit.yaml                                    # Build-Ca
 blockieren. `config` ist der schnelle Vorabcheck und sollte laufen, bevor eine
 Änderung als fertig gemeldet wird.
 
+Für den eigenen Betrieb ist `assist-satellit.yaml` (echtes `secrets.yaml`)
+immer die richtige Datei für obige Befehle. `assist-satellit-public.yaml`
+(kein `--device`, keine OTA — nur `config`/`compile`) ist der anonyme Build
+für den Browser-Flash und wird sonst nur von `.github/workflows/release.yml`
+angefasst; siehe Abschnitt *Aufbau* für den Unterschied. **Beide nie
+parallel kompilieren** — sie teilen sich denselben Build-Ordner.
+
 Es gibt **keine Testsuite und keine CI**. Verifikation ist die Kette
 `config` → `compile` → OTA → `logs`; die Checkliste dazu steht im Abschnitt
 *Verification* in [docs/plan.md](docs/plan.md). `config` löst Substitutions und
@@ -41,7 +48,9 @@ Packages auf, prüft aber keine Lambdas — C++-Fehler in `!lambda` fallen erst 
   enthält bewusst keine echten Zugangsdaten, sondern feste Platzhalter für den
   anonymen Release-Build hinter `docs/` (siehe `.github/workflows/release.yml`
   und README, Abschnitt *Einrichtung*). Beim Anfassen dieser Datei nicht mit
-  `secrets.yaml` verwechseln.
+  `secrets.yaml` verwechseln. Es enthält bewusst **keine** `wifi_ssid`/
+  `wifi_password` (mehr) — der öffentliche Build (`assist-satellit-public.yaml`)
+  kompiliert gar keine WLAN-Zugangsdaten ein, siehe `packages/wifi-public.yaml`.
 - **`min_version: 2026.7.0`** nicht senken — darunter fehlt der CST9217-Support.
 
 ## Verifizierte Hardware-Fakten
@@ -65,18 +74,48 @@ nicht devices.esphome.io.
 ## Aufbau
 
 Geräte-YAML + Packages. **Phasen-IDs, Symbolfarben und Timings stehen als
-Substitutions in `assist-satellit.yaml`** — dort ändern, nicht in den
+Substitutions in `common-substitutions.yaml`** — dort ändern, nicht in den
 Packages. Farben sind reine Compile-Zeit-Werte, es gibt keine
 Laufzeit-Einstellung dafür: eine Änderung braucht immer einen Neubau.
 
+**Es gibt zwei Einstiegspunkte, die dieselben Substitutions und Packages
+teilen und sich nur im WLAN-Package unterscheiden:**
+
+| Datei | Zweck | WLAN-Package |
+|---|---|---|
+| `assist-satellit.yaml` | Eigener Build mit echtem `secrets.yaml` — `esphome run`/`compile` ohne Argument nutzt das | `packages/wifi-local.yaml` (SSID einkompiliert) |
+| `assist-satellit-public.yaml` | Anonymer Build für den Browser-Flash (`docs/`), kompiliert von `.github/workflows/release.yml` mit `secrets.public.yaml` | `packages/wifi-public.yaml` (keine SSID, siehe unten) |
+
+Beide binden `common-substitutions.yaml` per `substitutions: !include` ein, damit
+Phasen-IDs, Farben und Timings nicht doppelt gepflegt werden müssen.
+
 | Datei | Inhalt |
 |---|---|
-| `packages/core.yaml` | SoC, PSRAM, WLAN, API, OTA, Zeit, Diagnose |
+| `common-substitutions.yaml` | Phasen-IDs, Farben, Timings — gemeinsame Basis für beide Einstiegspunkte |
+| `packages/core.yaml` | SoC, PSRAM, API, OTA, Zeit, Diagnose (WLAN bewusst **nicht** hier, siehe oben) |
+| `packages/wifi-local.yaml` | WLAN mit einkompilierter SSID/Passwort aus `secrets.yaml`, plus AP-Fallback, Captive Portal, Improv |
+| `packages/wifi-public.yaml` | WLAN **ohne** SSID/Passwort — Improv/Captive Portal sind hier der einzige Weg zum Netz |
 | `packages/hardware.yaml` | I2C, QSPI-Display, Touch, I2S, ES7210/ES8311, Media Player |
 | `packages/voice.yaml` | Wake Word, Voice Assistant, Engine-Umschaltung, Mute |
 | `packages/ui.yaml` | Fonts, LVGL-Seiten, Phasen-Animationen, Standby-Uhr, Zifferblatt, Gesicht, Timer-Ring |
 | `packages/settings.yaml` | Ausrichtung und Standby-Seite als HA-Entities |
 | `sounds/` | Klingel- und Bestätigungston als FLAC, eingebettet über `files:` am Media Player |
+
+**Warum zwei WLAN-Packages statt einer bedingten Substitution:** ESPHome kann
+einen Mapping-Schlüssel nicht über `${...}` bedingt weglassen — Substitutions
+sind reine Textersetzung vor dem YAML-Parsing, kein Praeprozessor mit
+if/else für YAML-Struktur. Eine leere SSID (`""`) als Ausweg scheidet ebenso
+aus: ESPHomes `wifi:`-Schema lehnt das mit "SSID can't be empty" ab. Der
+einzige Weg ist, `ssid`/`password` im YAML komplett wegzulassen — das geht nur
+mit zwei getrennten Dateien.
+
+**Build-Ordner-Falle:** `esphome.name` (`assist-satellit`) ist in beiden
+Einstiegsdateien identisch (kommt aus `common-substitutions.yaml`), daher
+landen beide Builds im selben `.esphome/build/assist-satellit/`. Niemals
+`assist-satellit.yaml` und `assist-satellit-public.yaml` parallel
+kompilieren — das eine überschreibt Dateien, die das andere gerade liest, und
+beide Builds brechen mit kryptischen "No such file or directory"-Fehlern ab.
+Immer nacheinander bauen.
 
 Die Voice-Assistant-Logik folgt `esphome/wake-word-voice-assistants`
 (esp32-s3-box-3) und `esphome/home-assistant-voice-pe`. Bei neuen Features zuerst
@@ -192,27 +231,40 @@ Punkte, die man beim Ändern leicht übersieht:
   ESP Web Tools flasht (`logger.hardware_uart: USB_SERIAL_JTAG`), und
   `esp-web-install-button` erkennt Improv-fähige Firmware danach automatisch
   — direkt im Browser lässt sich das WLAN eintragen, ohne dass sich irgendwer
-  mit einem zweiten Hotspot verbinden muss. Der `wifi: ap:`-Block bleibt
-  bewusst bestehen: er ist die Rücksprungebene, falls jemand den
-  Improv-Schritt in ESP Web Tools überspringt, die Seite vorher schließt,
-  oder außerhalb des Browser-Flashs flasht (z. B. `esphome run`, wo Improv
-  ohnehin nicht angezeigt wird). Beide Wege setzen dieselben
-  `wifi:`-Zugangsdaten, es gibt keinen zweiten Speicherort.
-  **`improv_serial` meldet „provisioned" schon dann, wenn SSID/Passwort nur
-  gesetzt sind — nicht wenn die Verbindung wirklich klappt.** Quelltext
+  mit einem zweiten Hotspot verbinden muss. Der `wifi: ap:`-Block bleibt in
+  beiden WLAN-Packages bewusst bestehen: er ist die Rücksprungebene, falls
+  jemand den Improv-Schritt in ESP Web Tools überspringt, die Seite vorher
+  schließt, oder außerhalb des Browser-Flashs flasht (z. B. `esphome run`, wo
+  Improv ohnehin nicht angezeigt wird).
+  **`improv_serial` meldet „provisioned" schon dann, wenn eine SSID einkompiliert
+  ist — nicht wenn die Verbindung wirklich klappt.** Quelltext
   `improv_serial_component.cpp`, Setup: `if
   (wifi::global_wifi_component->has_sta()) { this->state_ =
   improv::STATE_PROVISIONED; }`. `has_sta()` prüft nur, ob überhaupt ein
-  SSID konfiguriert ist, nicht ob es existiert oder erreichbar ist — und
-  nichts im späteren `loop()` korrigiert das zurück, wenn die WLAN-Verbindung
-  mit dem (im anonymen Build absichtlich ungültigen) Platzhalter aus
-  `secrets.public.yaml` nie zustande kommt. Ein *leerer* Platzhalter als
-  Ausweg scheidet aus — ESPHomes `wifi:`-Schema lehnt eine leere SSID ab
-  („SSID can't be empty"). Deshalb meldet sich der anonyme Build bei
-  `improv_serial` faktisch **immer** als „provisioned", auch beim allerersten
-  Boot ohne jede echte Verbindung.
-  **Das automatische WLAN-Auswahlfenster hängt trotzdem nicht an diesem
-  Zustand**, sondern an einer ESP-Web-Tools-eigenen Entscheidung
+  SSID konfiguriert ist, nicht ob es existiert oder erreichbar ist, und nichts
+  im späteren `loop()` korrigiert das zurück.
+  **Das war die eigentliche Ursache, warum der öffentliche Build nie eine
+  echte Provisionierung zeigte, sondern in einer Endlosschleife gegen die
+  Platzhalter-SSID lief** (`No matching network found` /
+  `Connecting to 'lumi-platzhalter-ssid'...` im WLAN-Log): Solange
+  `secrets.public.yaml` eine — und sei sie ungültige — SSID lieferte, war
+  `has_sta()` sofort wahr. Ein *leerer* Platzhalter als Ausweg scheidet aus —
+  ESPHomes `wifi:`-Schema lehnt eine leere SSID ab („SSID can't be empty").
+  Der einzige tragfähige Fix war strukturell: `packages/wifi-public.yaml`
+  (eingebunden von `assist-satellit-public.yaml`) lässt `ssid`/`password` im
+  `wifi:`-Block komplett weg, genau wie `esphome/home-assistant-voice-pe`
+  (Nabu Casas eigenes Ready-made-Projekt) das macht. Damit ist `has_sta()`
+  beim allerersten Boot tatsächlich `false`, `improv_serial` meldet ehrlich
+  „nicht eingerichtet", und das Gerät unternimmt keinen einzigen aussichtslosen
+  Verbindungsversuch, bis jemand über Improv oder das Captive Portal ein
+  echtes Netz einträgt (siehe `packages/wifi-public.yaml` für die volle
+  Herleitung).
+  **Im lokalen Build (`packages/wifi-local.yaml`) gilt die `has_sta()`-Immer-
+  wahr-Eigenheit weiterhin** — dort ist das aber unkritisch, weil dort ohnehin
+  eine echte, funktionierende SSID aus `secrets.yaml` einkompiliert ist und
+  Improv nur ein optionaler Zusatzweg ist, kein Muss.
+  **Das automatische WLAN-Auswahlfenster hängt zusätzlich an einer zweiten,
+  unabhängigen Bedingung** — einer ESP-Web-Tools-eigenen Entscheidung
   (`install-dialog.ts`): `this._state = supportsImprov && this._installErase
   ? "PROVISION" : "DASHBOARD"` — gesetzt direkt nach einer tatsächlich
   ausgeführten Installation, unabhängig davon, was das Gerät selbst meldet.
@@ -225,14 +277,22 @@ Punkte, die man beim Ändern leicht übersieht:
   Firmware-Kennung auf dem Gerät (`_isSameFirmware`). Läuft dagegen exakt
   dieselbe Firmware-Version schon auf dem Board (z. B. ein zweiter Testlauf
   mit demselben Release), überspringt ESP Web Tools die Installation
-  komplett und geht direkt zu `DASHBOARD` — dort entscheidet dann doch wieder
-  der (wegen `has_sta()` faktisch immer „provisioned") Improv-Zustand über
-  die Beschriftung: „Change Wi-Fi" statt „Connect to Wi-Fi". Beide Knöpfe
-  öffnen dieselbe Auswahlmaske und überschreiben nichts, bevor dort wirklich
-  etwas eingetragen wird — nur eben nicht automatisch. Für echte Erstnutzer
-  mit einem vorher nie mit diesem Projekt geflashten Board bleibt der
-  Automatismus zuverlässig; auffällig wird die Lücke nur beim wiederholten
-  Testen desselben Boards mit derselben Version.
+  komplett und geht direkt zu `DASHBOARD` — dort entscheidet dann wieder der
+  Improv-Zustand über die Beschriftung: „Change Wi-Fi" (schon provisioniert)
+  statt „Connect to Wi-Fi" (noch nicht). Beide Knöpfe öffnen dieselbe
+  Auswahlmaske und überschreiben nichts, bevor dort wirklich etwas eingetragen
+  wird — nur eben nicht automatisch. Beide Fixes zusammen — kein
+  `new_install_prompt_erase` **und** keine einkompilierte SSID im öffentlichen
+  Build — sind nötig: der eine sorgt dafür, dass ESP Web Tools bei einer
+  echten Neuinstallation überhaupt den `PROVISION`-Zustand erreicht, der
+  andere dafür, dass das Gerät sich in diesem Zustand auch ehrlich als „nicht
+  eingerichtet" meldet. Für echte Erstnutzer mit einem vorher nie mit diesem
+  Projekt geflashten Board ist der Automatismus damit zuverlässig; die
+  „Change Wi-Fi"-Lücke bleibt nur beim wiederholten Testen desselben Boards
+  mit exakt derselben Firmware-Version bestehen (`_isSameFirmware`
+  überspringt dann die Installation komplett) — dort führt der Knopf aber zur
+  identischen, funktionierenden Auswahlmaske, nur ohne den automatischen
+  Aufruf.
   **`docs/index.html` gleicht mit einem eigenen `<script>` am Ende aus**,
   nicht mit einer esp-web-tools-Einstellung: `ewt-install-dialog` hängt sich
   direkt an `document.body` (nicht ins `esp-web-install-button` hinein) und
