@@ -239,18 +239,16 @@ details[open] .chev { transform: rotate(90deg); }
         drücken, dann <strong>BOOT</strong> loslassen — und den Dialog erneut
         öffnen.
       </li>
-      <li>
-        Fragt ESP Web Tools vor dem Flashen „Gerät löschen?" — Haken setzen.
-        Nur dann öffnet sich direkt danach das WLAN-Fenster automatisch statt
-        eines zusätzlichen Klicks auf „Verbinden"/„Wi-Fi ändern".
-      </li>
       <li>Flashvorgang abwarten (ein bis zwei Minuten). Nicht abstecken.</li>
       <li>
-        War das Board schon einmal mit diesem WLAN verbunden (z. B. ein
-        zweiter Testlauf), zeigt ESP Web Tools statt eines Auswahlfensters
-        direkt „Wi-Fi ändern" an — derselbe Dialog, nur mit anderer
-        Beschriftung, weil das Gerät sich schon als verbunden meldet.
-        Anklicken öffnet dieselbe Netzwerkauswahl.
+        Direkt danach öffnet sich automatisch das Fenster zur WLAN-Auswahl —
+        ohne weiteren Klick.
+      </li>
+      <li>
+        Ausnahme: Lief auf dem Board schon exakt dieselbe Firmware-Version
+        (z. B. ein zweiter Testlauf), erkennt ESP Web Tools das, flasht gar
+        nicht neu und zeigt direkt „Change Wi-Fi" statt der Auswahl — derselbe
+        Dialog, nur ein Klick mehr und mit anderer Beschriftung.
       </li>
     </ol>
   </details>

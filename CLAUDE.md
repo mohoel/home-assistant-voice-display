@@ -198,24 +198,42 @@ Punkte, die man beim Ändern leicht übersieht:
   oder außerhalb des Browser-Flashs flasht (z. B. `esphome run`, wo Improv
   ohnehin nicht angezeigt wird). Beide Wege setzen dieselben
   `wifi:`-Zugangsdaten, es gibt keinen zweiten Speicherort.
-  **Das automatische WLAN-Auswahlfenster kommt nur unter zwei Bedingungen
-  zugleich**, nachgelesen im Quelltext von `esp-web-tools`
+  **`improv_serial` meldet „provisioned" schon dann, wenn SSID/Passwort nur
+  gesetzt sind — nicht wenn die Verbindung wirklich klappt.** Quelltext
+  `improv_serial_component.cpp`, Setup: `if
+  (wifi::global_wifi_component->has_sta()) { this->state_ =
+  improv::STATE_PROVISIONED; }`. `has_sta()` prüft nur, ob überhaupt ein
+  SSID konfiguriert ist, nicht ob es existiert oder erreichbar ist — und
+  nichts im späteren `loop()` korrigiert das zurück, wenn die WLAN-Verbindung
+  mit dem (im anonymen Build absichtlich ungültigen) Platzhalter aus
+  `secrets.public.yaml` nie zustande kommt. Ein *leerer* Platzhalter als
+  Ausweg scheidet aus — ESPHomes `wifi:`-Schema lehnt eine leere SSID ab
+  („SSID can't be empty"). Deshalb meldet sich der anonyme Build bei
+  `improv_serial` faktisch **immer** als „provisioned", auch beim allerersten
+  Boot ohne jede echte Verbindung.
+  **Das automatische WLAN-Auswahlfenster hängt trotzdem nicht an diesem
+  Zustand**, sondern an einer ESP-Web-Tools-eigenen Entscheidung
   (`install-dialog.ts`): `this._state = supportsImprov && this._installErase
-  ? "PROVISION" : "DASHBOARD"`. Heißt: Improv allein reicht nicht — nur wenn
-  ESP Web Tools den Flash als *neue* Installation erkennt (keine passende
-  Firmware-Kennung per Improv Serial gefunden) **und** die Nutzerin beim
-  Erase-Prompt (`new_install_prompt_erase: true` in `docs/manifest.json`) den
-  Haken bei „Gerät löschen" setzt, öffnet sich die Netzwerkauswahl von
-  selbst. Sonst landet der Dialog in `DASHBOARD` und zeigt nur einen Knopf —
-  „Connect to Wi-Fi", wenn Improv das Gerät als nicht verbunden meldet, oder
-  „Change Wi-Fi", wenn es sich (mit welchen Zugangsdaten auch immer, auch
-  alten) schon verbunden hat. Beide Knöpfe öffnen dieselbe Auswahlmaske,
-  „Change" ist kein Umweg und überschreibt nichts, bevor die Nutzerin dort
-  wirklich etwas einträgt. Ein Board, das schon einmal mit *irgendeiner*
-  Firmware dieses Projekts geflasht wurde (auch der eigene Build mit echtem
-  `secrets.yaml`), zeigt deshalb beim nächsten Browser-Flash meist
-  `DASHBOARD` statt `PROVISION`, weil Improv die Firmware wiedererkennt.
-  **`docs/index.html` gleicht das mit einem eigenen `<script>` am Ende aus**,
+  ? "PROVISION" : "DASHBOARD"` — gesetzt direkt nach einer tatsächlich
+  ausgeführten Installation, unabhängig davon, was das Gerät selbst meldet.
+  `_installErase` wiederum kommt aus `new_install_prompt_erase` in
+  `docs/manifest.json`: **`true`** fragt vorher per Checkbox („Gerät
+  löschen?"), **`false`/fehlend** löscht bei einer *neuen* Installation
+  automatisch, ohne zu fragen (`_startInstall(true)`, kein Klick nötig) — wir
+  lassen den Schlüssel deshalb bewusst weg. „Neu" heißt hier: ESP Web Tools
+  erkennt über Improv Serial keine zur Manifest-`version` passende
+  Firmware-Kennung auf dem Gerät (`_isSameFirmware`). Läuft dagegen exakt
+  dieselbe Firmware-Version schon auf dem Board (z. B. ein zweiter Testlauf
+  mit demselben Release), überspringt ESP Web Tools die Installation
+  komplett und geht direkt zu `DASHBOARD` — dort entscheidet dann doch wieder
+  der (wegen `has_sta()` faktisch immer „provisioned") Improv-Zustand über
+  die Beschriftung: „Change Wi-Fi" statt „Connect to Wi-Fi". Beide Knöpfe
+  öffnen dieselbe Auswahlmaske und überschreiben nichts, bevor dort wirklich
+  etwas eingetragen wird — nur eben nicht automatisch. Für echte Erstnutzer
+  mit einem vorher nie mit diesem Projekt geflashten Board bleibt der
+  Automatismus zuverlässig; auffällig wird die Lücke nur beim wiederholten
+  Testen desselben Boards mit derselben Version.
+  **`docs/index.html` gleicht mit einem eigenen `<script>` am Ende aus**,
   nicht mit einer esp-web-tools-Einstellung: `ewt-install-dialog` hängt sich
   direkt an `document.body` (nicht ins `esp-web-install-button` hinein) und
   feuert beim Schließen ein `closed`-CustomEvent mit `bubbles: true, composed:
