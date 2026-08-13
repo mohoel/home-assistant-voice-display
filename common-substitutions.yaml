@@ -6,7 +6,7 @@
 # siehe dort).
 #
 name: assist-satellit
-friendly_name: Assist Satellit
+friendly_name: Lumi Assist
 project_version: "0.1.0"
 
 # Voice-Assistant-Phasen. Die IDs entsprechen dem offiziellen
