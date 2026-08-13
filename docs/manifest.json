@@ -7,7 +7,7 @@
       "chipFamily": "ESP32-S3",
       "parts": [
         {
-          "path": "https://github.com/mohoel/home-assistant-voice-lumi/releases/latest/download/firmware.factory.bin",
+          "path": "firmware.factory.bin",
           "offset": 0
         }
       ]

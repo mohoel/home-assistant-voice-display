@@ -7,8 +7,16 @@ name: Firmware-Release
 # den anonymen Browser-Flash auf docs/index.html gedacht, nicht fuer den
 # eigenen Betrieb. Siehe secrets.public.yaml fuer die Begruendung.
 #
+# Zusaetzlich zum Release-Asset wird dieselbe Datei nach docs/ committet:
+# GitHub-Release-Assets senden kein Access-Control-Allow-Origin, ein
+# fetch() von der Pages-Seite darauf scheitert im Browser immer mit
+# "Failed to fetch" (CORS), unabhaengig vom Tag-Stand. manifest.json
+# referenziert deshalb einen relativen, same-origin Pfad statt der
+# Release-URL.
+#
 # Manuelles Anstossen (workflow_dispatch) dient nur dem Testen des Builds
-# ohne einen Tag zu setzen - dabei wird kein Release veroeffentlicht.
+# ohne einen Tag zu setzen - dabei wird kein Release veroeffentlicht und
+# auch nichts nach docs/ committet.
 
 on:
   push:
@@ -50,3 +58,19 @@ jobs:
         with:
           files: firmware.factory.bin
           generate_release_notes: true
+
+      - name: Firmware same-origin nach docs/ committen (Browser-Flash)
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch origin main
+          git checkout main
+          cp firmware.factory.bin docs/firmware.factory.bin
+          git add -f docs/firmware.factory.bin
+          if git diff --cached --quiet; then
+            echo "docs/firmware.factory.bin unveraendert, kein Commit noetig"
+          else
+            git commit -m "docs: firmware.factory.bin auf ${{ github.ref_name }} aktualisieren"
+            git push origin main
+          fi

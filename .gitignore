@@ -7,6 +7,10 @@ docs/testplan.md
 # ESPHome Build-Artefakte
 .esphome/
 *.bin
+# Ausnahme: liegt bewusst im Repo, GitHub Pages liefert sie same-origin an
+# den Browser-Flash aus (GitHub-Release-Assets senden kein CORS, siehe
+# .github/workflows/release.yml)
+!docs/firmware.factory.bin
 *.elf
 
 # macOS
