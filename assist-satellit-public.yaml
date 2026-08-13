@@ -11,8 +11,16 @@
 #
 # Fuer den eigenen Betrieb: assist-satellit.yaml mit echtem secrets.yaml
 # verwenden, nicht diese Datei.
+#
+# name bleibt bewusst "assist-satellit" statt z.B. "lumi": ein Testflash
+# dieses Builds im eigenen Heimnetz soll nie mit einem der beiden echten
+# Geraete (lumi, lumi-prototyp) um denselben mDNS-Hostnamen konkurrieren -
+# genau das ist einmal passiert und fuehrte zu unvorhersehbaren OTA-Zielen.
 
-substitutions: !include common-substitutions.yaml
+substitutions:
+  <<: !include common-substitutions.yaml
+  name: assist-satellit
+  friendly_name: Lumi
 
 packages:
   core: !include packages/core.yaml

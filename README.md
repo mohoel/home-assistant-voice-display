@@ -55,7 +55,7 @@ Helligkeit — sind ganz normale Home-Assistant-Entities.
   geschaltete Gerät.
 - **Farben und Timings sind Compile-Zeit-Werte.** Es gibt keine
   Laufzeit-Einstellung dafür — wer die Optik ändern will, ändert die
-  Substitutions in `assist-satellit.yaml` und baut neu.
+  Substitutions in `common-substitutions.yaml` und baut neu.
 
 ## Lokal oder mit einer KI-Pipeline
 
@@ -288,7 +288,7 @@ wählen, nicht das Default-`~/esphome/`.
 ⚠️ Das Dashboard committet bei jeder YAML-Änderung automatisch ins lokale
 Git-Repo. Für den einmaligen Erstflash unkritisch, für den laufenden
 Update-Workflow mit getaggten Versionen (siehe unten) sollte weiterhin die
-CLI (`esphome run … --device assist-satellit.local`) genutzt werden, damit
+CLI (`esphome run … --device lumi.local`) genutzt werden, damit
 Commits bewusst gesetzt werden.
 
 </details>
@@ -296,9 +296,10 @@ Commits bewusst gesetzt werden.
 ### 2. In Home Assistant einbinden
 
 Das Gerät meldet sich per mDNS. Unter *Einstellungen → Geräte & Dienste*
-taucht `assist-satellit` als ESPHome-Gerät auf. Beim Hinzufügen fragt Home
-Assistant nach einem Verschlüsselungscode — welcher das ist, hängt davon ab,
-wie geflasht wurde:
+taucht es als ESPHome-Gerät auf — als `lumi` beim eigenen Build über
+`assist-satellit.yaml`, als `assist-satellit` beim anonymen Browser-Flash.
+Beim Hinzufügen fragt Home Assistant nach einem Verschlüsselungscode —
+welcher das ist, hängt davon ab, wie geflasht wurde:
 
 - **Manueller Build:** der `api_encryption_key` aus dem eigenen `secrets.yaml`.
 - **Browser-Flash (anonymer Build):** ein fester, nicht geheimer Platzhalter
@@ -338,8 +339,8 @@ das WLAN fehlt).
 | **Displayberührung** (Event) | `single_press` bei einem Tipp, `double_press` bei einem Doppeltipp — nur im Wartezustand, während eines Sprachvorgangs bricht Tippen stattdessen ab. |
 
 Alle Einstellungen überstehen einen Neustart. Die Symbolfarben sind fest in
-`assist-satellit.yaml` hinterlegt — eine Änderung braucht einen Neubau der
-Firmware.
+`common-substitutions.yaml` hinterlegt — eine Änderung braucht einen Neubau
+der Firmware.
 
 Die Geräteadresse für `esphome run` oder `esphome logs` zeigt Home Assistant
 am Geräteeintrag der ESPHome-Integration an.
@@ -347,7 +348,7 @@ am Geräteeintrag der ESPHome-Integration an.
 ## Updates
 
 ```bash
-git pull && esphome run assist-satellit.yaml --device assist-satellit.local
+git pull && esphome run assist-satellit.yaml --device lumi.local
 ```
 
 Kompiliert auf dem Mac, überträgt per OTA über WLAN. Home Assistant ist
@@ -356,7 +357,7 @@ daran nicht beteiligt.
 Rollback auf eine getaggte Version:
 
 ```bash
-git checkout v0.1.0 && esphome run assist-satellit.yaml --device assist-satellit.local
+git checkout v0.1.0 && esphome run assist-satellit.yaml --device lumi.local
 ```
 
 Ein gepushter Tag `v*.*.*` löst zusätzlich
@@ -369,8 +370,13 @@ Build oben ist davon unabhängig und bleibt der Weg für den laufenden Betrieb.
 
 | Datei | Inhalt |
 |---|---|
-| `assist-satellit.yaml` | Gerätedatei: Substitutions (Farben, Phasen, Timings) und Packages |
-| `packages/core.yaml` | SoC, PSRAM, WLAN, API, OTA, Zeit, Diagnose |
+| `assist-satellit.yaml` | Gerätedatei fürs Hauptgerät „Lumi" (`lumi.local`) |
+| `assist-satellit-prototyp.yaml` | Gerätedatei fürs zweite, gleich aufgebaute Gerät „Lumi Prototyp" (`lumi-prototyp.local`) — gleiches `secrets.yaml`, nur ein eigener Name |
+| `assist-satellit-public.yaml` | Anonymer Build für den Browser-Flash (`docs/`), keine WLAN-Zugangsdaten einkompiliert |
+| `common-substitutions.yaml` | Farben, Phasen-IDs, Timings — von allen drei Gerätedateien gemeinsam genutzt |
+| `packages/core.yaml` | SoC, PSRAM, API, OTA, Zeit, Diagnose |
+| `packages/wifi-local.yaml` | WLAN mit echtem `secrets.yaml` (für `assist-satellit.yaml`/`assist-satellit-prototyp.yaml`) |
+| `packages/wifi-public.yaml` | WLAN ohne einkompilierte Zugangsdaten (für `assist-satellit-public.yaml`) |
 | `packages/hardware.yaml` | I2C, QSPI-Display, Touch, I2S-Audio, Codecs, Media Player |
 | `packages/voice.yaml` | Wake Word, Voice Assistant, Selects, Mute, Text-Sensoren |
 | `packages/ui.yaml` | Fonts, LVGL-Seiten, Phasen-Animationen, Standby-Uhr, Zifferblatt, Gesicht, Timer-Ring |
@@ -381,10 +387,18 @@ Build oben ist davon unabhängig und bleibt der Weg für den laufenden Betrieb.
 | `.github/workflows/release.yml` | Baut bei jedem Git-Tag `v*.*.*` die Firmware für `docs/` und veröffentlicht sie als Release-Asset |
 
 Farben, Phasen-IDs und Standby-Zeiten stehen als Substitutions in
-`assist-satellit.yaml` — dort anpassen, nicht in den Packages. Wie lange der
-Bildschirm nach der letzten Berührung anbleibt, ist `standby_timeout` (30 s);
-danach ist er aus. Farben sind reine Compile-Zeit-Werte, eine Änderung
-braucht also einen Neubau der Firmware.
+`common-substitutions.yaml` — dort anpassen, nicht in den Packages. Wie lange
+der Bildschirm nach der letzten Berührung anbleibt, ist `standby_timeout`
+(30 s); danach ist er aus. Farben sind reine Compile-Zeit-Werte, eine
+Änderung braucht also einen Neubau der Firmware.
+
+**Ein weiteres Gerät einrichten:** eine Kopie von `assist-satellit-prototyp.yaml`
+mit einem neuen `name`/`friendly_name` anlegen (z. B. `assist-satellit-kueche.yaml`
+mit `name: lumi-kueche`). Alle drei nutzen dasselbe `secrets.yaml` — nur der
+Name muss je Gerät eindeutig sein, sonst kollidieren zwei Geräte im lokalen
+Netz um denselben mDNS-Hostnamen (dann hängt mDNS bei einem automatisch ein
+„-2" an, und OTA über den Hostnamen landet unvorhersehbar auf dem einen oder
+anderen Gerät).
 
 ## Hardware-Referenz
 

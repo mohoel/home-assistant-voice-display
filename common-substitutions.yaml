@@ -1,12 +1,15 @@
-# Substitutions, die lokaler Build (assist-satellit.yaml) und oeffentlicher
-# Build (assist-satellit-public.yaml) gemeinsam nutzen. Ausgelagert, damit
-# beide Einstiegspunkte nicht 240+ Zeilen Phasen-IDs, Farben und Timings
-# doppelt pflegen muessen - der einzige Unterschied zwischen beiden ist das
-# WLAN-Package (packages/wifi-local.yaml vs. packages/wifi-public.yaml,
-# siehe dort).
+# Substitutions, die alle Einstiegspunkte (assist-satellit.yaml,
+# assist-satellit-prototyp.yaml, assist-satellit-public.yaml) gemeinsam
+# nutzen. Ausgelagert, damit keiner davon 240+ Zeilen Phasen-IDs, Farben und
+# Timings doppelt pflegen muss.
 #
-name: assist-satellit
-friendly_name: Lumi Assist
+# name/friendly_name stehen bewusst NICHT hier, sondern in jedem
+# Einstiegspunkt einzeln (per YAML-Merge-Key, siehe dort): esphome.name ist
+# zugleich mDNS-Hostname und Build-Ordner-Name. Mehrere physische Geraete mit
+# demselben Namen kollidieren im lokalen Netz - mDNS haengt dann an eines von
+# ihnen automatisch ein "-2" an, und OTA ueber den mDNS-Namen landet
+# unvorhersehbar auf dem einen oder anderen Geraet (das ist einmal genau so
+# passiert). Jeder Einstiegspunkt bekommt deshalb einen eigenen, festen Namen.
 project_version: "0.1.0"
 
 # Voice-Assistant-Phasen. Die IDs entsprechen dem offiziellen

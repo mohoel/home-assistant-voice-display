@@ -14,8 +14,8 @@ Ausbaustufen in [docs/plan.md](docs/plan.md). Antworten auf Deutsch.
 esphome config assist-satellit.yaml                                   # Schema prüfen (schnell)
 esphome compile assist-satellit.yaml                                  # kompilieren (langsam)
 esphome run assist-satellit.yaml --device /dev/cu.usbmodem101         # Erstflash per USB
-esphome run assist-satellit.yaml --device assist-satellit.local       # OTA-Update
-esphome logs assist-satellit.yaml --device assist-satellit.local      # Laufzeit-Logs übers Netz
+esphome run assist-satellit.yaml --device lumi.local                  # OTA-Update
+esphome logs assist-satellit.yaml --device lumi.local                 # Laufzeit-Logs übers Netz
 esphome clean assist-satellit.yaml                                    # Build-Cache verwerfen
 ```
 
@@ -23,12 +23,20 @@ esphome clean assist-satellit.yaml                                    # Build-Ca
 blockieren. `config` ist der schnelle Vorabcheck und sollte laufen, bevor eine
 Änderung als fertig gemeldet wird.
 
-Für den eigenen Betrieb ist `assist-satellit.yaml` (echtes `secrets.yaml`)
-immer die richtige Datei für obige Befehle. `assist-satellit-public.yaml`
-(kein `--device`, keine OTA — nur `config`/`compile`) ist der anonyme Build
-für den Browser-Flash und wird sonst nur von `.github/workflows/release.yml`
-angefasst; siehe Abschnitt *Aufbau* für den Unterschied. **Beide nie
-parallel kompilieren** — sie teilen sich denselben Build-Ordner.
+Für den eigenen Betrieb ist `assist-satellit.yaml` (echtes `secrets.yaml`,
+Gerät „Lumi", Hostname `lumi.local`) das Standardziel für obige Befehle.
+`assist-satellit-prototyp.yaml` ist dieselbe Konfiguration für ein zweites,
+physisch vorhandenes Gerät („Lumi Prototyp", Hostname `lumi-prototyp.local`,
+gleiches `secrets.yaml`) — dieselben Befehle gelten dort analog, nur mit
+`--device lumi-prototyp.local`. `assist-satellit-public.yaml` (kein
+`--device`, keine OTA — nur `config`/`compile`) ist der anonyme Build für den
+Browser-Flash und wird sonst nur von `.github/workflows/release.yml`
+angefasst; siehe Abschnitt *Aufbau* für den Unterschied. **Nie zwei dieser
+drei Dateien parallel kompilieren**, wenn ihr `esphome.name` zufällig
+übereinstimmt — aktuell ist das nicht der Fall (`lumi` / `lumi-prototyp` /
+`assist-satellit` sind alle verschieden), aber wer einen vierten
+Einstiegspunkt mit einem schon vergebenen Namen anlegt, handelt sich dieselbe
+Falle wieder ein (siehe *Build-Ordner-Falle* unten).
 
 Es gibt **keine Testsuite und keine CI**. Verifikation ist die Kette
 `config` → `compile` → OTA → `logs`; die Checkliste dazu steht im Abschnitt
@@ -51,6 +59,10 @@ Packages auf, prüft aber keine Lambdas — C++-Fehler in `!lambda` fallen erst 
   `secrets.yaml` verwechseln. Es enthält bewusst **keine** `wifi_ssid`/
   `wifi_password` (mehr) — der öffentliche Build (`assist-satellit-public.yaml`)
   kompiliert gar keine WLAN-Zugangsdaten ein, siehe `packages/wifi-public.yaml`.
+  Dasselbe `secrets.yaml` (WLAN, `ota_password`, `api_encryption_key`) gilt für
+  **beide** eigenen Geräte (`assist-satellit.yaml` und
+  `assist-satellit-prototyp.yaml`) — es gibt nur die eine Datei, keine
+  zweite pro Gerät.
 - **`min_version: 2026.7.0`** nicht senken — darunter fehlt der CST9217-Support.
 
 ## Verifizierte Hardware-Fakten
@@ -78,20 +90,27 @@ Substitutions in `common-substitutions.yaml`** — dort ändern, nicht in den
 Packages. Farben sind reine Compile-Zeit-Werte, es gibt keine
 Laufzeit-Einstellung dafür: eine Änderung braucht immer einen Neubau.
 
-**Es gibt zwei Einstiegspunkte, die dieselben Substitutions und Packages
-teilen und sich nur im WLAN-Package unterscheiden:**
+**Es gibt drei Einstiegspunkte, die dieselben Substitutions und Packages
+teilen und sich nur in `name`/`friendly_name` (per YAML-Merge-Key) und beim
+öffentlichen Build zusätzlich im WLAN-Package unterscheiden:**
 
-| Datei | Zweck | WLAN-Package |
-|---|---|---|
-| `assist-satellit.yaml` | Eigener Build mit echtem `secrets.yaml` — `esphome run`/`compile` ohne Argument nutzt das | `packages/wifi-local.yaml` (SSID einkompiliert) |
-| `assist-satellit-public.yaml` | Anonymer Build für den Browser-Flash (`docs/`), kompiliert von `.github/workflows/release.yml` mit `secrets.public.yaml` | `packages/wifi-public.yaml` (keine SSID, siehe unten) |
+| Datei | Zweck | Name / Hostname | WLAN-Package |
+|---|---|---|---|
+| `assist-satellit.yaml` | Eigenes Hauptgerät „Lumi", echtes `secrets.yaml` — `esphome run`/`compile` ohne Argument nutzt das | `lumi` / `lumi.local` | `packages/wifi-local.yaml` (SSID einkompiliert) |
+| `assist-satellit-prototyp.yaml` | Zweites, physisch vorhandenes Gerät „Lumi Prototyp", **gleiches** `secrets.yaml` wie oben | `lumi-prototyp` / `lumi-prototyp.local` | `packages/wifi-local.yaml` |
+| `assist-satellit-public.yaml` | Anonymer Build für den Browser-Flash (`docs/`), kompiliert von `.github/workflows/release.yml` mit `secrets.public.yaml` | `assist-satellit` | `packages/wifi-public.yaml` (keine SSID, siehe unten) |
 
-Beide binden `common-substitutions.yaml` per `substitutions: !include` ein, damit
-Phasen-IDs, Farben und Timings nicht doppelt gepflegt werden müssen.
+Alle drei binden `common-substitutions.yaml` per YAML-Merge-Key ein
+(`substitutions: <<: !include common-substitutions.yaml` plus lokale
+`name:`/`friendly_name:`-Overrides), damit Phasen-IDs, Farben und Timings
+nicht dreifach gepflegt werden müssen — `common-substitutions.yaml` selbst
+enthält bewusst **kein** `name`/`friendly_name` mehr, siehe die Begründung
+im Kopfkommentar der Datei. Ein weiteres eigenes Gerät braucht nur eine
+Kopie von `assist-satellit-prototyp.yaml` mit neuem `name`/`friendly_name`.
 
 | Datei | Inhalt |
 |---|---|
-| `common-substitutions.yaml` | Phasen-IDs, Farben, Timings — gemeinsame Basis für beide Einstiegspunkte |
+| `common-substitutions.yaml` | Phasen-IDs, Farben, Timings — gemeinsame Basis für alle drei Einstiegspunkte (ohne `name`/`friendly_name`) |
 | `packages/core.yaml` | SoC, PSRAM, API, OTA, Zeit, Diagnose (WLAN bewusst **nicht** hier, siehe oben) |
 | `packages/wifi-local.yaml` | WLAN mit einkompilierter SSID/Passwort aus `secrets.yaml`, plus AP-Fallback, Captive Portal, Improv |
 | `packages/wifi-public.yaml` | WLAN **ohne** SSID/Passwort — Improv/Captive Portal sind hier der einzige Weg zum Netz |
@@ -109,13 +128,31 @@ aus: ESPHomes `wifi:`-Schema lehnt das mit "SSID can't be empty" ab. Der
 einzige Weg ist, `ssid`/`password` im YAML komplett wegzulassen — das geht nur
 mit zwei getrennten Dateien.
 
-**Build-Ordner-Falle:** `esphome.name` (`assist-satellit`) ist in beiden
-Einstiegsdateien identisch (kommt aus `common-substitutions.yaml`), daher
-landen beide Builds im selben `.esphome/build/assist-satellit/`. Niemals
-`assist-satellit.yaml` und `assist-satellit-public.yaml` parallel
-kompilieren — das eine überschreibt Dateien, die das andere gerade liest, und
-beide Builds brechen mit kryptischen "No such file or directory"-Fehlern ab.
-Immer nacheinander bauen.
+**Warum jedes Gerät einen eigenen `name` braucht — die Build-Ordner-Falle und
+ihre größere Schwester, die mDNS-Kollision:** `esphome.name` ist zugleich
+Hostname, mDNS-Instanzname *und* Name des Build-Ordners
+(`.esphome/build/<name>/`). Zwei Einstiegsdateien mit demselben `name` (das
+war früher der Fall: `assist-satellit.yaml` und `assist-satellit-public.yaml`
+teilten sich `assist-satellit` aus `common-substitutions.yaml`) treffen sich
+dadurch an **zwei** Stellen:
+- **Build-Ordner:** paralleles Kompilieren überschreibt Dateien, die der
+  andere Build gerade liest — beide brechen mit kryptischen "No such file or
+  directory"-Fehlern ab. Deshalb: nie zwei Einstiegspunkte mit demselben
+  `name` parallel kompilieren, immer nacheinander.
+- **mDNS im laufenden Betrieb:** zwei *physische* Geräte mit demselben
+  kompilierten Namen im selben Netz sind der schlimmere Fall, weil er sich
+  nicht durch "nacheinander bauen" vermeiden lässt — beide sind ja fertig
+  geflasht und laufen gleichzeitig. mDNS hängt bei der Kollision an eines der
+  beiden automatisch ein `-2` an, und `esphome run --device <name>.local`
+  landet dann unvorhersehbar auf dem einen oder anderen Gerät (die
+  Authentifizierung schlägt fehl, wenn es das falsche trifft, weil dessen
+  `ota_password` nicht passt) — genau das ist passiert, als ein Testflash des
+  öffentlichen Builds mit dem echten Hauptgerät kollidierte. Der aktuelle
+  Stand (`lumi` / `lumi-prototyp` / `assist-satellit`, alle verschieden) löst
+  beide Fälle gleichzeitig; die Regel bleibt trotzdem: **jeder neue
+  Einstiegspunkt braucht einen `name`, der mit keinem anderen kollidiert** —
+  weder mit einer anderen Datei in diesem Repo noch mit einem zweiten
+  physischen Gerät im selben Netz.
 
 Die Voice-Assistant-Logik folgt `esphome/wake-word-voice-assistants`
 (esp32-s3-box-3) und `esphome/home-assistant-voice-pe`. Bei neuen Features zuerst
@@ -737,7 +774,7 @@ unbekannter Name zeigt **nur den Text** (`hint_text_only`, das `update_ui`
 beim Wiederaufbau nach einem Sprachvorgang mitlesen muss); ein roher
 Codepoint geht weiterhin durch, erkannt an einem Byte ≥ 0x80.
 
-Substitutions aus `assist-satellit.yaml` werden auch **innerhalb von Lambdas**
+Substitutions aus `common-substitutions.yaml` werden auch **innerhalb von Lambdas**
 als `${phase_listening}` eingesetzt (Textersetzung vor dem YAML-Parsing) — daher
 `switch/case` über Phasen statt Enums. Das gilt genauso für Farben: in Lambdas
 steht `lv_color_hex(${color_listening})` bzw. `farbe = ${color_listening};`,
@@ -937,7 +974,7 @@ weiterhin reines statisches HTML/CSS ohne Build-Schritt.
   **Icon-Farbe**: Error → `${color_error}`, „nicht verstanden“ →
   `${color_thinking}`, Muted / Not Ready / „HA nicht erreichbar“ →
   `${color_text_dim}`, Bestätigung → `${color_result}`, Timer →
-  `${color_timer}` — feste Substitutions aus `assist-satellit.yaml`, keine zur
+  `${color_timer}` — feste Substitutions aus `common-substitutions.yaml`, keine zur
   Laufzeit einstellbaren Werte.
   Dass ein Glyph mehrfach vorkommt, ist Absicht: `question_mark` steht für
   „nicht verstanden“ (`error_kind == 1`, amber) **und** für die Rückfrage
@@ -970,7 +1007,7 @@ weiterhin reines statisches HTML/CSS ohne Build-Schritt.
   und der Punkt in jeder Größe rund bleibt. Der Takt läuft immer, steigt aber
   außerhalb von `${phase_thinking}` sofort aus. Parameter: `dot_size`,
   `dot_size_max`, `dot_gap`, `dot_lift`, `dot_opa_min`, `dot_step_time`,
-  `dot_cycle_steps` in `assist-satellit.yaml`.
+  `dot_cycle_steps` in `common-substitutions.yaml`.
 - **Die PV-Übersicht ist entfallen.** `page_power`, `update_power_flow`, der
   Schalter `sw_pv_overview`, die vier `homeassistant`-Sensorimporte in
   `core.yaml`, die fünf `font_power_*` und alle `power_*`- bzw.

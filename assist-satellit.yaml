@@ -1,14 +1,18 @@
-# Home Assistant Voice Satellite
+# Home Assistant Voice Satellite - Geraet "Lumi" (primaeres/neues Geraet)
 # Waveshare ESP32-S3-Touch-AMOLED-1.75 (rundes AMOLED 466x466, CO5300 + CST9217)
 #
-# Bauen und flashen:            esphome run assist-satellit.yaml
+# Bauen und flashen:            esphome run assist-satellit.yaml --device lumi.local
 # Nur Konfiguration pruefen:    esphome config assist-satellit.yaml
 #
 # Fuer den eigenen Betrieb mit echtem WLAN aus secrets.yaml - siehe
-# assist-satellit-public.yaml fuer den anonymen Browser-Flash-Build ohne
-# einkompilierte WLAN-Zugangsdaten.
+# assist-satellit-prototyp.yaml fuer das zweite, aeltere Geraet (gleiches
+# secrets.yaml, eigener Name) und assist-satellit-public.yaml fuer den
+# anonymen Browser-Flash-Build ohne einkompilierte WLAN-Zugangsdaten.
 
-substitutions: !include common-substitutions.yaml
+substitutions:
+  <<: !include common-substitutions.yaml
+  name: lumi
+  friendly_name: Lumi
 
 packages:
   core: !include packages/core.yaml

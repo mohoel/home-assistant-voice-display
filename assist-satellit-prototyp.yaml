@@ -1,0 +1,25 @@
+# Home Assistant Voice Satellite - Geraet "Lumi Prototyp" (zweites, aelteres
+# Geraet, gleiche Hardware wie assist-satellit.yaml)
+#
+# Bauen und flashen:            esphome run assist-satellit-prototyp.yaml --device lumi-prototyp.local
+# Nur Konfiguration pruefen:    esphome config assist-satellit-prototyp.yaml
+#
+# Nutzt dasselbe secrets.yaml wie assist-satellit.yaml (gleiches WLAN, gleicher
+# ota_password, gleicher api_encryption_key - beide Geraete gehoeren demselben
+# Besitzer, eine Trennung der Zugangsdaten bringt hier keinen Sicherheitsgewinn).
+# Der einzige Unterschied zu assist-satellit.yaml sind name/friendly_name: ohne
+# eigenen Namen wuerde dieses Geraet mit "Lumi" um denselben mDNS-Hostnamen
+# konkurrieren (siehe common-substitutions.yaml fuer die Begruendung).
+
+substitutions:
+  <<: !include common-substitutions.yaml
+  name: lumi-prototyp
+  friendly_name: Lumi Prototyp
+
+packages:
+  core: !include packages/core.yaml
+  wifi: !include packages/wifi-local.yaml
+  hardware: !include packages/hardware.yaml
+  voice: !include packages/voice.yaml
+  ui: !include packages/ui.yaml
+  settings: !include packages/settings.yaml
