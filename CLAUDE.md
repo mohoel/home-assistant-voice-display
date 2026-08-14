@@ -117,7 +117,7 @@ Kopie von `assist-satellit-prototyp.yaml` mit neuem `name`/`friendly_name`.
 | `packages/hardware.yaml` | I2C, QSPI-Display, Touch, I2S, ES7210/ES8311, Media Player |
 | `packages/voice.yaml` | Wake Word, Voice Assistant, Engine-Umschaltung, Mute |
 | `packages/ui.yaml` | Fonts, LVGL-Seiten, Phasen-Animationen, Standby-Uhr, Zifferblatt, Gesicht, Timer-Ring |
-| `packages/settings.yaml` | Ausrichtung und Standby-Seite als HA-Entities |
+| `packages/settings.yaml` | Ausrichtung, Standby-Seite, Standby-Zeit und Standby-Helligkeit als HA-Entities |
 | `sounds/` | Klingel- und Bestätigungston als FLAC, eingebettet über `files:` am Media Player |
 
 **Warum zwei WLAN-Packages statt einer bedingten Substitution:** ESPHome kann
@@ -191,6 +191,7 @@ Querverbindungen:
 | `settings.yaml` → `sel_standby_page.on_value` | `global: voice_assistant_phase` | `voice.yaml` |
 | `ui.yaml` → `wake_display` | `select: sel_standby_page` | `settings.yaml` |
 | `settings.yaml` → `sel_standby_page.on_value` | `global: boot_done` | `settings.yaml` |
+| `ui.yaml` → `on_idle`, `standby_return`, `on_screen_touch`, `wake_display` | `number: num_standby_timeout`, `num_standby_brightness` | `settings.yaml` |
 
 Der Minutentakt für Uhr und Zifferblatt liegt bewusst in `core.yaml` am
 `time:`-Block und nicht bei den Widgets: ESPHome führt **Plattform-Listen wie
@@ -631,11 +632,12 @@ Punkte, die man beim Ändern leicht übersieht:
   `esphome::random_uint32()` statt `rand()`: der Hardware-RNG braucht keinen
   Startwert und liefert nicht auf jedem Gerät dieselbe Folge — sonst blinzelten
   alle Satelliten im Gleichtakt.
-- **Standby heißt aus, nicht gedimmt.** Nach `standby_timeout` schaltet
-  `sleep_display` das Display komplett ab: Helligkeit 0 **und** die leere Seite
-  `page_off`. Beides zusammen, weil das Dimm-Register des CO5300 bei 0 nur die
-  kleinste Stufe meint — erst eine Seite ohne leuchtendes Widget macht den
-  AMOLED wirklich dunkel.
+- **Standby heißt aus, nicht gedimmt.** Nach `num_standby_timeout`
+  (HA-Entity, Sekunden, `packages/settings.yaml`) schaltet `sleep_display` das
+  Display komplett ab: Helligkeit 0 **und** die leere Seite `page_off`. Beides
+  zusammen, weil das Dimm-Register des CO5300 bei 0 nur die kleinste Stufe
+  meint — erst eine Seite ohne leuchtendes Widget macht den AMOLED wirklich
+  dunkel.
   Eine gedimmte Zwischenstufe gab es einmal (`standby_brightness` +
   `screen_off_delay`, zweistufig über ein Skript `screen_off`) und sie ist auf
   Ansage wieder entfallen: eine dauerhaft gedimmte Uhr war der einzige ständig
@@ -643,31 +645,41 @@ Punkte, die man beim Ändern leicht übersieht:
   Stufe zurückholt, muss auch den Einbrennschutz mit zurückholen (siehe
   `core.yaml`).
   **Ein sichtbarer Bildschirm hat trotzdem zwei Helligkeiten**, und das ist
-  kein Widerspruch dazu: `active_brightness` (100 %) gilt allein beim Zuhören,
-  alles andere — Uhr, Zifferblatt, Gesicht im Warten, Verarbeitung, Antwort,
-  Fehler, Hinweis, Konfigurationsseite — läuft auf
-  `idle_brightness` (80 %). Der Sprung nach
-  oben ist selbst Rückmeldung ("er hört jetzt zu") und fällt aus dem
-  Augenwinkel auf, bevor das Mikrofon-Icon gelesen ist. Die Verzweigung sitzt
-  in `wake_display`; die beiden anderen Stellen, die das Display einschalten
-  (`on_screen_touch` im Leerlauf, `show_config_page`), nehmen fest
-  `idle_brightness`. Wer eine weitere ergänzt, muss
-  sich dort für eine der beiden Stufen entscheiden.
+  kein Widerspruch dazu: `active_brightness` (100 %, Substitution, fest) gilt
+  allein beim Zuhören, alles andere — Uhr, Zifferblatt, Gesicht im Warten,
+  Verarbeitung, Antwort, Fehler, Hinweis — läuft auf `num_standby_brightness`
+  (HA-Entity, Prozent, `packages/settings.yaml`, ersetzt die frühere
+  Substitution `idle_brightness`). Der Sprung nach oben ist selbst Rückmeldung
+  ("er hört jetzt zu") und fällt aus dem Augenwinkel auf, bevor das
+  Mikrofon-Icon gelesen ist. Die Verzweigung sitzt in `wake_display`; die
+  andere Stelle, die das Display einschaltet (`on_screen_touch` im Leerlauf),
+  nimmt fest `num_standby_brightness`. Wer eine weitere ergänzt, muss sich
+  dort für eine der beiden Stufen entscheiden.
+  Beide liest ein `!lambda` als `float` zwischen 0.0 und 1.0
+  (`id(num_standby_brightness).state / 100.0f`) — `light.turn_on`/`brightness`
+  ist zwar `cv.templatable(cv.percentage)`, aber eine Lambda muss den
+  fertigen Bruchteil zurückgeben, keinen Prozentstring.
   Uhr und Zifferblatt sind damit **keine Dauerzustände mehr**, sondern das, was
-  ein Tippen für `standby_timeout` zeigt.
+  ein Tippen für `num_standby_timeout` zeigt.
   **Der Rückweg in den Standby hängt nicht an einem zweiten `on_idle`.** Der
   `IdleTrigger` feuert je Untätigkeitsphase genau einmal
   (`lvgl_esphome.cpp:429`) und misst reine Touch-Untätigkeit. Nach einem
   Tippen greift er von selbst wieder (die Berührung setzt den Zähler zurück) —
   aber für einen Weckweg ohne Berührung käme er nie. Genau dafür gibt es
-  `standby_return` (`delay: ${standby_timeout}` → `sleep_display`), und es hat
-  genau **einen** Aufrufer: `display_brightness.on_turn_on` in `hardware.yaml`,
-  also das Einschalten des Lichts aus Home Assistant. Ohne das stünde dort ein
-  heller, leerer Bildschirm, den nichts mehr ausschaltet. Die geräteeigenen
-  Wege laufen in diesem Trigger bewusst ins Leere, weil sie die Seite **vor**
-  dem Einschalten umschalten; er feuert ohnehin nur beim Wechsel von aus nach
-  an und braucht denselben `boot_done`-Guard wie `apply_rotation`, weil er
-  schon beim Wiederherstellen des Lichtzustands im Setup feuern kann.
+  `standby_return` (`delay: !lambda "return (uint32_t) id(num_standby_timeout).state * 1000;"`
+  → `sleep_display`), und es hat genau **einen** Aufrufer:
+  `display_brightness.on_turn_on` in `hardware.yaml`, also das Einschalten des
+  Lichts aus Home Assistant. Ohne das stünde dort ein heller, leerer
+  Bildschirm, den nichts mehr ausschaltet. Die geräteeigenen Wege laufen in
+  diesem Trigger bewusst ins Leere, weil sie die Seite **vor** dem Einschalten
+  umschalten; er feuert ohnehin nur beim Wechsel von aus nach an und braucht
+  denselben `boot_done`-Guard wie `apply_rotation`, weil er schon beim
+  Wiederherstellen des Lichtzustands im Setup feuern kann.
+  **`timeout:` beim `on_idle`-Trigger von LVGL ist ebenfalls eine Lambda**
+  statt der früheren Substitution `standby_timeout` — `IdleTrigger::timeout_`
+  ist ein `TemplatableFn<uint32_t>` und wird bei jedem Poll neu ausgewertet
+  (`lvgl_esphome.h`/`.cpp`), eine Änderung an `num_standby_timeout` greift also
+  ohne Neustart.
   Umgekehrt gilt: **jeder Weg, der das Display wach hält, muss
   `script.stop: standby_return` aufrufen** — sonst fällt der Bildschirm mitten
   im Hinschauen ins Dunkle. Das sind `wake_display`, `show_config_page` und der

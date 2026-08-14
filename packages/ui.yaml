@@ -8,11 +8,13 @@
 #   page_off       leer und schwarz - Bildschirm aus
 #
 # Der Standby ist der ausgeschaltete Bildschirm, nicht ein gedimmter: nach
-# ${standby_timeout} ohne Beruehrung legt sleep_display die leere page_off vor
-# und schaltet das Licht aus. page_standby, page_dial und page_face sind deshalb
-# keine Dauerzustaende, sondern das, was ein Tippen zeigt - welche von den
-# dreien, entscheidet sel_standby_page (packages/settings.yaml) ueber
-# show_standby_page.
+# num_standby_timeout (packages/settings.yaml, HA-Entity in Sekunden) ohne
+# Beruehrung legt sleep_display die leere page_off vor und schaltet das Licht
+# aus. page_standby, page_dial und page_face sind deshalb keine
+# Dauerzustaende, sondern das, was ein Tippen zeigt - welche von den dreien,
+# entscheidet sel_standby_page (packages/settings.yaml) ueber
+# show_standby_page. Ihre Helligkeit dabei ist num_standby_brightness
+# (ebenfalls packages/settings.yaml, in Prozent).
 #
 # Mit einer Ausnahme: laeuft ein Timer, zeigt der Standby immer page_standby
 # mit dem Countdown, egal was gewaehlt ist. Das Zifferblatt hat keinen
@@ -149,7 +151,10 @@ lvgl:
   buffer_size: 12%
   bg_color: 0x000000
   on_idle:
-    timeout: ${standby_timeout}
+    # Laufzeitwert statt Substitution: num_standby_timeout (packages/settings.yaml),
+    # per HA-Entity einstellbar. IdleTrigger::timeout_ ist ein TemplatableFn und
+    # wird bei jedem Poll neu ausgewertet - eine Aenderung greift ohne Neubau.
+    timeout: !lambda "return (uint32_t) id(num_standby_timeout).state * 1000;"
     then:
       # on_idle misst reine Touch-Untaetigkeit, nicht Untaetigkeit des
       # Assistenten. Ohne diese Bedingung faellt das Display mitten in einen
@@ -1145,10 +1150,10 @@ script:
   #   abort_session endet selbst mit update_ui und damit im Standby-Zweig.
   # - Sonst weckt es nur das Display. Im Leerlauf/stumm ist der Bildschirm
   #   dabei in aller Regel aus (page_off), das Tippen holt also die
-  #   Standby-Seite zurueck und schaltet auf ${idle_brightness}. Einen
+  #   Standby-Seite zurueck und schaltet auf num_standby_brightness. Einen
   #   eigenen Ruecksprung-Timer braucht das nicht: die Beruehrung hat LVGLs
   #   Untaetigkeitszaehler zurueckgesetzt, on_idle oben faellt nach
-  #   ${standby_timeout} von selbst wieder in sleep_display.
+  #   num_standby_timeout von selbst wieder in sleep_display.
   #
   # Fehler und "nicht bereit" sind bewusst nicht abbrechbar: da laeuft nichts,
   # was man abbrechen koennte, und clear_error raeumt von selbst auf.
@@ -1188,7 +1193,7 @@ script:
                         # Wer tippt, will hinsehen: ein laufender Rueckfall aus
                         # Home Assistant faellt weg. Ab hier zaehlt wieder
                         # on_idle, das die Beruehrung gerade zurueckgesetzt hat
-                        # - der Bildschirm geht also ${standby_timeout} nach
+                        # - der Bildschirm geht also num_standby_timeout nach
                         # dieser Beruehrung von selbst wieder aus.
                         - script.stop: standby_return
                         # War der Bildschirm schon aus, liegt page_off vorne
@@ -1199,12 +1204,14 @@ script:
                               lvgl.page.is_showing: page_off
                             then:
                               - script.execute: show_standby_page
-                        # Warten, nicht zuhoeren: ${idle_brightness} genuegt.
-                        # Die volle Helligkeit gibt es erst, wenn ein Wake Word
-                        # den Vorgang startet - dann hellt wake_display auf.
+                        # Warten, nicht zuhoeren: num_standby_brightness genuegt
+                        # (packages/settings.yaml, ersetzt die fruehere
+                        # Substitution idle_brightness). Die volle Helligkeit
+                        # gibt es erst, wenn ein Wake Word den Vorgang startet -
+                        # dann hellt wake_display auf.
                         - light.turn_on:
                             id: display_brightness
-                            brightness: ${idle_brightness}
+                            brightness: !lambda "return id(num_standby_brightness).state / 100.0f;"
                       else:
                         - script.execute: wake_display
 
@@ -1257,9 +1264,11 @@ script:
 
   # ------------------------------------------------------- Display aufwecken
   #
-  # Zwei Helligkeiten: volle nur beim Zuhoeren, sonst ${idle_brightness}. Der
-  # Sprung ist Teil der Rueckmeldung - er faellt auch aus dem Augenwinkel auf
-  # und sagt "jetzt hoere ich zu", noch bevor Mikrofon-Icon oder Gesicht
+  # Zwei Helligkeiten: volle nur beim Zuhoeren (active_brightness, Substitution,
+  # nicht per HA einstellbar), sonst num_standby_brightness
+  # (packages/settings.yaml, ersetzt die fruehere Substitution idle_brightness).
+  # Der Sprung ist Teil der Rueckmeldung - er faellt auch aus dem Augenwinkel
+  # auf und sagt "jetzt hoere ich zu", noch bevor Mikrofon-Icon oder Gesicht
   # gelesen sind. Verarbeitung, Antwort und Fehler brauchen die volle
   # Helligkeit nicht.
   #
@@ -1303,7 +1312,7 @@ script:
           else:
             - light.turn_on:
                 id: display_brightness
-                brightness: ${idle_brightness}
+                brightness: !lambda "return id(num_standby_brightness).state / 100.0f;"
 
   # --------------------------------------------------- Bildschirm ausschalten
   # Standby heisst aus, nicht gedimmt: die frueheren Substitutions
@@ -1328,8 +1337,9 @@ script:
   # Nur fuer einen Weckweg noetig: das Einschalten der Lichtentity aus Home
   # Assistant (on_turn_on in packages/hardware.yaml). Alle anderen Wege gehen
   # ueber den Touchscreen, und der setzt LVGLs Untaetigkeitszaehler zurueck -
-  # dort holt on_idle den Bildschirm nach ${standby_timeout} von selbst wieder
-  # ab.
+  # dort holt on_idle den Bildschirm nach num_standby_timeout von selbst
+  # wieder ab (packages/settings.yaml, ersetzt die fruehere Substitution
+  # standby_timeout).
   #
   # Ein zweites on_idle waere der naheliegende Weg und ist falsch: der Trigger
   # misst reine Touch-Untaetigkeit und feuert je Untaetigkeitsphase genau
@@ -1344,7 +1354,7 @@ script:
   - id: standby_return
     mode: restart
     then:
-      - delay: ${standby_timeout}
+      - delay: !lambda "return (uint32_t) id(num_standby_timeout).state * 1000;"
       - script.execute: sleep_display
 
   # Welche Standby-Seite gezeigt wird, entscheidet sel_standby_page aus

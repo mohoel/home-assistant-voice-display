@@ -104,6 +104,49 @@ select:
                 then:
                   - script.execute: show_standby_page
 
+number:
+  # Standby-Zeit in Sekunden: so lange bleibt Uhr/Zifferblatt/Gesicht nach
+  # einem Tippen sichtbar, bevor sleep_display den Bildschirm ganz ausschaltet
+  # (packages/ui.yaml). War frueher die Substitution standby_timeout und damit
+  # nur per Neubau aenderbar; ausgewertet wird der Wert jetzt zur Laufzeit an
+  # den beiden Stellen, die vorher ${standby_timeout} nutzten: der
+  # on_idle-Trigger von LVGL und der delay in standby_return. Beide nehmen
+  # dafuer eine Lambda statt der Substitution, IdleTrigger::timeout_ ist ein
+  # TemplatableFn und wird bei jedem Poll neu ausgewertet - eine Aenderung
+  # greift also ohne Neustart.
+  - platform: template
+    id: num_standby_timeout
+    name: "Standby-Zeit"
+    icon: mdi:timer-outline
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    min_value: 5
+    max_value: 300
+    step: 5
+    initial_value: 30
+    unit_of_measurement: s
+
+  # Helligkeit des sichtbaren Standby-Bildschirms (Uhr, Zifferblatt,
+  # Verarbeitung, Antwort, Fehler, ...) - alles ausser dem Zuhoeren, das
+  # weiterhin fest auf active_brightness (100 %, Substitution) laeuft. War
+  # frueher die Substitution idle_brightness; ausgewertet wird der Wert jetzt
+  # an den beiden Stellen in wake_display und on_screen_touch, die vorher
+  # ${idle_brightness} nutzten. light.turn_on/brightness ist templatable und
+  # erwartet dabei einen float zwischen 0.0 und 1.0, keinen Prozentstring.
+  - platform: template
+    id: num_standby_brightness
+    name: "Standby-Helligkeit"
+    icon: mdi:brightness-6
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    min_value: 10
+    max_value: 100
+    step: 5
+    initial_value: 80
+    unit_of_measurement: "%"
+
 script:
   # Uebertraegt den Select-Wert an LVGL. lvgl.display.set_rotation nimmt einen
   # Laufzeitwert an: der Parameter geht durch LValidator, der eine Lambda mit

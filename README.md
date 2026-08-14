@@ -333,6 +333,8 @@ das WLAN fehlt).
 |---|---|
 | **Ausrichtung** | Dreht das Bild in 90-Grad-Schritten (0/90/180/270). Die Touch-Koordinaten dreht LVGL mit. 45 Grad gibt die Grafikbibliothek nicht her. |
 | **Standby-Seite** | Welche Seite im Standby erscheint: **Uhr**, **Zifferblatt** oder **Gesicht**. Läuft ein Timer, zeigt der Standby unabhängig davon den Countdown. |
+| **Standby-Zeit** | Wie lange der Bildschirm nach der letzten Berührung anbleibt, bevor er ganz ausgeht (Sekunden, 5–300). |
+| **Standby-Helligkeit** | Helligkeit von Uhr, Zifferblatt, Gesicht, Verarbeitung, Antwort usw. — alles außer dem Zuhören, das fest auf 100 % läuft (Prozent, 10–100). |
 | **Display** | Helligkeit; Einschalten aus HA weckt den Bildschirm für die Standby-Zeit. |
 | **Mikrofon stumm**, **Wake-Word-Engine**, **Wake-Word-Empfindlichkeit** | Sprachbetrieb. |
 | **Erkannter Text**, **Antwort** | Frage und Antwort des letzten Vorgangs. |
@@ -380,17 +382,18 @@ Build oben ist davon unabhängig und bleibt der Weg für den laufenden Betrieb.
 | `packages/hardware.yaml` | I2C, QSPI-Display, Touch, I2S-Audio, Codecs, Media Player |
 | `packages/voice.yaml` | Wake Word, Voice Assistant, Selects, Mute, Text-Sensoren |
 | `packages/ui.yaml` | Fonts, LVGL-Seiten, Phasen-Animationen, Standby-Uhr, Zifferblatt, Gesicht, Timer-Ring |
-| `packages/settings.yaml` | Ausrichtung und Standby-Seite als HA-Entities |
+| `packages/settings.yaml` | Ausrichtung, Standby-Seite, Standby-Zeit und Standby-Helligkeit als HA-Entities |
 | `sounds/` | Klingel- und Bestätigungston, direkt in die Firmware eingebettet (Herkunft und Lizenz stehen dort) |
 | `docs/` | Gehostete Browser-Flash-Seite (GitHub Pages), siehe *Einrichtung* |
 | `secrets.public.yaml` | Platzhalter-Secrets für den Release-Build hinter `docs/` — keine echten Zugangsdaten, wird committet |
 | `.github/workflows/release.yml` | Baut bei jedem Git-Tag `v*.*.*` die Firmware für `docs/` und veröffentlicht sie als Release-Asset |
 
-Farben, Phasen-IDs und Standby-Zeiten stehen als Substitutions in
-`common-substitutions.yaml` — dort anpassen, nicht in den Packages. Wie lange
-der Bildschirm nach der letzten Berührung anbleibt, ist `standby_timeout`
-(30 s); danach ist er aus. Farben sind reine Compile-Zeit-Werte, eine
-Änderung braucht also einen Neubau der Firmware.
+Farben, Phasen-IDs und Timings stehen als Substitutions in
+`common-substitutions.yaml` — dort anpassen, nicht in den Packages. Farben
+sind reine Compile-Zeit-Werte, eine Änderung braucht also einen Neubau der
+Firmware. Standby-Zeit und Standby-Helligkeit sind davon ausgenommen: sie
+sind HA-Entities (siehe Tabelle oben unter *Bedienung*) und zur Laufzeit
+einstellbar, ohne Neubau.
 
 **Ein weiteres Gerät einrichten:** eine Kopie von `assist-satellit-prototyp.yaml`
 mit einem neuen `name`/`friendly_name` anlegen (z. B. `assist-satellit-kueche.yaml`

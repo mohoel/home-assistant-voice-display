@@ -85,8 +85,8 @@ light:
     # heraus wieder einschaltet, saehe sonst einen hellen, leeren Bildschirm -
     # und nichts wuerde ihn je wieder ausschalten, weil der Rueckweg sonst nur
     # ueber on_idle fuehrt und das eine Beruehrung braucht. Deshalb hier
-    # zusaetzlich standby_return, das nach ${standby_timeout} von selbst wieder
-    # ausschaltet.
+    # zusaetzlich standby_return, das nach num_standby_timeout
+    # (packages/settings.yaml) von selbst wieder ausschaltet.
     #
     # Die geraeteeigenen Weckwege laufen hier bewusst ins Leere: wake_display
     # und on_screen_touch schalten die Seite *vor* dem Einschalten um, page_off

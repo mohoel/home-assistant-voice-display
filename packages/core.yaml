@@ -148,9 +148,10 @@ time:
       # Hier lag frueher zusaetzlich der Einbrennschutz: Uhr, Datum und
       # Countdown wanderten minuetlich um ein paar Pixel, das Zifferblatt als
       # Ganzes ueber seinen Traeger dial_face. Der ist ersatzlos entfallen,
-      # seit das Display nach ${standby_timeout} von selbst ganz ausgeht
-      # (sleep_display in ui.yaml) - laenger als standby_timeout steht kein
-      # Standbild mehr auf dem Schirm, und page_off leuchtet ueberhaupt nicht.
+      # seit das Display nach num_standby_timeout (packages/settings.yaml) von
+      # selbst ganz ausgeht (sleep_display in ui.yaml) - laenger als das steht
+      # kein Standbild mehr auf dem Schirm, und page_off leuchtet ueberhaupt
+      # nicht.
       #
       # Achtung: Es gibt einen Zweig je Standby-Seite, *die Zeit anzeigt*.
       # Sobald show_standby_page (ui.yaml) eine weitere schaltet, muss hier
