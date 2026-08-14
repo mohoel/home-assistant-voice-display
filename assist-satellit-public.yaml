@@ -29,3 +29,4 @@ packages:
   voice: !include packages/voice.yaml
   ui: !include packages/ui.yaml
   settings: !include packages/settings.yaml
+  update: !include packages/update-public.yaml

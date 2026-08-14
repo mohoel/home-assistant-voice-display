@@ -10,7 +10,13 @@
 # ihnen automatisch ein "-2" an, und OTA ueber den mDNS-Namen landet
 # unvorhersehbar auf dem einen oder anderen Geraet (das ist einmal genau so
 # passiert). Jeder Einstiegspunkt bekommt deshalb einen eigenen, festen Namen.
-project_version: "0.1.0"
+# Muss zu jedem Release-Tag passen (siehe README, Abschnitt "Updates") - Home
+# Assistants Update-Entity (packages/update-public.yaml, nur der oeffentliche
+# Build) vergleicht diesen Wert als reinen String gegen ota-manifest.json.
+# War lange nicht synchron gehalten (stand auf "0.1.0", obwohl der letzte Tag
+# v0.4.1 war) - das faellt jetzt sofort auf, weil das Geraet sonst dauerhaft
+# "Update verfuegbar" zeigt.
+project_version: "0.5.0"
 
 # Voice-Assistant-Phasen. Die IDs entsprechen dem offiziellen
 # ESP32-S3-Box-3-Projekt, damit spaeter Code von dort uebernommen werden kann.
@@ -252,4 +258,13 @@ face_step_time: 33ms
 # "single_press" an Home Assistant meldet statt auf einen zweiten Tipp zu
 # warten. Bekannt aus mobilen Betriebssystemen als Doppeltipp-Fenster.
 double_tap_window: 350ms
+
+# Firmware-Update ueber Home Assistant (packages/update-public.yaml, nur
+# assist-satellit-public.yaml). Kein Bedienelement am Geraet - Anzeige und
+# "Installieren"-Knopf laufen ausschliesslich ueber HAs eigenes
+# Update-Dashboard. Keine CNAME im Repo -> die Standard-GitHub-Pages-Adresse.
+update_manifest_url: "https://mohoel.github.io/home-assistant-voice-lumi/ota-manifest.json"
+# Default von update: http_request waere ohnehin 6h - hier trotzdem explizit
+# als Erweiterungspunkt, falls das mal haeufiger geprueft werden soll.
+update_check_interval: 6h
 

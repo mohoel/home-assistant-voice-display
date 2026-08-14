@@ -24,6 +24,23 @@ name: Firmware-Release
 # Manuelles Anstossen (workflow_dispatch) dient nur dem Testen des Builds
 # ohne einen Tag zu setzen - dabei wird kein Release veroeffentlicht und
 # auch nichts nach docs/ committet.
+#
+# Zusaetzlich zu firmware.factory.bin/manifest.json (Browser-Flash) erzeugt
+# dieser Workflow docs/firmware.ota.bin + docs/ota-manifest.json fuer die
+# Selbst-Installation ueber Home Assistants normale Update-Entity (packages/
+# update-public.yaml, update:/ota: platform: http_request) - kein
+# Bedienelement am Geraet, HA ruft das Manifest selbst periodisch ab und
+# zeigt "Installieren" in seinem eigenen Update-Dashboard. Andere Schema,
+# anderer Zweck als manifest.json/parts: (das ist fuer den einmaligen
+# Browser-Flash per ESP Web Tools). Dieselbe same-origin-Begruendung wie oben
+# gilt auch hier - deshalb landet auch dieses Manifest in docs/, nicht nur am
+# Release.
+#
+# WICHTIG: "version" in ota-manifest.json muss exakt der einkompilierten
+# ${project_version} entsprechen (common-substitutions.yaml), nicht dem
+# Tag-Namen mit "v"-Praefix - Home Assistant vergleicht als reinen String.
+# Vor jedem Tag also erst project_version anpassen und committen (README,
+# Abschnitt "Updates"), dann erst taggen.
 
 on:
   push:
@@ -59,14 +76,39 @@ jobs:
       - name: Firmware-Datei einsammeln
         run: cp .esphome/build/assist-satellit/build/firmware.factory.bin firmware.factory.bin
 
+      - name: OTA-Manifest fuer die Selbst-Installation erzeugen
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          cp .esphome/build/assist-satellit/build/firmware.ota.bin firmware.ota.bin
+          md5=$(md5sum firmware.ota.bin | cut -d' ' -f1)
+          version="${GITHUB_REF_NAME#v}"
+          cat > ota-manifest.json <<EOF
+          {
+            "name": "Assist Satellit (öffentlicher Build)",
+            "version": "${version}",
+            "builds": [
+              {
+                "chipFamily": "ESP32-S3",
+                "ota": {
+                  "path": "firmware.ota.bin",
+                  "md5": "${md5}",
+                  "release_url": "https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}"
+                }
+              }
+            ]
+          }
+          EOF
+
       - name: Release veroeffentlichen
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: firmware.factory.bin
+          files: |
+            firmware.factory.bin
+            firmware.ota.bin
           generate_release_notes: true
 
-      - name: Firmware same-origin nach docs/ committen (Browser-Flash)
+      - name: Firmware same-origin nach docs/ committen (Browser-Flash + Selbst-Update)
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
           git config user.name "github-actions[bot]"
@@ -74,8 +116,10 @@ jobs:
           git fetch origin main
           git checkout main
           cp firmware.factory.bin docs/firmware.factory.bin
+          cp firmware.ota.bin docs/firmware.ota.bin
+          cp ota-manifest.json docs/ota-manifest.json
           sed -i -E 's/manifest="manifest\.json(\?v=[^"]*)?"/manifest="manifest.json?v=${{ github.ref_name }}"/' docs/index.html
-          git add -f docs/firmware.factory.bin docs/index.html
+          git add -f docs/firmware.factory.bin docs/firmware.ota.bin docs/ota-manifest.json docs/index.html
           if git diff --cached --quiet; then
             echo "docs/ unveraendert, kein Commit noetig"
           else

@@ -194,6 +194,23 @@ unverändert bei Mikrofon, Punkten und Balken.
 - Bedient wird über Home Assistant: Ausrichtung, Standby-Seite,
   Stummschaltung, Wake-Word-Optionen und Displayhelligkeit sind Entities
 
+### Firmware-Updates
+**Wer das Gerät über den Browser geflasht hat** (Abschnitt *Einrichtung*),
+aktualisiert es genau wie jede andere Home-Assistant-Integration: unter
+Einstellungen → Geräte → Updates erscheint ein „Firmware"-Eintrag mit
+„Installieren"-Knopf, sobald eine neuere Version auf GitHub liegt. Ein Klick
+genügt — das Gerät lädt sich die neue Firmware selbst herunter und startet
+neu, kein Mac, keine ESPHome-Kenntnisse nötig. Möglich ist das, weil dieser
+Build nie WLAN-Zugangsdaten einkompiliert hat (siehe *Einrichtung*) — im
+heruntergeladenen Firmware-Image steckt also kein Geheimnis, das dabei
+verloren gehen könnte. Es gibt dafür kein Bedienelement am Gerät selbst,
+alles läuft über HAs eigenes Update-Dashboard.
+
+**Lumi und Lumi Prototyp** (echtes `secrets.yaml`, WLAN einkompiliert)
+bekommen bewusst keine solche Update-Entity — ein Selbst-Flash mit dem
+WLAN-losen öffentlichen Image würde ihr WLAN löschen. Bei ihnen bleibt der
+Weg aus Abschnitt *Updates* unten der richtige.
+
 ## Warum nicht das ESPHome-Add-on in Home Assistant?
 
 Voice-Assistant-Konfigurationen sind zu groß, um auf einem Raspberry Pi
@@ -365,8 +382,17 @@ git checkout v0.1.0 && esphome run assist-satellit.yaml --device lumi.local
 Ein gepushter Tag `v*.*.*` löst zusätzlich
 [`.github/workflows/release.yml`](.github/workflows/release.yml) aus: baut die
 Firmware mit `secrets.public.yaml` neu und hängt sie als Release-Asset an —
-davon lädt die gehostete Browser-Flash-Seite (siehe *Einrichtung*). Der eigene
-Build oben ist davon unabhängig und bleibt der Weg für den laufenden Betrieb.
+davon lädt die gehostete Browser-Flash-Seite (siehe *Einrichtung*) **und**
+Home Assistants Update-Entity auf dem öffentlichen Build (Abschnitt
+*Firmware-Updates*). Der eigene Build oben ist davon unabhängig und bleibt
+der Weg für den laufenden Betrieb von Lumi und Lumi Prototyp.
+
+**Vor jedem Tag:** `project_version` in `common-substitutions.yaml` auf die
+neue Nummer setzen (ohne `v`-Präfix, z. B. `0.4.2` für den Tag `v0.4.2`) und
+committen, **dann erst taggen**. Home Assistants Update-Entity vergleicht die
+einkompilierte Version als reinen String gegen das Release — weicht
+`project_version` vom Tag ab, zeigt der öffentliche Build dauerhaft „Update
+verfügbar", selbst direkt nach einem frischen Build vom aktuellen Stand.
 
 ## Aufbau
 
@@ -383,8 +409,9 @@ Build oben ist davon unabhängig und bleibt der Weg für den laufenden Betrieb.
 | `packages/voice.yaml` | Wake Word, Voice Assistant, Selects, Mute, Text-Sensoren |
 | `packages/ui.yaml` | Fonts, LVGL-Seiten, Phasen-Animationen, Standby-Uhr, Zifferblatt, Gesicht, Timer-Ring |
 | `packages/settings.yaml` | Ausrichtung, Standby-Seite, Standby-Zeit und Standby-Helligkeit als HA-Entities |
+| `packages/update-public.yaml` | Firmware-Update über Home Assistants Update-Entity (nur `assist-satellit-public.yaml`) |
 | `sounds/` | Klingel- und Bestätigungston, direkt in die Firmware eingebettet (Herkunft und Lizenz stehen dort) |
-| `docs/` | Gehostete Browser-Flash-Seite (GitHub Pages), siehe *Einrichtung* |
+| `docs/` | Gehostete Browser-Flash-Seite (GitHub Pages), siehe *Einrichtung* — plus `ota-manifest.json`/`firmware.ota.bin` für die Selbst-Installation |
 | `secrets.public.yaml` | Platzhalter-Secrets für den Release-Build hinter `docs/` — keine echten Zugangsdaten, wird committet |
 | `.github/workflows/release.yml` | Baut bei jedem Git-Tag `v*.*.*` die Firmware für `docs/` und veröffentlicht sie als Release-Asset |
 
