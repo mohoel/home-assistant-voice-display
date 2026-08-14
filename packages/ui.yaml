@@ -80,13 +80,23 @@ font:
     size: 32
     glyphs: ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
 
-  # Countdown eines laufenden Timers und Zahl eines Messwerts. Kleiner als
-  # font_clock, damit auch sieben Zeichen ("1:23:45") in den runden Bildschirm
-  # passen; nur die tatsaechlich vorkommenden Zeichen, das spart Flash.
+  # Countdown eines laufenden Timers. Kleiner als font_clock, damit auch
+  # sieben Zeichen ("1:23:45") in den runden Bildschirm passen; nur die
+  # tatsaechlich vorkommenden Zeichen, das spart Flash.
   - file: "gfonts://Figtree@700"
     id: font_timer
     size: ${timer_font_size}
     glyphs: ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", ":", ",", ".", "-"]
+
+  # Zahl eines Messwerts (lbl_value, box_result). Eigene, groessere Schrift
+  # statt Wiederverwendung von font_timer - Begruendung und Zeichenbreiten-
+  # Rechnung stehen bei result_value_font_size in common-substitutions.yaml.
+  # Kein Doppelpunkt im Zeichensatz: der kommt hier nie vor, "Uhr" ist keine
+  # erkannte Einheit mehr.
+  - file: "gfonts://Figtree@700"
+    id: font_result_value
+    size: ${result_value_font_size}
+    glyphs: ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", ",", ".", "-"]
 
   # Statusicons aus "Voice Assistant UI.dc.html" (Design-Handoff). Ersetzen
   # auf page_main den frueheren Phasentext komplett - siehe update_ui.
@@ -389,6 +399,20 @@ lvgl:
         # beim frueheren ROW-Layout, das mangels pad_column stattdessen ein
         # pad_left an der Einheit brauchte, kennt der Codegen pad_row direkt
         # als Eigenschaft des FLEX-layout-Blocks.
+        #
+        # lbl_value und lbl_unit bekommen absichtlich dieselbe feste Breite
+        # wie der Container (440 statt SIZE_CONTENT): Auf dem Geraet stand
+        # die Zahl sichtbar nicht mittig, sondern nach links verschoben, und
+        # wirkte kleiner als geplant. LVGLs Flex zentriert ein Label mit
+        # SIZE_CONTENT-Breite in der Kreuzachse nur ueber dessen *berechnete*
+        # Selbstgroesse - bei einem Label mit dem Standard-long_mode WRAP
+        # innerhalb eines Flex-Containers ist diese Berechnung nicht
+        # verlaesslich. text_align: CENTER auf einer randlosen SIZE_CONTENT-
+        # Box waere ohnehin wirkungslos (Box == Text, nichts zum Zentrieren
+        # darin). Mit fester Breite = Containerbreite zentriert text_align
+        # zuverlaessig, unabhaengig von jeder Selbstgroessen-Berechnung.
+        # result_divider bleibt bei SIZE_CONTENT (kein Label, kein WRAP) - es
+        # ist ein einfaches obj: und zentriert ueber die Kreuzachse korrekt.
         - obj:
             id: box_result
             align: CENTER
@@ -411,9 +435,10 @@ lvgl:
               - label:
                   id: lbl_value
                   text: ""
-                  text_font: font_timer
+                  text_font: font_result_value
                   text_color: ${color_text}
                   text_align: CENTER
+                  width: 440
               - obj:
                   id: result_divider
                   width: ${result_divider_width}
@@ -429,6 +454,7 @@ lvgl:
                   text_color: ${color_result}
                   text_align: CENTER
                   text_letter_space: ${result_unit_letter_space}
+                  width: 440
 
         # --- Hinweis von aussen ---
         # Nur fuer die optionale API-Aktion zeige_hinweis (packages/core.yaml).
