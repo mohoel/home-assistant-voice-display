@@ -109,10 +109,7 @@ result_hold_time: 3s
 # Messwertanzeige (page_main, phase_result, result_kind == 1): Zahl oben,
 # duenne Trennlinie, Einheit klein und in Grossbuchstaben darunter - Design
 # "Rundes Display Konzepte" (Claude-Design-Projekt "Rundes Display
-# Masseinheiten-Design", Konzept 1a). Die Zahl selbst nutzt weiterhin
-# font_timer (packages/ui.yaml): dieselbe Groesse, die schon fuer den
-# siebenstelligen Timer-Countdown ("1:23:45") erprobt ist, traegt auch die
-# breitesten Messwerte dieses Geraets (z. B. Luftdruck "1013,2 hPa").
+# Masseinheiten-Design", Konzept 1a).
 #
 # Ersetzt die fruehere Reihen-Anordnung mit einem Icon *ueber* der Zahl, das
 # aus der Einheit erschlossen wurde (Thermometer, Blitz, ...). Dieses Design
@@ -125,6 +122,18 @@ result_divider_height: "2"
 # gleichermassen (LVGL pad_row auf dem Flex-Container).
 result_gap: "18"
 result_unit_letter_space: "5"
+# Eigene, groessere Schrift statt der Wiederverwendung von font_timer (110 px,
+# fuer den siebenstelligen Timer-Countdown "1:23:45" austariert) - auf dem
+# Geraet wirkte der Messwert damit deutlich kleiner und nicht mittig, als das
+# Mockup vorgab. 150 px ist bewusst NICHT fuer den kuerzesten Fall gewaehlt
+# (eine runde Zahl wie "22"), sondern fuer den Regelfall mit einer
+# Nachkommastelle ("22,4"), da on_tts_start (packages/voice.yaml) den Wert
+# immer auf eine Nachkommastelle rundet und anzeigt - "22" allein kommt gar
+# nicht mehr vor. Nach den echten Zeichenbreiten aus der Figtree-Bold-Datei
+# (kein Tabellensatz, "0" ist breiter als "1") passt selbst der breiteste
+# realistische Fall, ein Luftdruckwert wie "1013,2", mit rund 433 px noch in
+# die 440 px breite Box unten.
+result_value_font_size: "150"
 
 # Timer. Home Assistant schickt Timer-Ereignisse von sich aus an den
 # Satelliten (on_timer_* in packages/voice.yaml) - dafuer braucht es keine
