@@ -317,8 +317,47 @@ voice_assistant:
               const std::string einheit(e);
               if (rest.compare(0, einheit.size(), einheit) == 0 &&
                   (rest.size() == einheit.size() || rest[einheit.size()] == ' ')) {
-                id(result_value) = zahl;
-                id(result_unit) = einheit;
+                // Auf eine Nachkommastelle runden - das Design "Rundes
+                // Display Konzepte" zeigt die Zahl gross und allein, ohne
+                // Icon, das eine ungleiche Ziffernzahl kaschieren wuerde.
+                //
+                // Nur das *letzte* Komma oder der letzte Punkt in der Zahl
+                // zaehlt als Dezimaltrennzeichen (zu einem Punkt fuer
+                // strtod gewandelt); alle davor sind Tausendertrenner und
+                // fallen weg - so werden sowohl "22,4" als auch ein
+                // gruppierter Wert wie "1.234,5" richtig gelesen. strtod
+                // bricht an der ersten unbekannten Stelle ab (etwa dem ':'
+                // einer Uhrzeit) und liefert trotzdem den Teil davor -
+                // id(result_kind) bleibt in dem Fall ohnehin 0, weil keine
+                // der EINHEITEN je auf eine Uhrzeit folgt.
+                std::string ziffern;
+                ziffern.reserve(zahl.size());
+                const size_t trenner = zahl.find_last_of(",.");
+                for (size_t p = 0; p < zahl.size(); p++) {
+                  const char c = zahl[p];
+                  if (c == ',' || c == '.') {
+                    if (p == trenner) ziffern += '.';
+                  } else {
+                    ziffern += c;
+                  }
+                }
+                char *zahl_ende = nullptr;
+                const double wert = strtod(ziffern.c_str(), &zahl_ende);
+                id(result_value) = (zahl_ende != ziffern.c_str())
+                    ? esphome::str_sprintf("%.1f", wert)
+                    : zahl;
+                for (char &c : id(result_value))
+                  if (c == '.') c = ',';
+
+                // Grossbuchstaben fuers Design: die Einheit steht als kleine,
+                // grossgeschriebene Bildunterschrift unter der Trennlinie
+                // (packages/ui.yaml, font_unit). Dieselbe ASCII-Schleife wie
+                // beim Kleinschreiben oben, nur andersherum.
+                std::string e_gross = einheit;
+                for (char &c : e_gross)
+                  if (c >= 'a' && c <= 'z') c -= 32;
+                id(result_unit) = e_gross;
+
                 id(result_kind) = 1;
                 break;
               }

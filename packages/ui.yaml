@@ -51,15 +51,21 @@ font:
     size: 31 # 130% der urspruenglichen 24 px
     glyphsets: [GF_Latin_Core]
 
-  # Einheit neben einem Messwert ("21,5 °C"). Frueher stand sie klein und grau
-  # unter der Zahl; sie steht jetzt gross und in der Ergebnisfarbe daneben.
-  # Das Gradzeichen liegt ausserhalb von GF_Latin_Core; glyphs und glyphsets
-  # werden vereinigt (font/__init__.py:563), die Angabe ergaenzt den Satz nur.
-  - file: "gfonts://Figtree@600"
+  # Einheit unter einem Messwert ("22,4" / "°C"), Design "Rundes Display
+  # Konzepte" (Konzept 1a): klein, in Grossbuchstaben und mit Laufweite als
+  # Bildunterschrift unter der Trennlinie - nicht mehr die grosse Einheit
+  # neben der Zahl aus dem fruehesten Entwurf. Die Grossschreibung setzt
+  # packages/voice.yaml selbst (ASCII-Schleife wie beim Kleinschreiben der
+  # Bestaetigungswoerter dort), die Laufweite result_unit_letter_space
+  # (common-substitutions.yaml) das Widget in packages/ui.yaml.
+  # Gradzeichen und Schraegstrich ("km/h") liegen ausserhalb von
+  # GF_Latin_Core; glyphs und glyphsets werden vereinigt (font/__init__.py:563),
+  # die Angabe ergaenzt den Satz nur.
+  - file: "gfonts://Figtree@500"
     id: font_unit
-    size: 46
+    size: 26
     glyphsets: [GF_Latin_Core]
-    glyphs: ["°"]
+    glyphs: ["°", "/"]
   - file: "gfonts://Figtree@700"
     id: font_clock
     size: 140
@@ -102,28 +108,6 @@ font:
       - "\U0000EB8B" # question_mark         - nicht verstanden, Rueckfrage
       - "\U0000E668" # check                 - Befehl ausgefuehrt
       - "\U0000E7F7" # notifications_active   - Timer klingelt
-
-  # Kleines Icon ueber einem Messwert. Was gemessen wurde, weiss das Geraet
-  # nicht (on_intent_end hat keine Parameter) - die erkannte *Einheit* traegt
-  # aber weit genug, um das Ergebnis einzuordnen: Grad -> Thermometer,
-  # Watt -> Blitz. Die Zuordnung steht in update_ui.
-  # Codepoints wie oben aus dem Material-Symbols-Register.
-  #
-  # Fuer Prozent gibt es bewusst *kein* Icon: das Prozentzeichen steht schon
-  # als Einheit hinter der Zahl, ein Prozent-Icon darueber sagte dasselbe
-  # zweimal. In dem Fall bleibt die Zeile ueber dem Wert leer.
-  - file: "gfonts://Material+Symbols+Outlined"
-    id: font_icon_small
-    size: 96
-    glyphs:
-      - "\U0000E1FF" # device_thermostat - °C, °F, °, Grad
-      - "\U0000E9E4" # speed             - km/h
-      - "\U0000E94D" # compress          - hPa
-      - "\U0000E518" # light_mode        - lx
-      - "\U0000E7B0" # co2               - ppm
-      - "\U0000E050" # volume_up         - dB
-      - "\U0000EA0B" # bolt              - kWh, kW, Wh, W, V, A
-      - "\U0000E41C" # straighten        - km, m, cm, mm
 
 lvgl:
   displays: [disp]
@@ -385,34 +369,32 @@ lvgl:
             border_width: 0
             hidden: true
 
-        # --- Messwert: Icon, Zahl und Einheit ---
+        # --- Messwert: Zahl, Trennlinie und Einheit ---
         # Gefuellt aus dem Antworttext (result_value/result_unit, gesetzt in
         # on_tts_start in packages/voice.yaml). Ersetzt in phase_result die
         # fuenf Balken, wenn die Antwort eine Zahl mit bekannter Einheit war.
         #
-        # Zahl und Einheit standen frueher untereinander, die Einheit klein und
-        # grau - das las sich wie eine Fussnote. Sie stehen jetzt nebeneinander
-        # wie auf einem Thermostat, mit einem Icon zur Einheit darueber. Die
-        # Gruppe sitzt in einem Flex-Container, damit sie als Ganzes zentriert
-        # bleibt, egal wie breit Zahl und Einheit ausfallen.
-        - label:
-            id: lbl_result_icon
-            align: CENTER
-            y: -115
-            width: 120
-            height: 120
-            text: ""
-            text_font: font_icon_small
-            text_color: ${color_result}
-            text_align: CENTER
-            hidden: true
+        # Design "Rundes Display Konzepte" (Claude-Design-Projekt "Rundes
+        # Display Masseinheiten-Design", Konzept 1a): Zahl oben, eine duenne
+        # Trennlinie, Einheit klein und in Grossbuchstaben darunter - nicht
+        # mehr die fruehere Reihe mit einem Icon zur Einheit obendrueber.
+        # Ohne Icon muss keine Einheit mehr vorab auf ein Icon festgelegt
+        # werden; jede von der Erkennung gelieferte Einheit laesst sich
+        # einfach als Text anzeigen, siehe common-substitutions.yaml.
+        #
+        # Die drei Kinder liegen in einem Flex-Container mit COLUMN statt ROW,
+        # damit die Gruppe als Ganzes zentriert bleibt, egal wie breit Zahl
+        # und Einheit ausfallen; pad_row im layout-Block traegt den Abstand
+        # zwischen ihnen (result_gap, gleich fuer beide Luecken) - anders als
+        # beim frueheren ROW-Layout, das mangels pad_column stattdessen ein
+        # pad_left an der Einheit brauchte, kennt der Codegen pad_row direkt
+        # als Eigenschaft des FLEX-layout-Blocks.
         - obj:
             id: box_result
             align: CENTER
-            y: 40
             # Feste Breite statt SIZE_CONTENT: so zentriert Flex den Inhalt
-            # innerhalb des Bildschirms, statt ihn bei langen Einheiten
-            # ("17:45 Uhr") ueber den Rand hinauswachsen zu lassen.
+            # innerhalb des Bildschirms, statt ihn bei langen Einheiten ueber
+            # den Rand hinauswachsen zu lassen.
             width: 440
             height: SIZE_CONTENT
             bg_opa: TRANSP
@@ -420,12 +402,10 @@ lvgl:
             pad_all: 0
             layout:
               type: FLEX
-              flex_flow: ROW
+              flex_flow: COLUMN
               flex_align_main: CENTER
-              # Unterkante buendig - das kommt einer gemeinsamen Grundlinie am
-              # naechsten, die LVGL nicht kennt. Das pad_bottom der Einheit
-              # hebt sie von dort auf Ziffernhoehe.
-              flex_align_cross: END
+              flex_align_cross: CENTER
+              pad_row: ${result_gap}
             hidden: true
             widgets:
               - label:
@@ -433,16 +413,22 @@ lvgl:
                   text: ""
                   text_font: font_timer
                   text_color: ${color_text}
+                  text_align: CENTER
+              - obj:
+                  id: result_divider
+                  width: ${result_divider_width}
+                  height: ${result_divider_height}
+                  bg_color: ${color_result}
+                  bg_opa: COVER
+                  border_width: 0
+                  radius: 0
               - label:
                   id: lbl_unit
                   text: ""
                   text_font: font_unit
                   text_color: ${color_result}
-                  # pad_left ist der Abstand zur Zahl - ein pad_column am
-                  # Container kennt der ESPHome-Codegen nicht. pad_bottom hebt
-                  # die Einheit von der Unterkante auf Ziffernhoehe.
-                  pad_left: 14
-                  pad_bottom: 22
+                  text_align: CENTER
+                  text_letter_space: ${result_unit_letter_space}
 
         # --- Hinweis von aussen ---
         # Nur fuer die optionale API-Aktion zeige_hinweis (packages/core.yaml).
@@ -966,7 +952,7 @@ script:
           lv_obj_t *const alle[] = {
               id(lbl_icon), id(dot_1), id(dot_2), id(dot_3),
               id(bar_1), id(bar_2), id(bar_3), id(bar_4), id(bar_5),
-              id(box_result), id(lbl_result_icon),
+              id(box_result),
               id(lbl_hint_icon), id(lbl_hint_text)};
           for (lv_obj_t *w : alle)
             lv_obj_add_flag(w, LV_OBJ_FLAG_HIDDEN);
@@ -1009,35 +995,15 @@ script:
 
             case ${phase_result}:
               if (id(result_kind) == 1) {
+                // Zahl (schon auf eine Nachkommastelle gerundet) und Einheit
+                // (schon grossgeschrieben) kommen fertig aus on_tts_start in
+                // packages/voice.yaml - hier wird nur noch gesetzt und
+                // gezeigt. Kein Icon mehr zur Einheit: das Design "Rundes
+                // Display Konzepte" traegt die Messwertanzeige allein ueber
+                // Zahl, Trennlinie und Einheitstext.
                 lv_label_set_text(id(lbl_value), id(result_value).c_str());
                 lv_label_set_text(id(lbl_unit), id(result_unit).c_str());
-                // Icon zur Einheit. Mehr als sie weiss das Geraet nicht - was
-                // gemessen wurde, steht in keiner Nutzlast (on_intent_end hat
-                // eine leere Parameterliste). Unbekanntes und alles Gradartige
-                // bekommt das Thermometer: Temperatur ist der mit Abstand
-                // haeufigste Fall.
-                //
-                // Prozent bekommt als einzige Einheit *kein* Icon: das Zeichen
-                // steht schon hinter der Zahl, ein Prozent-Icon darueber waere
-                // dieselbe Aussage zweimal.
-                const std::string &e = id(result_unit);
-                const char *ico = "\U0000E1FF";  // device_thermostat
-                if (e == "%" || e == "Prozent")      ico = nullptr;
-                else if (e == "km/h")                ico = "\U0000E9E4";  // speed
-                else if (e == "hPa")                 ico = "\U0000E94D";  // compress
-                else if (e == "lx")                  ico = "\U0000E518";  // light_mode
-                else if (e == "ppm")                 ico = "\U0000E7B0";  // co2
-                else if (e == "dB")                  ico = "\U0000E050";  // volume_up
-                else if (e == "kWh" || e == "kW" || e == "Wh" ||
-                         e == "W" || e == "V" || e == "A")
-                                                     ico = "\U0000EA0B";  // bolt
-                else if (e == "km" || e == "m" || e == "cm" || e == "mm")
-                                                     ico = "\U0000E41C";  // straighten
                 lv_obj_remove_flag(id(box_result), LV_OBJ_FLAG_HIDDEN);
-                if (ico != nullptr) {
-                  lv_label_set_text(id(lbl_result_icon), ico);
-                  lv_obj_remove_flag(id(lbl_result_icon), LV_OBJ_FLAG_HIDDEN);
-                }
               } else {
                 glyph = "\U0000E668";  // check
                 farbe = ${color_result};
@@ -1260,11 +1226,15 @@ script:
   # on_screen_touch gleichermassen gerufen. Damit gibt es genau einen Ort, an
   # dem die Auswahl haengt.
   #
-  # Das Gesicht bekommt nur die drei animierten Phasen. Alles andere - Messwert,
-  # Haken, Fehler, stumm, nicht bereit, klingelnder Timer - bleibt auf
-  # page_main, weil es Information traegt, fuer die das Design-Mockup keine
-  # Miene kennt. Ein Hinweis von aussen (hint_active) ebenso: seine beiden
-  # Widgets liegen auf page_main.
+  # Das Gesicht bekommt die drei animierten Phasen plus eine vierte
+  # Ausnahme: eine Bestaetigung (result_kind == 2). Statt auf page_main
+  # umzuschalten und dort den Haken zu zeigen, bleibt das Gesicht vorne und
+  # faerbt sich stattdessen gruen (siehe der `if (phase != last_phase)`-Zweig
+  # im Animations-Takt unten). Ein Messwert (result_kind == 1) ist davon
+  # ausdruecklich ausgenommen: eine Zahl mit Einheit kennt das Design-Mockup
+  # nicht als Miene, die bleibt wie Fehler, stumm, nicht bereit und
+  # klingelnder Timer auf page_main. Ein Hinweis von aussen (hint_active)
+  # ebenso: seine beiden Widgets liegen auf page_main.
   - id: wake_display
     mode: restart
     then:
@@ -1276,7 +1246,9 @@ script:
                   && !id(hint_active)
                   && (id(voice_assistant_phase) == ${phase_listening}
                       || id(voice_assistant_phase) == ${phase_thinking}
-                      || id(voice_assistant_phase) == ${phase_replying});
+                      || id(voice_assistant_phase) == ${phase_replying}
+                      || (id(voice_assistant_phase) == ${phase_result}
+                          && id(result_kind) == 2));
           then:
             - lvgl.page.show: page_face
           else:
@@ -1976,20 +1948,29 @@ interval:
                     look_at = t;  // sofort einen neuen Blick werfen
 
                   // Augen und Mund tragen die Phase ueber ihre eigene Farbe -
-                  // blau beim Zuhoeren, orange bei der Verarbeitung, sonst
-                  // die neutrale Gesichtsfarbe. Kein zusaetzliches Widget,
-                  // kein Weichzeichner: nur ein Farbwechsel an ohnehin
-                  // vorhandenen, schon leuchtenden Teilen (auch ihr
-                  // vorhandener Glow, shadow_color, zieht mit um). Ersetzt
-                  // einen Versuch mit einer separaten "Wolke" dahinter, der
-                  // auf dem Geraet zu stockender Augenbewegung und einmal zu
-                  // einem haengenden I2S-Bus fuehrte - reine Farbwechsel an
-                  // kleinen, bereits vorhandenen Flaechen sind dagegen so
-                  // billig wie jeder andere Style-Wechsel in diesem Takt.
+                  // blau beim Zuhoeren, orange bei der Verarbeitung, gruen
+                  // bei einer Bestaetigung, sonst die neutrale Gesichtsfarbe.
+                  // Kein zusaetzliches Widget, kein Weichzeichner: nur ein
+                  // Farbwechsel an ohnehin vorhandenen, schon leuchtenden
+                  // Teilen (auch ihr vorhandener Glow, shadow_color, zieht mit
+                  // um). Ersetzt einen Versuch mit einer separaten "Wolke"
+                  // dahinter, der auf dem Geraet zu stockender Augenbewegung
+                  // und einmal zu einem haengenden I2S-Bus fuehrte - reine
+                  // Farbwechsel an kleinen, bereits vorhandenen Flaechen sind
+                  // dagegen so billig wie jeder andere Style-Wechsel in
+                  // diesem Takt.
+                  //
+                  // Der Bestaetigungs-Zweig braucht keine eigene Pruefung auf
+                  // result_kind: page_face liegt waehrend phase_result
+                  // ueberhaupt nur vorne, wenn wake_display zuvor
+                  // result_kind == 2 festgestellt hat (ein Messwert bleibt
+                  // auf page_main) - dieser Takt laeuft ja nur, solange
+                  // page_face gezeigt wird (is_showing-Guard oben).
                   const int gesichtsfarbe =
                       (phase == ${phase_listening}) ? ${color_listening}
                       : (phase == ${phase_thinking}) ? ${color_thinking}
-                                                      : ${color_face};
+                      : (phase == ${phase_result}) ? ${color_result}
+                      : ${color_face};
                   lv_obj_t *const teile[] = {
                       id(face_eye_l), id(face_eye_r), id(face_mouth),
                       id(face_tongue)};

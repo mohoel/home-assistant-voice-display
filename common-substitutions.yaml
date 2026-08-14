@@ -42,7 +42,11 @@ color_replying: "0x4CAF50"
 color_error: "0xF44336"
 # Timer-Ring am Bildschirmrand und die Glocke beim Klingeln.
 color_timer: "0xFF9800"
-# Haken nach einem Befehl ohne Rueckmeldung ("Eingeschaltet").
+# Ergebnisfarbe - an drei Stellen: der Haken nach einem Befehl ohne
+# Rueckmeldung ("Eingeschaltet") auf page_main, die Trennlinie und die
+# Einheit der Messwertanzeige (siehe result_* unten), und das Gesicht auf
+# page_face, wenn dort statt des Hakens eine Bestaetigung faellig ist (siehe
+# color_face weiter unten).
 color_result: "0x4CAF50"
 
 # Texte
@@ -101,6 +105,26 @@ bar_cycle_steps: "20"
 # diese Nachlaufzeit bewusst *nicht*: sie sind die Visualisierung des Tons
 # und enden mit ihm - siehe end_session in packages/voice.yaml.
 result_hold_time: 3s
+
+# Messwertanzeige (page_main, phase_result, result_kind == 1): Zahl oben,
+# duenne Trennlinie, Einheit klein und in Grossbuchstaben darunter - Design
+# "Rundes Display Konzepte" (Claude-Design-Projekt "Rundes Display
+# Masseinheiten-Design", Konzept 1a). Die Zahl selbst nutzt weiterhin
+# font_timer (packages/ui.yaml): dieselbe Groesse, die schon fuer den
+# siebenstelligen Timer-Countdown ("1:23:45") erprobt ist, traegt auch die
+# breitesten Messwerte dieses Geraets (z. B. Luftdruck "1013,2 hPa").
+#
+# Ersetzt die fruehere Reihen-Anordnung mit einem Icon *ueber* der Zahl, das
+# aus der Einheit erschlossen wurde (Thermometer, Blitz, ...). Dieses Design
+# braucht kein Icon mehr - deshalb muss keine Einheit mehr vorab auf ein Icon
+# festgelegt werden, jede von der Erkennung in packages/voice.yaml gelieferte
+# Einheit laesst sich einfach als Text anzeigen.
+result_divider_width: "47"
+result_divider_height: "2"
+# Abstand zwischen Zahl, Trennlinie und Einheit - gilt fuer beide Luecken
+# gleichermassen (LVGL pad_row auf dem Flex-Container).
+result_gap: "18"
+result_unit_letter_space: "5"
 
 # Timer. Home Assistant schickt Timer-Ereignisse von sich aus an den
 # Satelliten (on_timer_* in packages/voice.yaml) - dafuer braucht es keine
