@@ -7,12 +7,14 @@
 # HA-Integration erscheint dafuer unter Einstellungen -> Geraete -> Updates
 # ein Eintrag mit "Installieren"-Knopf - keine eigene Seite, kein eigenes
 # Skript noetig, das kommt automatisch aus dem Zusammenspiel von `update:`
-# und `ota:` unten.
+# und `ota:` unten. Das physische Testgeraet "Lumi Prototyp" laeuft absichtlich
+# mit genau diesem Package, um den Weg real zu erproben (siehe README,
+# Abschnitt "Firmware-Updates").
 #
-# Warum das hier sicher ist, obwohl assist-satellit.yaml/-prototyp.yaml
-# (Lumi und Lumi Prototyp) das bewusst nicht bekommen: der oeffentliche Build
-# hat nie WLAN-Zugangsdaten einkompiliert (siehe packages/wifi-public.yaml) -
-# sie werden zur Laufzeit per Improv/Captive-Portal in den Flash-Speicher des
+# Warum das hier sicher ist, obwohl assist-satellit.yaml (Lumi, das eigene
+# Hauptgeraet) das bewusst nicht bekommt: der oeffentliche Build hat nie
+# WLAN-Zugangsdaten einkompiliert (siehe packages/wifi-public.yaml) - sie
+# werden zur Laufzeit per Improv/Captive-Portal in den Flash-Speicher des
 # jeweiligen Geraets geschrieben, nicht ins Firmware-Image. Das
 # Firmware-Image, das dieses Geraet sich selbst herunterlaedt (dasselbe, das
 # .github/workflows/release.yml bei jedem v*.*.*-Tag nach
@@ -21,11 +23,13 @@
 # nicht vom WLAN - die naechste Firmware liest dieselben, schon im Flash
 # gespeicherten Zugangsdaten erneut.
 #
-# Bei Lumi/Lumi Prototyp waere das anders: ihr WLAN steckt einkompiliert im
-# Firmware-Image selbst. Ein Selbst-Flash mit dem WLAN-losen oeffentlichen
-# Image wuerde ihr WLAN loeschen - deshalb bekommen sie kein `update:`/`ota:
-# platform: http_request` und bleiben beim bestehenden Mac-Workflow
-# (README, Abschnitt "Updates").
+# Bei Lumi (assist-satellit.yaml) waere das anders: ihr WLAN steckt
+# einkompiliert im Firmware-Image selbst. Ein Selbst-Flash mit dem
+# WLAN-losen oeffentlichen Image wuerde ihr WLAN loeschen - deshalb bekommt
+# sie kein `update:`/`ota: platform: http_request` und bleibt beim
+# bestehenden Mac-Workflow (README, Abschnitt "Updates"). Dasselbe gaelte
+# fuer ein drittes eigenes Geraet ueber assist-satellit-prototyp.yaml,
+# sollte das je wieder auf echter Hardware laufen.
 #
 # ota: platform: http_request ist die eigentliche Download-und-Flash-
 # Faehigkeit (das Geraet zieht sich das Image per HTTPS und startet danach von

@@ -1,21 +1,29 @@
 # Home Assistant Voice Satellite - oeffentlicher Build ohne einkompilierte
 # WLAN-Zugangsdaten (Waveshare ESP32-S3-Touch-AMOLED-1.75).
 #
-# Nur fuer den anonymen Browser-Flash gedacht (docs/index.html), kompiliert
-# von .github/workflows/release.yml mit secrets.public.yaml. Der einzige
-# Unterschied zu assist-satellit.yaml ist packages/wifi-public.yaml statt
-# packages/wifi-local.yaml - dort steht auch, warum: ohne einkompilierte SSID
-# meldet das Geraet Improv gegenueber ehrlich "nicht eingerichtet" und zeigt
-# im Browser sofort die Netzwerkauswahl, statt gegen eine Platzhalter-SSID zu
-# laufen, die nie existiert.
+# In erster Linie fuer den anonymen Browser-Flash gedacht (docs/index.html),
+# kompiliert von .github/workflows/release.yml mit secrets.public.yaml. Der
+# einzige Unterschied zu assist-satellit.yaml ist packages/wifi-public.yaml
+# statt packages/wifi-local.yaml - dort steht auch, warum: ohne einkompilierte
+# SSID meldet das Geraet Improv gegenueber ehrlich "nicht eingerichtet" und
+# zeigt im Browser sofort die Netzwerkauswahl, statt gegen eine
+# Platzhalter-SSID zu laufen, die nie existiert.
 #
-# Fuer den eigenen Betrieb: assist-satellit.yaml mit echtem secrets.yaml
-# verwenden, nicht diese Datei.
+# Fuer den eigenen Hauptbetrieb: assist-satellit.yaml mit echtem secrets.yaml
+# verwenden, nicht diese Datei. Zusaetzlich zum anonymen Zielpublikum laeuft
+# diese Datei absichtlich auch physisch auf dem Testgeraet "Lumi Prototyp" -
+# als Ende-zu-Ende-Test fuer packages/update-public.yaml (siehe README,
+# Abschnitt "Firmware-Updates"). Achtung dabei: friendly_name unten ist
+# "Lumi", identisch zum echten Hauptgeraet aus assist-satellit.yaml - in der
+# eigenen Home-Assistant-Instanz tauchen dann zwei gleichnamige Geraete auf,
+# unterscheidbar nur ueber den Hostnamen (lumi.local vs. assist-satellit.local).
 #
 # name bleibt bewusst "assist-satellit" statt z.B. "lumi": ein Testflash
-# dieses Builds im eigenen Heimnetz soll nie mit einem der beiden echten
-# Geraete (lumi, lumi-prototyp) um denselben mDNS-Hostnamen konkurrieren -
-# genau das ist einmal passiert und fuehrte zu unvorhersehbaren OTA-Zielen.
+# dieses Builds im eigenen Heimnetz soll nie mit dem echten Hauptgeraet
+# (lumi) um denselben mDNS-Hostnamen konkurrieren - genau das ist einmal
+# passiert und fuehrte zu unvorhersehbaren OTA-Zielen. Das schuetzt aber nur
+# vor `lumi`: ein zweites, gleichzeitig getestetes Geraet mit diesem Build
+# haette denselben Namen wie "Lumi Prototyp" und wuerde mit ihr kollidieren.
 
 substitutions:
   <<: !include common-substitutions.yaml

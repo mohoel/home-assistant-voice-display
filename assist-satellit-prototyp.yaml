@@ -1,5 +1,12 @@
-# Home Assistant Voice Satellite - Geraet "Lumi Prototyp" (zweites, aelteres
-# Geraet, gleiche Hardware wie assist-satellit.yaml)
+# Home Assistant Voice Satellite - Vorlage fuer ein zweites eigenes Geraet,
+# gleiche Hardware wie assist-satellit.yaml.
+#
+# AKTUELL AUF KEINEM PHYSISCHEN GERAET IM EINSATZ: das Board, das frueher
+# unter diesem Namen als "Lumi Prototyp" lief, ist bewusst auf
+# assist-satellit-public.yaml umgezogen - als Testgeraet fuer den
+# oeffentlichen Build und dessen Home-Assistant-Update-Entity (siehe
+# packages/update-public.yaml). Diese Datei bleibt als fertige Vorlage
+# bestehen, falls ein tatsaechlich drittes eigenes Geraet dazukommt.
 #
 # Bauen und flashen:            esphome run assist-satellit-prototyp.yaml --device lumi-prototyp.local
 # Nur Konfiguration pruefen:    esphome config assist-satellit-prototyp.yaml

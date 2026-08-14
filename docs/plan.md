@@ -445,16 +445,19 @@ aus Phase 5 ist inzwischen ebenfalls entfallen):
   Weg derselbe wie bei den Farben (Global mit `restore_value`, `initial_value`
   aus der Substitution, dazu ein `number:`-Entity in `settings.yaml`)
 
-Für Lumi und Lumi Prototyp bleibt der Anstoß eines Updates vom Gerät aus nicht
-möglich — ein Selbst-Flash mit dem WLAN-losen öffentlichen Image würde ihr
-einkompiliertes WLAN löschen. Das Einspielen bleibt dort der Mac-Workflow
-(`esphome run … --device lumi.local`).
+Für Lumi (`assist-satellit.yaml`, echtes `secrets.yaml`) bleibt der Anstoß
+eines Updates vom Gerät aus nicht möglich — ein Selbst-Flash mit dem
+WLAN-losen öffentlichen Image würde ihr einkompiliertes WLAN löschen. Das
+Einspielen bleibt dort der Mac-Workflow (`esphome run … --device lumi.local`).
 
 Für den öffentlichen Build (`assist-satellit-public.yaml`) ist das inzwischen
 umgesetzt — aber über Home Assistant, nicht am Gerät: `packages/
 update-public.yaml` bringt `update:`/`ota: platform: http_request` mit, das
 Gerät erscheint dafür ganz normal in HAs Update-Dashboard mit
 „Installieren"-Knopf. Details siehe README, Abschnitt *Firmware-Updates*.
+„Lumi Prototyp" läuft absichtlich mit genau diesem Build, um den Weg als
+physisches Testgerät zu erproben (`assist-satellit-prototyp.yaml`, die
+frühere Konfiguration des Boards, ist aktuell auf keinem Gerät im Einsatz).
 
 ### Phase 9 — Alternativer Media Player für die Sprachausgabe (HA-seitig)
 
