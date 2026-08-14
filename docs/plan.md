@@ -455,9 +455,6 @@ umgesetzt — aber über Home Assistant, nicht am Gerät: `packages/
 update-public.yaml` bringt `update:`/`ota: platform: http_request` mit, das
 Gerät erscheint dafür ganz normal in HAs Update-Dashboard mit
 „Installieren"-Knopf. Details siehe README, Abschnitt *Firmware-Updates*.
-„Lumi Prototyp" läuft absichtlich mit genau diesem Build, um den Weg als
-physisches Testgerät zu erproben (`assist-satellit-prototyp.yaml`, die
-frühere Konfiguration des Boards, ist aktuell auf keinem Gerät im Einsatz).
 
 ### Phase 9 — Alternativer Media Player für die Sprachausgabe (HA-seitig)
 

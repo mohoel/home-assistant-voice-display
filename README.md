@@ -206,18 +206,10 @@ heruntergeladenen Firmware-Image steckt also kein Geheimnis, das dabei
 verloren gehen könnte. Es gibt dafür kein Bedienelement am Gerät selbst,
 alles läuft über HAs eigenes Update-Dashboard.
 
-**Lumi** (echtes `secrets.yaml`, WLAN einkompiliert) bekommt bewusst keine
-solche Update-Entity — ein Selbst-Flash mit dem WLAN-losen öffentlichen
-Image würde ihr WLAN löschen. Bei ihr bleibt der Weg aus Abschnitt *Updates*
-unten der richtige.
-
-**Lumi Prototyp** läuft dagegen absichtlich mit dem öffentlichen Build
-(`assist-satellit-public.yaml`) statt mit `assist-satellit-prototyp.yaml` —
-als physisches Testgerät für genau diesen Update-Weg: WLAN läuft über
-Improv/Captive-Portal statt über `secrets.yaml`, und die Update-Entity samt
-„Installieren"-Knopf lässt sich damit real durchklicken, ohne ein fremdes
-Gerät dafür zu brauchen. `assist-satellit-prototyp.yaml` bleibt als Datei im
-Repo, ist aber aktuell auf keinem physischen Gerät im Einsatz.
+**Ein Gerät mit echtem `secrets.yaml` (WLAN einkompiliert) bekommt bewusst
+keine solche Update-Entity** — ein Selbst-Flash mit dem WLAN-losen
+öffentlichen Image würde das WLAN löschen. Für ein solches Gerät bleibt der
+Weg aus Abschnitt *Updates* unten der richtige.
 
 ## Warum nicht das ESPHome-Add-on in Home Assistant?
 
@@ -392,9 +384,8 @@ Ein gepushter Tag `v*.*.*` löst zusätzlich
 Firmware mit `secrets.public.yaml` neu und hängt sie als Release-Asset an —
 davon lädt die gehostete Browser-Flash-Seite (siehe *Einrichtung*) **und**
 Home Assistants Update-Entity auf dem öffentlichen Build (Abschnitt
-*Firmware-Updates*) — letzteres betrifft auch Lumi Prototyp, das bewusst
-mit diesem Build läuft. Der eigene Build oben ist davon unabhängig und
-bleibt der Weg für den laufenden Betrieb von Lumi.
+*Firmware-Updates*). Der eigene Build oben ist davon unabhängig und bleibt
+der Weg für den laufenden Betrieb von Lumi.
 
 **Vor jedem Tag:** `project_version` in `common-substitutions.yaml` auf die
 neue Nummer setzen (ohne `v`-Präfix, z. B. `0.4.2` für den Tag `v0.4.2`) und
@@ -408,8 +399,8 @@ verfügbar", selbst direkt nach einem frischen Build vom aktuellen Stand.
 | Datei | Inhalt |
 |---|---|
 | `assist-satellit.yaml` | Gerätedatei fürs Hauptgerät „Lumi" (`lumi.local`) |
-| `assist-satellit-prototyp.yaml` | Gerätedatei für ein zweites, gleich aufgebautes eigenes Gerät (gleiches `secrets.yaml`, nur ein eigener Name) — aktuell auf keinem physischen Gerät im Einsatz, siehe unten |
-| `assist-satellit-public.yaml` | Anonymer Build für den Browser-Flash (`docs/`), keine WLAN-Zugangsdaten einkompiliert — läuft physisch auch auf „Lumi Prototyp" als Testgerät für die Firmware-Update-Entity |
+| `assist-satellit-prototyp.yaml` | Vorlage für ein weiteres, gleich aufgebautes eigenes Gerät (gleiches `secrets.yaml`, nur ein eigener Name) |
+| `assist-satellit-public.yaml` | Anonymer Build für den Browser-Flash (`docs/`), keine WLAN-Zugangsdaten einkompiliert |
 | `common-substitutions.yaml` | Farben, Phasen-IDs, Timings — von allen drei Gerätedateien gemeinsam genutzt |
 | `packages/core.yaml` | SoC, PSRAM, API, OTA, Zeit, Diagnose |
 | `packages/wifi-local.yaml` | WLAN mit echtem `secrets.yaml` (aktuell nur für `assist-satellit.yaml` im Einsatz) |
