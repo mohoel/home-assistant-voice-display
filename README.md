@@ -156,17 +156,17 @@ steht:
 - **Zifferblatt** — Strichkranz ohne Zeiger, aktuelle Stunde als farbig
   hervorgehobene Ziffer, Minute als längerer, ebenso hervorgehobener Strich
 - **Gesicht** — zwei Augen und ein Mund, die wartend umherblicken, blinzeln
-  und gelegentlich die Zunge herausstrecken. Zwölf verschiedene Marotten
-  wechseln sich zufällig ab, jede genau einmal, bevor sich der Zyklus
-  wiederholt
+  und gelegentlich die Zunge herausstrecken. Dreizehn verschiedene Marotten
+  (darunter Grinsen und Lachen) wechseln sich zufällig ab, jede genau einmal,
+  bevor sich der Zyklus wiederholt
 
 **Das Gesicht ist mehr als eine Standby-Seite.** Ist es gewählt, übernimmt es
 auch Zuhören, Verarbeiten und Antworten: die Augen richten sich auf, blicken
-beim Nachdenken schräg nach oben — das Fragezeichen steht dabei auf der
-Gegenseite, dort, wo die Augen gerade *nicht* hinsehen — und beim Sprechen
-bewegt sich der Mund. Die Bewegung läuft dabei durch, bei jedem Phasenwechsel
-biegen die Augen ab, statt zu springen. Bei Uhr und Zifferblatt bleibt es
-unverändert bei Mikrofon, Punkten und Balken.
+beim Nachdenken schräg nach oben, und beim Sprechen bewegt sich der Mund. Beim
+Zuhören und beim Verarbeiten färben sich Augen und Mund selbst um — blau beim
+Zuhören, orange beim Verarbeiten. Die Bewegung läuft dabei durch, bei jedem
+Phasenwechsel biegen die Augen ab, statt zu springen. Bei Uhr und Zifferblatt
+bleibt es unverändert bei Mikrofon, Punkten und Balken.
 
 ### Timer
 - Ring am Bildschirmrand, der sich leert und auf jeder Seite sichtbar bleibt

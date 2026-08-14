@@ -16,7 +16,7 @@
 # War lange nicht synchron gehalten (stand auf "0.1.0", obwohl der letzte Tag
 # v0.4.1 war) - das faellt jetzt sofort auf, weil das Geraet sonst dauerhaft
 # "Update verfuegbar" zeigt.
-project_version: "0.5.0"
+project_version: "0.5.1"
 
 # Voice-Assistant-Phasen. Die IDs entsprechen dem offiziellen
 # ESP32-S3-Box-3-Projekt, damit spaeter Code von dort uebernommen werden kann.
@@ -234,16 +234,38 @@ face_mouth_o_h: "46"
 face_mouth_o_radius: "23"
 face_mouth_w_grin: "170"
 face_mouth_h_grin: "14"
+# Lachen: drittes Marotten-Mundmaul, ein offenes Oval statt Grinsens duennem
+# Strich oder Staunens rundem "O" - breiter als Staunen, flacher als hoch,
+# damit es als geoeffneter Lachmund und nicht als zweites Staunen wirkt.
+# Radius = halbe Hoehe (Kapsel-/Oval-Form, wie face_mouth_o_radius bei
+# Staunen). Augen und Kopfversatz dazu sind Literale im Lambda, wie bei
+# den anderen Marotten auch.
+face_mouth_w_lachen: "130"
+face_mouth_h_lachen: "52"
+face_mouth_radius_lachen: "26"
 # Zunge (nur als Marotte im Warten). Sie liegt *unter* dem Mund in der
 # Z-Ordnung und ragt 6 px in ihn hinein, damit ihre oberen Ecken verdeckt
 # sind - LVGL kann Radien nur fuer alle vier Ecken zugleich.
 face_tongue_w: "44"
 face_tongue_h: "34"
 face_tongue_dy: "124"
-# Fragezeichen beim Denken, abwechselnd links oder rechts oben - und zwar
-# immer auf der Gegenseite des Blicks (Vorzeichen im Lambda, packages/ui.yaml).
-face_q_dx: "118"
-face_q_dy: "156"
+# Zuhoeren (blau) und Verarbeitung (orange) faerben Augen, Mund und Zunge
+# direkt ein (siehe die Farbwahl im `if (phase != last_phase)`-Zweig,
+# packages/ui.yaml) - Ersatz fuer das fruehere Fragezeichen beim Denken, das
+# als zu unruhig empfunden wurde. Sonst gilt wieder color_face.
+#
+# Eine separate farbige "Wolke" hinter dem Gesicht (eigenes Objekt, nur
+# shadow_* sichtbar) wurde zweimal versucht und wieder verworfen: selbst
+# gedrosselt (fester shadow_width, nur Deckkraft animiert, 300-ms-Takt) blieb
+# der Weichzeichner teuer genug fuer sichtbar stockende Augenbewegung beim
+# Phasenwechsel, und eine fruehere, staerker animierte Fassung (shadow_width
+# bis 210, alle 130 ms) liess den I2S-Bus einmal mit "Parent bus is busy"
+# rund 20 Sekunden haengen, waehrend die Sprachausgabe stumm blieb - derselbe
+# eng bemessene Zeitrahmen, den schon die Mikrofon/Lautsprecher-Bus-Handoffs
+# an anderer Stelle in diesem Dokument brauchen. Das Einfaerben der ohnehin
+# vorhandenen Widgets kostet dagegen nichts zusaetzlich: kein neues Objekt,
+# kein Weichzeichner, nur ein Style-Wechsel an kleinen Flaechen, der genauso
+# billig ist wie jede andere Aenderung in diesem Takt.
 # Glow. Das ist der einzige teure Teil des Gesichts: LVGL zeichnet einen
 # echten Weichzeichner, und die Augen bewegen sich beim Phasenwechsel ueber
 # rund eine halbe Sekunde jeden Takt. Bei Ruckeln ist das die erste

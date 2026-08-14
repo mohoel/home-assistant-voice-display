@@ -570,15 +570,22 @@ cd /Users/moritzholzer/Claude/Assist && git pull && esphome run assist-satellit.
 - Timer stellen und den Standby aufrufen → unabhängig von der Auswahl steht der
   Countdown da (Zifferblatt und Gesicht treten zurück). Timer abbrechen → die
   gewählte Seite kommt von selbst zurück.
-- Gesicht ein paar Minuten laufen lassen → die zwölf Marotten kommen alle vor,
-  keine zweimal hintereinander, und nach einem Neustart ist die Reihenfolge
-  eine andere. Besonders ansehen: das Zwinkern (nur *ein* Auge zu, das andere
-  bleibt offen und in voller Größe), das Staunen (runder Mund, kein
-  abgerundetes Rechteck) und den Übergang vom Augenrollen zurück in den
-  wandernden Blick (kein Hängenbleiben am Rand).
+- Gesicht ein paar Minuten laufen lassen → die dreizehn Marotten kommen alle
+  vor, keine zweimal hintereinander, und nach einem Neustart ist die
+  Reihenfolge eine andere. Besonders ansehen: das Zwinkern (nur *ein* Auge zu,
+  das andere bleibt offen und in voller Größe), das Staunen (runder Mund, kein
+  abgerundetes Rechteck), Grinsen und Lachen (deutlich unterscheidbare
+  Mundformen, nicht dieselbe Miene zweimal) und den Übergang vom Augenrollen
+  zurück in den wandernden Blick (kein Hängenbleiben am Rand).
 - Beim Augenrollen und beim Zittern auf Ruckeln achten — das sind die beiden
   Marotten, die dauerhaft Fläche bewegen. Bei Rucklern zuerst `face_glow`
   senken.
+- Bei gewähltem Gesicht einen Sprachbefehl auslösen → beim Zuhören färben
+  sich Augen und Mund blau, bei der Verarbeitung orange; kein Fragezeichen
+  mehr. Standby (Uhr/Zifferblatt/wartendes Gesicht) und die Sprachausgabe
+  bleiben bei der neutralen Gesichtsfarbe. Dabei zwei- bis dreimal
+  hintereinander sprechen und das Log auf „Parent bus is busy" prüfen (siehe
+  CLAUDE.md, Abschnitt zum Gesicht, für die Vorgeschichte).
 - Freien Heap prüfen: ohne Webserver muss er über dem alten Stand von rund
   161 700 B liegen (Baseline v0.1 ohne Webserver: 172 732 B).
 

@@ -74,14 +74,6 @@ font:
     size: 32
     glyphs: ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
 
-  # Fragezeichen ueber dem Gesicht beim Denken (page_face). Ein einziger Glyph,
-  # deshalb ein eigener Font statt einer Vergroesserung von font_date: 56 px ist
-  # die Groesse aus dem Design-Mockup.
-  - file: "gfonts://Figtree@700"
-    id: font_face
-    size: 56
-    glyphs: ["?"]
-
   # Countdown eines laufenden Timers und Zahl eines Messwerts. Kleiner als
   # font_clock, damit auch sieben Zeichen ("1:23:45") in den runden Bildschirm
   # passen; nur die tatsaechlich vorkommenden Zeichen, das spart Flash.
@@ -831,19 +823,6 @@ lvgl:
             shadow_spread: 0
             shadow_color: ${color_face}
             shadow_opa: ${face_glow_opa}
-
-        # Seite und Sichtbarkeit setzt der Takt; die Werte hier sind die
-        # Stellung, in der das Fragezeichen zuerst erscheinen wuerde.
-        - label:
-            id: face_question
-            align: CENTER
-            x: ${face_q_dx}
-            y: -${face_q_dy}
-            text: "?"
-            text_font: font_face
-            text_color: ${color_face}
-            text_align: CENTER
-            hidden: true
 
     # ------------------------------------------------------ Bildschirm aus
     # Leere schwarze Seite - der Standby-Zustand des Geraets. Sie ist der
@@ -1902,11 +1881,11 @@ interval:
   #   - Der Mundradius. Zwischen Pille und rundem "O" gibt es keine Form, die
   #     gemeint waere.
   #
-  # Im Warten kommen zu Blick und Lidschlag die Marotten: zwoelf kleine Mienen
-  # (Zunge, grosse Augen, offener Mund, Doppelblinzler, muede, Augenrollen,
-  # doppelter Blick, Zwinkern, skeptisch, Staunen, Grinsen, Zittern). Gezogen
-  # werden sie nicht gewuerfelt, sondern aus einem gemischten Beutel - Begruendung
-  # unten am Beutel selbst.
+  # Im Warten kommen zu Blick und Lidschlag die Marotten: dreizehn kleine
+  # Mienen (Zunge, grosse Augen, offener Mund, Doppelblinzler, muede,
+  # Augenrollen, doppelter Blick, Zwinkern, skeptisch, Staunen, Grinsen,
+  # Zittern, Lachen). Gezogen werden sie nicht gewuerfelt, sondern aus einem
+  # gemischten Beutel - Begruendung unten am Beutel selbst.
   #
   # Geschrieben wird nur, was sich in ganzen Pixeln geaendert hat. Das ist hier
   # kein Feinschliff, sondern der Grund, warum der Glow bezahlbar bleibt: im
@@ -1932,13 +1911,15 @@ interval:
                 enum : uint8_t {
                   Q_ZUNGE = 1, Q_AUGEN, Q_MUND, Q_DOPPELBLINK, Q_MUEDE,
                   Q_ROLLEN, Q_DOPPELBLICK, Q_ZWINKERN, Q_SKEPTISCH, Q_STAUNEN,
-                  Q_GRINSEN, Q_ZITTERN, Q_ANZAHL = Q_ZITTERN
+                  Q_GRINSEN, Q_ZITTERN, Q_LACHEN, Q_ANZAHL = Q_LACHEN
                 };
                 // Dauer je Marotte in Takten zu 33 ms. Index 0 bleibt leer,
                 // damit die Nummer direkt als Index taugt. Ein Zwinkern ist
-                // nach 260 ms vorbei, das Muede-Werden darf 1,2 s stehen.
+                // nach 260 ms vorbei, das Muede-Werden darf 1,2 s stehen; ein
+                // herzhaftes Lachen bekommt mit 30 Takten (~1 s) etwas mehr
+                // Zeit als das kurze Grinsen.
                 static const uint8_t QUIRK_DAUER[Q_ANZAHL + 1] = {
-                  0, 20, 16, 20, 20, 36, 24, 28, 8, 27, 24, 24, 12
+                  0, 20, 16, 20, 20, 36, 24, 28, 8, 27, 24, 24, 30
                 };
 
                 // --- Zustand ueber die Takte hinweg ---
@@ -1993,6 +1974,33 @@ interval:
                     seite = wuerfel(2) ? 1 : -1;
                   if (phase == ${phase_idle})
                     look_at = t;  // sofort einen neuen Blick werfen
+
+                  // Augen und Mund tragen die Phase ueber ihre eigene Farbe -
+                  // blau beim Zuhoeren, orange bei der Verarbeitung, sonst
+                  // die neutrale Gesichtsfarbe. Kein zusaetzliches Widget,
+                  // kein Weichzeichner: nur ein Farbwechsel an ohnehin
+                  // vorhandenen, schon leuchtenden Teilen (auch ihr
+                  // vorhandener Glow, shadow_color, zieht mit um). Ersetzt
+                  // einen Versuch mit einer separaten "Wolke" dahinter, der
+                  // auf dem Geraet zu stockender Augenbewegung und einmal zu
+                  // einem haengenden I2S-Bus fuehrte - reine Farbwechsel an
+                  // kleinen, bereits vorhandenen Flaechen sind dagegen so
+                  // billig wie jeder andere Style-Wechsel in diesem Takt.
+                  const int gesichtsfarbe =
+                      (phase == ${phase_listening}) ? ${color_listening}
+                      : (phase == ${phase_thinking}) ? ${color_thinking}
+                                                      : ${color_face};
+                  lv_obj_t *const teile[] = {
+                      id(face_eye_l), id(face_eye_r), id(face_mouth),
+                      id(face_tongue)};
+                  for (lv_obj_t *w : teile) {
+                    lv_obj_set_style_bg_color(
+                        w, lv_color_hex((uint32_t) gesichtsfarbe),
+                        LV_PART_MAIN);
+                    lv_obj_set_style_shadow_color(
+                        w, lv_color_hex((uint32_t) gesichtsfarbe),
+                        LV_PART_MAIN);
+                  }
                 }
 
                 // --- Ziele der laufenden Phase ---
@@ -2169,6 +2177,20 @@ interval:
                           jy = (int8_t) wuerfel(9) - 4;
                         }
                         break;
+
+                      case Q_LACHEN:
+                        // Herzhaftes Lachen: Mund als breites, offenes Oval
+                        // statt Grinsens duennem Strich, dazu zusammen-
+                        // gekniffene Augen - anders als beim Blinzeln
+                        // (tlidl/tlidr) ueber die Augengroesse selbst (tsl/
+                        // tsr), das wirkt als "verschmitzt zusammengekniffen"
+                        // statt als geschlossen.
+                        tmw = ${face_mouth_w_lachen};
+                        tmh = ${face_mouth_h_lachen};
+                        m_radius = ${face_mouth_radius_lachen};
+                        tmdy = ${face_mouth_dy} - 8;
+                        tsl = 0.45f; tsr = 0.45f;
+                        break;
                     }
 
                     // Der Lidschlag steht ueber jeder Marotte: er kann in eine
@@ -2263,24 +2285,4 @@ interval:
                     lv_obj_remove_flag(id(face_tongue), LV_OBJ_FLAG_HIDDEN);
                   else
                     lv_obj_add_flag(id(face_tongue), LV_OBJ_FLAG_HIDDEN);
-                }
-
-                const bool frage = (phase == ${phase_thinking});
-                static int8_t a_frage = -1, a_seite = 0;
-                if ((int8_t) frage != a_frage || (frage && seite != a_seite)) {
-                  a_frage = (int8_t) frage;
-                  a_seite = seite;
-                  if (frage) {
-                    // Gegenseite zum Blick, daher das Minus: die Augen gehen
-                    // beim Denken nach 34 * seite (oben in der Phasentabelle),
-                    // das Fragezeichen auf die andere Seite. Mit demselben
-                    // Vorzeichen stand beides in derselben Ecke - das
-                    // Fragezeichen lag den Augen im Weg, statt neben ihnen zu
-                    // stehen.
-                    lv_obj_align(id(face_question), LV_ALIGN_CENTER,
-                                 -${face_q_dx} * seite, -${face_q_dy});
-                    lv_obj_remove_flag(id(face_question), LV_OBJ_FLAG_HIDDEN);
-                  } else {
-                    lv_obj_add_flag(id(face_question), LV_OBJ_FLAG_HIDDEN);
-                  }
                 }
