@@ -127,13 +127,20 @@ number:
     initial_value: 30
     unit_of_measurement: s
 
-  # Helligkeit des sichtbaren Standby-Bildschirms (Uhr, Zifferblatt,
-  # Verarbeitung, Antwort, Fehler, ...) - alles ausser dem Zuhoeren, das
-  # weiterhin fest auf active_brightness (100 %, Substitution) laeuft. War
-  # frueher die Substitution idle_brightness; ausgewertet wird der Wert jetzt
-  # an den beiden Stellen in wake_display und on_screen_touch, die vorher
-  # ${idle_brightness} nutzten. light.turn_on/brightness ist templatable und
-  # erwartet dabei einen float zwischen 0.0 und 1.0, keinen Prozentstring.
+  # Helligkeit des echten Standby - Uhr, Zifferblatt und das wartende Gesicht
+  # (phase_idle/phase_muted). Ausgewertet in on_screen_touch (Tippen aus dem
+  # Standby heraus) und im on_turn_on-Zweig von display_brightness
+  # (packages/hardware.yaml, wenn Home Assistant den Bildschirm manuell wieder
+  # einschaltet). light.turn_on/brightness ist templatable und erwartet dabei
+  # einen float zwischen 0.0 und 1.0, keinen Prozentstring.
+  #
+  # Alles Sichtbare *ausser* dem Standby - Zuhoeren, Verarbeitung, Antwort,
+  # Fehler, Hinweis, klingelnder Timer - laeuft seit der Aufteilung nicht mehr
+  # hier mit, sondern auf num_display_brightness weiter unten. Vorher liefen
+  # hier auch diese Phasen mit (ausser Zuhoeren, das fest auf 100 % lag) - das
+  # war der eigentliche Fehler hinter "beim Denken wird der Bildschirm
+  # duenkler": jeder Phasenwechsel weg vom Zuhoeren fiel auf die
+  # Standby-Helligkeit zurueck, obwohl der Bildschirm die ganze Zeit wach war.
   - platform: template
     id: num_standby_brightness
     name: "Standby-Helligkeit"
@@ -145,6 +152,27 @@ number:
     max_value: 100
     step: 5
     initial_value: 80
+    unit_of_measurement: "%"
+
+  # Helligkeit von allem Sichtbaren ausser dem Standby: Zuhoeren, Verarbeitung,
+  # Antwort, Fehler, Hinweis, klingelnder Timer - ausgewertet in wake_display
+  # (packages/ui.yaml), der einzigen Stelle, die all diese Phasen aufweckt.
+  # Ersetzt die fruehere Substitution active_brightness (fest 100 %, nur
+  # waehrend des Zuhoerens): die galt nur fuer eine einzelne Phase und war
+  # nicht zur Laufzeit aenderbar, alle anderen wachen Phasen fielen mangels
+  # eigener Einstellung auf num_standby_brightness zurueck. Initial 100, wie
+  # es active_brightness vorher fest vorgab.
+  - platform: template
+    id: num_display_brightness
+    name: "Displayhelligkeit"
+    icon: mdi:brightness-7
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    min_value: 10
+    max_value: 100
+    step: 5
+    initial_value: 100
     unit_of_measurement: "%"
 
 script:

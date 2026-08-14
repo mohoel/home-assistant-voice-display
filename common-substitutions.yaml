@@ -199,15 +199,17 @@ timer_ring_timeout: 2min
 # (packages/settings.yaml) - so lange ist die Uhr bzw. das Zifferblatt nach
 # einem Tippen zu sehen, zur Laufzeit einstellbar.
 #
-# Zwei Stufen, wenn der Bildschirm an ist: volle Helligkeit gibt es nur beim
-# Zuhoeren - der Sprung auf 100 % ist selbst ein Signal ("er hoert jetzt
-# zu") und bleibt deshalb ein fester Compile-Zeit-Wert. Alles andere (Uhr,
-# Zifferblatt, Verarbeitung, Antwort, Hinweis) laeuft auf der HA-Entity
-# num_standby_brightness (packages/settings.yaml, ersetzt die fruehere
-# Substitution idle_brightness). Das ist keine Rueckkehr der frueheren
-# gedimmten Zwischenstufe im Standby: Standby heisst weiterhin aus, hier geht
-# es nur um die Helligkeit eines *sichtbaren* Bildschirms.
-active_brightness: "100%"
+# Zwei Stufen, wenn der Bildschirm an ist, beide als HA-Entity in
+# packages/settings.yaml und nicht mehr hier als Substitution: der echte
+# Standby (Uhr, Zifferblatt, wartendes Gesicht) laeuft auf
+# num_standby_brightness, alles andere Sichtbare (Zuhoeren, Verarbeitung,
+# Antwort, Fehler, Hinweis, klingelnder Timer) auf num_display_brightness
+# ("Displayhelligkeit"). Frueher lag die zweite Stufe fest bei 100 % und galt
+# nur waehrend des Zuhoerens (Substitution active_brightness); alle anderen
+# wachen Phasen fielen mangels eigener Einstellung auf die Standby-Helligkeit
+# zurueck - sichtbar als Abdunkeln beim Denken. Das ist keine Rueckkehr der
+# frueheren gedimmten Zwischenstufe im Standby: Standby heisst weiterhin aus,
+# hier geht es nur um die Helligkeit eines *sichtbaren* Bildschirms.
 
 # Zifferblatt: zweite Standby-Seite nach dem Design "Runde Zeitanzeige".
 # Es hat bewusst *keine* Zeiger - die Stunde ist die hervorgehobene Ziffer,

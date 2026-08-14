@@ -1110,7 +1110,7 @@ script:
           else:
             - script.execute: wake_display
 
-  # Antippen hat je nach Zustand drei Bedeutungen:
+  # Antippen hat je nach Zustand vier Bedeutungen:
   #
   # - Auf der Konfigurationsseite fuehrt es zurueck (update_ui waehlt die
   #   richtige Seite, Standby oder Hauptseite); die Helligkeit setzt danach der
@@ -1119,10 +1119,19 @@ script:
   #   ab (abort_session in packages/voice.yaml). Das Display ist in diesen
   #   Phasen ohnehin schon wach, ein wake_display waere ueberfluessig -
   #   abort_session endet selbst mit update_ui und damit im Standby-Zweig.
-  # - Sonst weckt es nur das Display. Im Leerlauf/stumm ist der Bildschirm
-  #   dabei in aller Regel aus (page_off), das Tippen holt also die
-  #   Standby-Seite zurueck und schaltet auf num_standby_brightness. Einen
-  #   eigenen Ruecksprung-Timer braucht das nicht: die Beruehrung hat LVGLs
+  # - Zeigt der Bildschirm schon eine Standby-Seite (Uhr, Zifferblatt,
+  #   wartendes Gesicht), schaltet ein weiteres Tippen ihn aus (sleep_display)
+  #   statt nur die Helligkeit neu zu setzen - ein Nutzer, der den schon
+  #   sichtbaren Bildschirm antippt, will ihn in aller Regel loswerden, nicht
+  #   ihn ein zweites Mal wecken. Das war frueher gar nicht vorgesehen: bis
+  #   hierhin weckte jedes Tippen im Leerlauf/stumm nur, ohne Weg zurueck
+  #   außer der automatischen Standby-Zeit. Ein anstehender Hinweis
+  #   (hint_active, liegt auf page_main statt einer Standby-Seite) ist davon
+  #   ausgenommen - der soll seine volle Anzeigezeit behalten, nicht durch ein
+  #   Antippen vorzeitig verschwinden.
+  # - Sonst (Bildschirm aus, page_off) weckt es nur das Display und holt die
+  #   Standby-Seite zurueck, Helligkeit num_standby_brightness. Einen eigenen
+  #   Ruecksprung-Timer braucht das nicht: die Beruehrung hat LVGLs
   #   Untaetigkeitszaehler zurueckgesetzt, on_idle oben faellt nach
   #   num_standby_timeout von selbst wieder in sleep_display.
   #
@@ -1161,28 +1170,41 @@ script:
                           return id(voice_assistant_phase) == ${phase_idle}
                               || id(voice_assistant_phase) == ${phase_muted};
                       then:
-                        # Wer tippt, will hinsehen: ein laufender Rueckfall aus
-                        # Home Assistant faellt weg. Ab hier zaehlt wieder
-                        # on_idle, das die Beruehrung gerade zurueckgesetzt hat
-                        # - der Bildschirm geht also num_standby_timeout nach
-                        # dieser Beruehrung von selbst wieder aus.
-                        - script.stop: standby_return
-                        # War der Bildschirm schon aus, liegt page_off vorne
-                        # und traegt nichts. Ein Tippen holt die Standby-Seite
-                        # zurueck, statt nur das Nichts aufzuhellen.
                         - if:
+                            # War der Bildschirm schon aus, liegt page_off vorne
+                            # und traegt nichts - wecken statt ausschalten.
                             condition:
                               lvgl.page.is_showing: page_off
                             then:
+                              # Wer tippt, will hinsehen: ein laufender
+                              # Rueckfall aus Home Assistant faellt weg. Ab
+                              # hier zaehlt wieder on_idle, das die Beruehrung
+                              # gerade zurueckgesetzt hat - der Bildschirm geht
+                              # also num_standby_timeout nach dieser
+                              # Beruehrung von selbst wieder aus.
+                              - script.stop: standby_return
                               - script.execute: show_standby_page
-                        # Warten, nicht zuhoeren: num_standby_brightness genuegt
-                        # (packages/settings.yaml, ersetzt die fruehere
-                        # Substitution idle_brightness). Die volle Helligkeit
-                        # gibt es erst, wenn ein Wake Word den Vorgang startet -
-                        # dann hellt wake_display auf.
-                        - light.turn_on:
-                            id: display_brightness
-                            brightness: !lambda "return id(num_standby_brightness).state / 100.0f;"
+                              # Warten, nicht zuhoeren: num_standby_brightness
+                              # genuegt (packages/settings.yaml). Die
+                              # Displayhelligkeit gibt es erst, wenn ein Wake
+                              # Word den Vorgang startet - dann hellt
+                              # wake_display auf. display_level ist die
+                              # physische Dimmung, display_brightness nur die
+                              # Ein/Aus-Sicht fuer Home Assistant
+                              # (packages/hardware.yaml).
+                              - light.turn_on:
+                                  id: display_level
+                                  brightness: !lambda "return id(num_standby_brightness).state / 100.0f;"
+                              - light.turn_on: display_brightness
+                            else:
+                              # Zeigt schon eine Standby-Seite - ein weiteres
+                              # Tippen schaltet aus, ausser waehrend eines
+                              # anstehenden Hinweises (siehe Begruendung oben).
+                              - if:
+                                  condition:
+                                    lambda: return !id(hint_active);
+                                  then:
+                                    - script.execute: sleep_display
                       else:
                         - script.execute: wake_display
 
@@ -1235,13 +1257,23 @@ script:
 
   # ------------------------------------------------------- Display aufwecken
   #
-  # Zwei Helligkeiten: volle nur beim Zuhoeren (active_brightness, Substitution,
-  # nicht per HA einstellbar), sonst num_standby_brightness
-  # (packages/settings.yaml, ersetzt die fruehere Substitution idle_brightness).
-  # Der Sprung ist Teil der Rueckmeldung - er faellt auch aus dem Augenwinkel
-  # auf und sagt "jetzt hoere ich zu", noch bevor Mikrofon-Icon oder Gesicht
-  # gelesen sind. Verarbeitung, Antwort und Fehler brauchen die volle
-  # Helligkeit nicht.
+  # Jede hier aufgeweckte Phase (Zuhoeren, Verarbeitung, Antwort, Fehler,
+  # Hinweis, klingelnder Timer) laeuft auf derselben Helligkeit:
+  # num_display_brightness ("Displayhelligkeit", packages/settings.yaml). Der
+  # Sprung von der Standby-Helligkeit auf diesen Wert ist selbst Teil der
+  # Rueckmeldung - er faellt aus dem Augenwinkel auf, noch bevor Mikrofon-Icon
+  # oder Gesicht gelesen sind.
+  #
+  # Das war einmal anders und ist der Kern eines gemeldeten Fehlers gewesen:
+  # nur das Zuhoeren lag fest auf 100 % (Substitution active_brightness,
+  # nicht per HA einstellbar), jede andere hier aufgeweckte Phase fiel mangels
+  # eigener Einstellung auf num_standby_brightness zurueck - der Bildschirm
+  # wurde beim Denken sichtbar duenkler, obwohl er die ganze Zeit wach war.
+  # num_display_brightness deckt jetzt alle diese Phasen einheitlich ab.
+  #
+  # display_level ist die physische Dimmung, display_brightness nur die
+  # Ein/Aus-Sicht fuer Home Assistant (packages/hardware.yaml) - deshalb immer
+  # beide Lichter anfassen.
   #
   # Hier faellt ausserdem die eine Entscheidung des Gesichtsmodus: Welche Seite traegt die
   # laufende Phase - page_main mit Icon/Punkten/Balken oder page_face?
@@ -1279,17 +1311,10 @@ script:
             - lvgl.page.show: page_face
           else:
             - lvgl.page.show: page_main
-      - if:
-          condition:
-            lambda: return id(voice_assistant_phase) == ${phase_listening};
-          then:
-            - light.turn_on:
-                id: display_brightness
-                brightness: ${active_brightness}
-          else:
-            - light.turn_on:
-                id: display_brightness
-                brightness: !lambda "return id(num_standby_brightness).state / 100.0f;"
+      - light.turn_on:
+          id: display_level
+          brightness: !lambda "return id(num_display_brightness).state / 100.0f;"
+      - light.turn_on: display_brightness
 
   # --------------------------------------------------- Bildschirm ausschalten
   # Standby heisst aus, nicht gedimmt: die frueheren Substitutions
@@ -1307,6 +1332,7 @@ script:
   - id: sleep_display
     mode: restart
     then:
+      - light.turn_off: display_level
       - light.turn_off: display_brightness
       - lvgl.page.show: page_off
 

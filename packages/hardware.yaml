@@ -62,8 +62,22 @@ display:
     update_interval: never
 
 # AMOLED hat keine Hintergrundbeleuchtung - die Helligkeit ist ein
-# Display-Kommando. Als monochromatic light verpackt, damit sich Standby
-# und HA-Entity sauber darueber steuern lassen.
+# Display-Kommando, geschrieben ueber diesen einen float-Output.
+#
+# Zwei Lichter teilen sich ihn, mit getrennten Aufgaben:
+# - display_level: die eigentliche Dimmung. internal: true - dieses Licht
+#   taucht in Home Assistant nicht auf. Es gab hier einmal eine einzelne
+#   dimmbare Entity fuer beides, und ihr Helligkeitsregler war fuer einen
+#   Nutzer wertlos: jeder Phasenwechsel in packages/ui.yaml ueberschreibt den
+#   Wert binnen Millisekunden wieder, der Regler "springt" nur. Die echten,
+#   von Hand sinnvoll einstellbaren Helligkeiten sind seither die beiden
+#   HA-Number-Entities in packages/settings.yaml: num_standby_brightness fuer
+#   den echten Standby (Uhr, Zifferblatt, wartendes Gesicht) und
+#   num_display_brightness ("Displayhelligkeit") fuer alles Sichtbare
+#   darueber hinaus - Zuhoeren, Verarbeitung, Antwort, Fehler, Hinweis,
+#   klingelnder Timer.
+# - display_brightness ("Display"): reine Ein/Aus-Sicht fuer Home Assistant,
+#   siehe unten.
 output:
   - platform: template
     id: out_brightness
@@ -71,15 +85,42 @@ output:
     write_action:
       - lambda: id(disp).set_brightness((uint8_t) (state * 255));
 
+  # Fasst den eigentlichen Output nicht an - existiert nur, weil das
+  # binary-Lichtprofil einen BinaryOutput verlangt. Reicht Ein/Aus lediglich
+  # an display_level weiter, damit ein manuelles Umschalten der Entity
+  # "Display" in Home Assistant den Bildschirm auch wirklich hell/dunkel
+  # schaltet (siehe on_turn_on unten).
+  - platform: template
+    id: out_display_power
+    type: binary
+    write_action:
+      - if:
+          condition:
+            lambda: return state;
+          then:
+            - light.turn_on: display_level
+          else:
+            - light.turn_off: display_level
+
 light:
+  # Physische Dimmung, nicht in Home Assistant sichtbar (internal: true,
+  # siehe Begruendung oben). Alle Aufrufer stehen in packages/ui.yaml.
   - platform: monochromatic
-    id: display_brightness
-    name: "Display"
+    id: display_level
+    internal: true
     output: out_brightness
     restore_mode: ALWAYS_ON
     default_transition_length: 300ms
     initial_state:
       brightness: 100%
+
+  # Ein/Aus-Ansicht fuer Home Assistant. Zeigt bewusst keine Helligkeit mehr,
+  # siehe die Begruendung im output-Block oben.
+  - platform: binary
+    id: display_brightness
+    name: "Display"
+    output: out_display_power
+    restore_mode: ALWAYS_ON
     # Der Standby (sleep_display in packages/ui.yaml) schaltet das Licht ganz
     # aus und legt die leere page_off vor. Wer es danach aus Home Assistant
     # heraus wieder einschaltet, saehe sonst einen hellen, leeren Bildschirm -
@@ -95,6 +136,11 @@ light:
     #
     # boot_done haelt den Aufruf zurueck, bis LVGL steht - der Trigger kann
     # schon beim Wiederherstellen des Lichtzustands im Setup feuern.
+    #
+    # display_level bekommt hier zusaetzlich explizit eine Helligkeit: die
+    # write_action von out_display_power schaltet es zwar mit ein, aber ohne
+    # Helligkeitsangabe nur auf seinen letzten Wert - und der kann nach einem
+    # laengeren Aus-Zustand veraltet sein.
     on_turn_on:
       - if:
           condition:
@@ -106,6 +152,9 @@ light:
                 then:
                   - script.execute: show_standby_page
                   - script.execute: standby_return
+                  - light.turn_on:
+                      id: display_level
+                      brightness: !lambda "return id(num_standby_brightness).state / 100.0f;"
 
 touchscreen:
   - platform: cst9220          # unterstuetzt CST9220 und CST9217
