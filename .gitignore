@@ -4,6 +4,11 @@ secrets.yaml
 # Internes QA-Dokument, bleibt lokal statt im (kuenftig oeffentlichen) Repo
 docs/testplan.md
 
+# Interne Arbeitsanleitung fuer Claude Code, bleibt lokal statt im
+# oeffentlichen Repo - Claude Code liest sie ohnehin direkt aus dem
+# Projektordner, nicht aus GitHub
+CLAUDE.md
+
 # ESPHome Build-Artefakte
 .esphome/
 *.bin
