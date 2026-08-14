@@ -682,10 +682,10 @@ Punkte, die man beim Ändern leicht übersieht:
   ohne Neustart.
   Umgekehrt gilt: **jeder Weg, der das Display wach hält, muss
   `script.stop: standby_return` aufrufen** — sonst fällt der Bildschirm mitten
-  im Hinschauen ins Dunkle. Das sind `wake_display`, `show_config_page` und der
-  Idle/Muted-Zweig von `on_screen_touch`; letzterer holt zusätzlich über
-  `show_standby_page` die Standby-Seite zurück, weil im Standby `page_off`
-  vorne liegt und ein Tippen sonst nur das Nichts aufhellen würde.
+  im Hinschauen ins Dunkle. Das sind `wake_display` und der Idle/Muted-Zweig
+  von `on_screen_touch`; letzterer holt zusätzlich über `show_standby_page`
+  die Standby-Seite zurück, weil im Standby `page_off` vorne liegt und ein
+  Tippen sonst nur das Nichts aufhellen würde.
   **Einen Pixel-Shift gibt es deshalb nicht mehr.** Uhr, Datum, Countdown und
   `dial_face` wanderten früher minütlich ein paar Pixel; das ist mit dem
   Ausschalten ersatzlos entfallen (`core.yaml` ruft im Minutentakt nur noch
