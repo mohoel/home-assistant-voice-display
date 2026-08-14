@@ -1,13 +1,13 @@
 {
   "name": "Assist Satellit (öffentlicher Build)",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "builds": [
     {
       "chipFamily": "ESP32-S3",
       "ota": {
         "path": "firmware.ota.bin",
-        "md5": "7a0587058246885de33d93a9d0fb4876",
-        "release_url": "https://github.com/mohoel/home-assistant-voice-lumi/releases/tag/v0.5.0"
+        "md5": "5bda2d70b9b630fbc1e00f31ab6f5941",
+        "release_url": "https://github.com/mohoel/home-assistant-voice-lumi/releases/tag/v0.5.1"
       }
     }
   ]
