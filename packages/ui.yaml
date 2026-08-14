@@ -90,7 +90,7 @@ font:
   # 216 px = 300% der urspruenglichen 72 px. Die Groesse gilt fuer alle vier
   # Glyphen. Auf sie beziehen sich `lbl_icon` (Box 240x240), die Punktbreite
   # der Verarbeitung (dot_gap/dot_size_max) und die Balkenbreite der
-  # Sprachausgabe (bar_gap/bar_width) - alle in assist-satellit.yaml.
+  # Sprachausgabe (bar_gap/bar_width) - alle in common-substitutions.yaml.
   - file: "gfonts://Material+Symbols+Outlined"
     id: font_icon
     size: 216
@@ -988,7 +988,7 @@ script:
 
           // Glyph und Farbe des Statusicons. Seit dem Wegfall des Rings traegt
           // das Icon die Farbcodierung; Farben und Phasen sind beide feste
-          // Substitutions aus assist-satellit.yaml.
+          // Substitutions aus common-substitutions.yaml.
           const char *glyph = nullptr;
           int farbe = ${color_text_dim};
 

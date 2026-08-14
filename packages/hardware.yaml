@@ -208,7 +208,7 @@ media_player:
     # damit sie denselben Weg nehmen wie die TTS-Antwort und sich nicht mit ihr
     # um den I2S-Bus streiten. Die Skripte dazu stehen in packages/voice.yaml.
     #
-    # Die Pfade sind relativ zum Verzeichnis von assist-satellit.yaml, nicht zu
+    # Die Pfade sind relativ zum Verzeichnis von lumi.yaml, nicht zu
     # dieser Datei: cv.file_ loest ueber CORE.relative_config_path auf, und das
     # ist immer das Konfigurationsverzeichnis - Packages verschieben den Bezug
     # nicht.

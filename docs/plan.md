@@ -100,8 +100,8 @@ SoC: ESP32-S3R8, 16 MB Flash, 8 MB Octal-PSRAM.
 ├── README.md                               ← Setup-, Flash- und Update-Anleitung
 ├── .gitignore                              ← secrets.yaml, .esphome/, *.bin
 ├── secrets.yaml                            ← NICHT im Repo
-├── secrets.yaml.example                    ← Vorlage mit Platzhaltern
-├── assist-satellit.yaml                    ← Geräte-Config, bindet packages ein
+├── secrets.public.yaml                     ← Platzhalter für den Release-Build
+├── lumi.yaml                               ← Geräte-Config, bindet packages ein
 └── packages/
     ├── core.yaml        esphome / esp32 / psram / wifi / api / ota / logger / time
     ├── hardware.yaml    i2c / spi / i2s_audio / display / touchscreen / audio_dac / audio_adc
@@ -110,10 +110,10 @@ SoC: ESP32-S3R8, 16 MB Flash, 8 MB Octal-PSRAM.
     └── ui_scripts.yaml  Phasen-Logik, draw/update-Skripte, Standby-Timer
 ```
 
-`assist-satellit.yaml` bindet die Packages über lokale `packages:`-Includes ein
+`lumi.yaml` bindet die Packages über lokale `packages:`-Includes ein
 (nicht als Remote-Package — das Repo liegt ja schon lokal beim Build-Host).
-Substitutions für Name, Farben und Phasen-IDs stehen im Geräte-YAML, damit ein
-zweites Gerät später nur eine weitere dünne Datei braucht.
+Substitutions für Name, Farben und Phasen-IDs stehen im Geräte-YAML bzw. in
+`common-substitutions.yaml`.
 
 ### Voice-Assistant-Phasenmodell (übernommen von Box-3)
 
@@ -134,7 +134,7 @@ Rückfrage gestellt hat (`is_followup`); Phase 11 unterscheidet drei Fälle übe
 `error_kind`. Beides bleibt dieselbe Phase, weil sich nur Glyph und Farbe
 ändern.
 
-Farben stehen als Substitutions in `assist-satellit.yaml`. Icons sind Glyphen aus
+Farben stehen als Substitutions in `common-substitutions.yaml`. Icons sind Glyphen aus
 `font_icon` (`gfonts://Material+Symbols+Outlined`) — siehe „Design-Referenz" in
 [CLAUDE.md](../CLAUDE.md).
 
@@ -215,8 +215,8 @@ Jede Phase endet mit einem flash- und testbaren Zustand.
      (`git tag v0.1` …) in die Quere kommt, wenn man nicht aufpasst.
 2. `git init` in `/Users/moritzholzer/Claude/Assist`, `.gitignore` anlegen
    (`secrets.yaml`, `.esphome/`, `*.bin`, `.DS_Store`).
-3. `secrets.yaml.example` + reale `secrets.yaml`: `wifi_ssid`, `wifi_password`,
-   `api_encryption_key` (32-Byte base64), `ota_password`.
+3. `secrets.yaml`: `ap_password`, `api_encryption_key` (32-Byte base64),
+   `ota_password`.
 4. Privates GitHub-Repo anlegen und als `origin` verknüpfen — **erst nach**
    Bestätigung, dass `.gitignore` greift.
 
@@ -330,7 +330,7 @@ Umlaute werden korrekt gerendert.
   entsteht: **`volume_set` gehört an `on_release`, nicht an `on_value`** — der
   Speaker-Media-Player schreibt bei jedem Aufruf in den NVS-Flash, ein einziger
   Ziehvorgang auf `on_value` erzeugt sonst hunderte Schreibzugriffe.
-- ~~**Web-Bedienseite** unter `http://assist-satellit.local/`~~ — es gab sie in
+- ~~**Web-Bedienseite** unter `http://lumi.local/`~~ — es gab sie in
   zwei Ausbaustufen (erst das ESPHome-Dashboard mit `sorting_groups`, dann eine
   eigene Seite aus `web/app.js` und `web/app.css`), und sie ist auf Ansage
   wieder entfallen: Farben sind Compile-Zeit-Werte, übrig blieben zwei Selects,
@@ -346,7 +346,7 @@ Umlaute werden korrekt gerendert.
   - **Farben**: fünf Hex-Textfelder für die Symbolfarben. Einen Farbwähler kennt
     das Dashboard nicht, Hex ohne Präfix ist der einzige Weg.
 - Die Farben sind damit nicht mehr rein compile-zeitlich: die Substitutions in
-  `assist-satellit.yaml` bleiben der Auslieferungszustand und dienen als
+  `common-substitutions.yaml` bleiben der Auslieferungszustand und dienen als
   `initial_value` der Globals `col_*`, die per `restore_value` überleben.
 - Kein `auth:` — die Seite ist im LAN offen erreichbar. Bei Bedarf einen
   `auth:`-Block mit Werten aus `secrets.yaml` ergänzen.
@@ -445,16 +445,11 @@ aus Phase 5 ist inzwischen ebenfalls entfallen):
   Weg derselbe wie bei den Farben (Global mit `restore_value`, `initial_value`
   aus der Substitution, dazu ein `number:`-Entity in `settings.yaml`)
 
-Für Lumi (`assist-satellit.yaml`, echtes `secrets.yaml`) bleibt der Anstoß
-eines Updates vom Gerät aus nicht möglich — ein Selbst-Flash mit dem
-WLAN-losen öffentlichen Image würde ihr einkompiliertes WLAN löschen. Das
-Einspielen bleibt dort der Mac-Workflow (`esphome run … --device lumi.local`).
-
-Für den öffentlichen Build (`assist-satellit-public.yaml`) ist das inzwischen
-umgesetzt — aber über Home Assistant, nicht am Gerät: `packages/
-update-public.yaml` bringt `update:`/`ota: platform: http_request` mit, das
-Gerät erscheint dafür ganz normal in HAs Update-Dashboard mit
-„Installieren"-Knopf. Details siehe README, Abschnitt *Firmware-Updates*.
+Umgesetzt — aber über Home Assistant, nicht am Gerät: `packages/update.yaml`
+bringt `update:`/`ota: platform: http_request` mit, das Gerät erscheint dafür
+ganz normal in HAs Update-Dashboard mit „Installieren"-Knopf. Möglich ist das
+nur, weil die Firmware keine WLAN-Zugangsdaten einkompiliert. Details siehe
+README, Abschnitt *Firmware-Updates*.
 
 ### Phase 9 — Alternativer Media Player für die Sprachausgabe (HA-seitig)
 
@@ -485,7 +480,7 @@ stehenden Sonos/Cast-Box.
 ## Update-Workflow (nach dem Erstflash)
 
 ```bash
-cd /Users/moritzholzer/Claude/Assist && git pull && esphome run assist-satellit.yaml --device assist-satellit.local
+cd /Users/moritzholzer/Claude/Assist && git pull && esphome run lumi.yaml --device lumi.local
 ```
 
 - Kompiliert auf dem Mac (schnell), pusht OTA direkt per WLAN — **Home Assistant
@@ -511,14 +506,14 @@ cd /Users/moritzholzer/Claude/Assist && git pull && esphome run assist-satellit.
    ```
 3. Flashen:
    ```bash
-   cd /Users/moritzholzer/Claude/Assist && esphome run assist-satellit.yaml --device /dev/cu.usbmodem101
+   cd /Users/moritzholzer/Claude/Assist && esphome run lumi.yaml --device /dev/cu.usbmodem101
    ```
    Alternativ per **ESPHome Desktop** (siehe Phase 0): Dashboard im Browser öffnen,
    Projektordner als Konfigurationsverzeichnis wählen, Gerät im „Install"-Dialog per
    USB flashen — die Port-/Download-Modus-Schritte übernimmt dort die UI.
 4. Danach hängt die Logausgabe am seriellen Port — Boot-Log auf Fehler prüfen
    (I2C-Scan muss ES7210, ES8311, CST9217, AXP2101 finden).
-5. In HA: Einstellungen → Geräte → ESPHome sollte `assist-satellit` per mDNS
+5. In HA: Einstellungen → Geräte → ESPHome sollte `lumi` per mDNS
    anbieten; mit dem `api_encryption_key` aus `secrets.yaml` übernehmen.
 
 **Phase 2 — Audio**

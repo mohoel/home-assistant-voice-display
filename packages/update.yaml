@@ -1,0 +1,48 @@
+# Firmware-Update ueber Home Assistants normale Update-Entity - kein
+# Bedienelement am Geraet.
+#
+# Das ist der einzige vorgesehene Update-Weg: Leute, die das Geraet ueber die
+# Browser-Flash-Seite eingerichtet haben, sollen ohne Rechner und ohne
+# ESPHome-Kenntnisse aktualisieren koennen. Genau wie bei jeder anderen
+# HA-Integration erscheint dafuer unter Einstellungen -> Geraete -> Updates
+# ein Eintrag mit "Installieren"-Knopf - keine eigene Seite, kein eigenes
+# Skript noetig, das kommt automatisch aus dem Zusammenspiel von `update:`
+# und `ota:` unten.
+#
+# Warum ein Selbst-Flash hier gefahrlos ist: die Firmware hat nie
+# WLAN-Zugangsdaten einkompiliert (siehe packages/wifi.yaml) - sie werden zur
+# Laufzeit per Improv/Captive-Portal in den Flash-Speicher des jeweiligen
+# Geraets geschrieben, nicht ins Firmware-Image. Das Firmware-Image, das das
+# Geraet sich selbst herunterlaedt (dasselbe, das
+# .github/workflows/release.yml bei jedem v*.*.*-Tag nach
+# docs/firmware.ota.bin baut und ueber ota-manifest.json ankuendigt), enthaelt
+# also kein Geheimnis. Ein Selbst-Flash trennt das Geraet deshalb nicht vom
+# WLAN - die naechste Firmware liest dieselben, schon im Flash gespeicherten
+# Zugangsdaten erneut. Wer stattdessen eine eigene SSID einkompiliert, nimmt
+# sich genau diese Eigenschaft und muss dieses Package entfernen.
+#
+# ota: platform: http_request ist die eigentliche Download-und-Flash-
+# Faehigkeit (das Geraet zieht sich das Image per HTTPS und startet danach von
+# selbst neu); update: platform: http_request daneben ist Anzeige- und
+# Vergleichsschicht (Version, "Installieren"-Knopf) - und taucht darueber
+# automatisch auch in Home Assistants eigenem Update-Dashboard auf.
+#
+# ota: platform: esphome (packages/core.yaml, fuer `esphome run` beim
+# Entwickeln am Quelltext) bleibt parallel bestehen - ESPHome fuehrt mehrere
+# ota:-Eintraege aus verschiedenen Packages zu einer gemeinsamen Liste
+# zusammen, das eine stoert das andere nicht.
+
+http_request:
+  verify_ssl: true
+
+ota:
+  - platform: http_request
+
+update:
+  - platform: http_request
+    id: fw_update
+    name: "Firmware"
+    icon: mdi:cloud-download-outline
+    entity_category: diagnostic
+    source: ${update_manifest_url}
+    update_interval: ${update_check_interval}

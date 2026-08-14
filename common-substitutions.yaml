@@ -1,18 +1,16 @@
-# Substitutions, die alle Einstiegspunkte (assist-satellit.yaml,
-# assist-satellit-prototyp.yaml, assist-satellit-public.yaml) gemeinsam
-# nutzen. Ausgelagert, damit keiner davon 240+ Zeilen Phasen-IDs, Farben und
-# Timings doppelt pflegen muss.
+# Phasen-IDs, Farben und Timings der Firmware - ausgelagert aus lumi.yaml,
+# damit die Geraetedatei kurz bleibt und alle einstellbaren Werte an einer
+# Stelle stehen.
 #
-# name/friendly_name stehen bewusst NICHT hier, sondern in jedem
-# Einstiegspunkt einzeln (per YAML-Merge-Key, siehe dort): esphome.name ist
-# zugleich mDNS-Hostname und Build-Ordner-Name. Mehrere physische Geraete mit
-# demselben Namen kollidieren im lokalen Netz - mDNS haengt dann an eines von
-# ihnen automatisch ein "-2" an, und OTA ueber den mDNS-Namen landet
-# unvorhersehbar auf dem einen oder anderen Geraet (das ist einmal genau so
-# passiert). Jeder Einstiegspunkt bekommt deshalb einen eigenen, festen Namen.
-# Muss zu jedem Release-Tag passen (siehe README, Abschnitt "Updates") - Home
-# Assistants Update-Entity (packages/update-public.yaml, nur der oeffentliche
-# Build) vergleicht diesen Wert als reinen String gegen ota-manifest.json.
+# name/friendly_name stehen bewusst NICHT hier, sondern in lumi.yaml (per
+# YAML-Merge-Key, siehe dort): esphome.name ist zugleich mDNS-Hostname und
+# Build-Ordner-Name. Mehrere Geraete mit demselben Namen kollidieren im
+# lokalen Netz - mDNS haengt dann an eines von ihnen automatisch ein "-2" an,
+# und OTA ueber den mDNS-Namen landet unvorhersehbar auf dem einen oder
+# anderen Geraet (das ist einmal genau so passiert).
+# Muss zu jedem Release-Tag passen - Home Assistants Update-Entity
+# (packages/update.yaml) vergleicht diesen Wert als reinen String gegen
+# ota-manifest.json.
 # War lange nicht synchron gehalten (stand auf "0.1.0", obwohl der letzte Tag
 # v0.4.1 war) - das faellt jetzt sofort auf, weil das Geraet sonst dauerhaft
 # "Update verfuegbar" zeigt.
@@ -281,8 +279,8 @@ face_step_time: 33ms
 # warten. Bekannt aus mobilen Betriebssystemen als Doppeltipp-Fenster.
 double_tap_window: 350ms
 
-# Firmware-Update ueber Home Assistant (packages/update-public.yaml, nur
-# assist-satellit-public.yaml). Kein Bedienelement am Geraet - Anzeige und
+# Firmware-Update ueber Home Assistant (packages/update.yaml). Kein
+# Bedienelement am Geraet - Anzeige und
 # "Installieren"-Knopf laufen ausschliesslich ueber HAs eigenes
 # Update-Dashboard. Keine CNAME im Repo -> die Standard-GitHub-Pages-Adresse.
 update_manifest_url: "https://mohoel.github.io/home-assistant-voice-lumi/ota-manifest.json"

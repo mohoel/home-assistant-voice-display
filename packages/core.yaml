@@ -6,7 +6,7 @@ esphome:
   # CST9217-Touch-Support (Plattform cst9220) gibt es erst ab 2026.7.0.
   min_version: 2026.7.0
   project:
-    name: mohoel.assist-satellit
+    name: mohoel.lumi
     version: ${project_version}
   on_boot:
     # Nach dem Aufbau aller Komponenten einmal die Oberflaeche zeichnen. Ohne
@@ -86,9 +86,8 @@ logger:
   # die Zustandswechsel der Pipeline ebenso (voice_assistant.cpp:607).
 
 # WLAN/Captive-Portal/Improv stehen NICHT hier, sondern in einem eigenen
-# Package - lokaler und oeffentlicher Build brauchen dafuer unterschiedliche
-# Konfiguration (siehe packages/wifi-local.yaml und packages/wifi-public.yaml,
-# eingebunden von assist-satellit.yaml bzw. assist-satellit-public.yaml).
+# Package (packages/wifi.yaml) - dort steht auch, warum der wifi:-Block ohne
+# einkompilierte SSID auskommt.
 
 api:
   encryption:

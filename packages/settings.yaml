@@ -9,7 +9,7 @@
 # HTTP-Anfragen mehr ausser dem captive_portal im AP-Fallback.
 #
 # Farben sind keine Einstellung: Symbol- und Akzentfarben stehen als
-# Substitutions in assist-satellit.yaml und sind reine Compile-Zeit-Werte. Eine
+# Substitutions in common-substitutions.yaml und sind reine Compile-Zeit-Werte. Eine
 # Aenderung braucht immer einen Neubau - genau deshalb kam die Bedienseite ohne
 # Farbfelder aus und war am Ende nur noch eine zweite Oberflaeche fuer diese
 # beiden Selects.

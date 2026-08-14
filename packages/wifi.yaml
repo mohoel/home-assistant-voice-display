@@ -1,8 +1,7 @@
-# WLAN-Package fuer den oeffentlichen Build (assist-satellit-public.yaml +
-# secrets.public.yaml, kompiliert von .github/workflows/release.yml fuer den
-# Browser-Flash auf docs/index.html). Der einzige, aber entscheidende
-# Unterschied zu packages/wifi-local.yaml: hier steht keine SSID/kein
-# Passwort im wifi:-Block.
+# WLAN-Package. Entscheidend daran: im wifi:-Block steht bewusst keine
+# SSID und kein Passwort - das Netz kommt ausschliesslich zur Laufzeit per
+# Improv (Browser, ueber USB) oder ueber das Captive Portal des
+# Fallback-Hotspots.
 #
 # Grund: ESPHomes improv_serial-Komponente meldet dem Browser "provisioned",
 # sobald ueberhaupt eine SSID einkompiliert ist - unabhaengig davon, ob die

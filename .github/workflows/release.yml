@@ -2,14 +2,10 @@ name: Firmware-Release
 
 # Baut die Firmware ausschliesslich bei getaggten Versionen (v*.*.*) und
 # haengt firmware.factory.bin als Release-Asset an - passend zur Regel aus
-# der README ("Updates" / OTA per Git-Tag). Kompiliert wird
-# assist-satellit-public.yaml mit secrets.public.yaml, NICHT
-# assist-satellit.yaml mit echten Zugangsdaten: dieser Build ist fuer den
-# anonymen Browser-Flash auf docs/index.html gedacht, nicht fuer den eigenen
-# Betrieb, und kompiliert bewusst keine WLAN-SSID ein (siehe
-# packages/wifi-public.yaml). Das esphome.name-Substitution ist in beiden
-# Einstiegsdateien identisch (common-substitutions.yaml), der Build-Ordner
-# .esphome/build/assist-satellit/ bleibt deshalb derselbe.
+# der README. Kompiliert wird lumi.yaml mit den Platzhalter-Werten aus
+# secrets.public.yaml - die Firmware kompiliert bewusst keine WLAN-SSID ein
+# (siehe packages/wifi.yaml), das Netz traegt jedes Geraet spaeter selbst per
+# Improv oder Captive Portal ein.
 #
 # Zusaetzlich zum Release-Asset wird dieselbe Datei nach docs/ committet:
 # GitHub-Release-Assets senden kein Access-Control-Allow-Origin, ein
@@ -27,8 +23,8 @@ name: Firmware-Release
 #
 # Zusaetzlich zu firmware.factory.bin/manifest.json (Browser-Flash) erzeugt
 # dieser Workflow docs/firmware.ota.bin + docs/ota-manifest.json fuer die
-# Selbst-Installation ueber Home Assistants normale Update-Entity (packages/
-# update-public.yaml, update:/ota: platform: http_request) - kein
+# Selbst-Installation ueber Home Assistants normale Update-Entity
+# (packages/update.yaml, update:/ota: platform: http_request) - kein
 # Bedienelement am Geraet, HA ruft das Manifest selbst periodisch ab und
 # zeigt "Installieren" in seinem eigenen Update-Dashboard. Andere Schema,
 # anderer Zweck als manifest.json/parts: (das ist fuer den einmaligen
@@ -39,8 +35,8 @@ name: Firmware-Release
 # WICHTIG: "version" in ota-manifest.json muss exakt der einkompilierten
 # ${project_version} entsprechen (common-substitutions.yaml), nicht dem
 # Tag-Namen mit "v"-Praefix - Home Assistant vergleicht als reinen String.
-# Vor jedem Tag also erst project_version anpassen und committen (README,
-# Abschnitt "Updates"), dann erst taggen.
+# Vor jedem Tag also erst project_version anpassen und committen, dann erst
+# taggen.
 
 on:
   push:
@@ -71,20 +67,20 @@ jobs:
         run: cp secrets.public.yaml secrets.yaml
 
       - name: Firmware kompilieren
-        run: esphome compile assist-satellit-public.yaml
+        run: esphome compile lumi.yaml
 
       - name: Firmware-Datei einsammeln
-        run: cp .esphome/build/assist-satellit/build/firmware.factory.bin firmware.factory.bin
+        run: cp .esphome/build/lumi/build/firmware.factory.bin firmware.factory.bin
 
       - name: OTA-Manifest fuer die Selbst-Installation erzeugen
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
-          cp .esphome/build/assist-satellit/build/firmware.ota.bin firmware.ota.bin
+          cp .esphome/build/lumi/build/firmware.ota.bin firmware.ota.bin
           md5=$(md5sum firmware.ota.bin | cut -d' ' -f1)
           version="${GITHUB_REF_NAME#v}"
           cat > ota-manifest.json <<EOF
           {
-            "name": "Assist Satellit (öffentlicher Build)",
+            "name": "Lumi",
             "version": "${version}",
             "builds": [
               {

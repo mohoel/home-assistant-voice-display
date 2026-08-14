@@ -1,0 +1,35 @@
+# Lumi - Home Assistant Voice Satellite fuer den Waveshare
+# ESP32-S3-Touch-AMOLED-1.75 (rundes AMOLED 466x466, CO5300 + CST9217).
+#
+# Die einzige Geraetedatei des Projekts: kompiliert von
+# .github/workflows/release.yml mit secrets.public.yaml und ueber die
+# Browser-Flash-Seite (docs/index.html) installiert.
+#
+# WLAN-Zugangsdaten sind bewusst nicht einkompiliert (siehe
+# packages/wifi.yaml): ohne einkompilierte SSID meldet das Geraet Improv
+# gegenueber ehrlich "nicht eingerichtet" und zeigt im Browser sofort die
+# Netzwerkauswahl, statt gegen eine Platzhalter-SSID zu laufen, die nie
+# existiert. Genau daran haengt auch, dass sich das Geraet ueber Home
+# Assistants Update-Entity gefahrlos selbst neu flashen darf
+# (packages/update.yaml) - im Firmware-Image steckt kein Geheimnis, das
+# dabei verloren gehen koennte.
+#
+# name ist zugleich mDNS-Hostname (lumi.local) und Name des Build-Ordners.
+# Mehrere Geraete mit demselben Namen kollidieren im lokalen Netz - mDNS
+# haengt dann an eines von ihnen automatisch ein "-2" an. Wer ein zweites
+# Geraet betreibt, benennt es in Home Assistant um bzw. vergibt beim Bauen
+# einen eigenen Namen.
+
+substitutions:
+  <<: !include common-substitutions.yaml
+  name: lumi
+  friendly_name: Lumi
+
+packages:
+  core: !include packages/core.yaml
+  wifi: !include packages/wifi.yaml
+  hardware: !include packages/hardware.yaml
+  voice: !include packages/voice.yaml
+  ui: !include packages/ui.yaml
+  settings: !include packages/settings.yaml
+  update: !include packages/update.yaml

@@ -259,15 +259,11 @@ details[open] .chev { transform: rotate(90deg); }
       <span class="card-title" style="font-size: 15px; color: var(--color-accent-300);">Wichtig, bevor du klickst</span>
     </summary>
     <p style="margin: 10px 0 0; font-size: 14px; opacity: 0.85;">
-      Diese Firmware ist ein <strong>anonymer Standard-Build</strong> ohne dein
-      WLAN und ohne deinen persönlichen Zugangsschlüssel — beides kann in eine
-      öffentlich gehostete Datei schließlich nicht hinein. Was das bedeutet,
-      steht unten unter „Nach dem Flashen". Für den dauerhaften Betrieb ist
-      ein zweiter, lokaler Build mit eigenen Zugangsdaten sinnvoll (Anleitung
-      im
-      <a href="https://github.com/mohoel/home-assistant-voice-lumi#einrichtung" target="_blank" rel="noopener">Haupt-README</a>)
-      — diese Seite ist der schnelle Weg, das Gerät überhaupt erst einmal zum
-      Laufen zu bringen.
+      Diese Firmware bringt <strong>dein WLAN nicht mit</strong> — in eine
+      öffentlich gehostete Datei kann es schließlich nicht hinein. Du trägst es
+      direkt nach dem Flashen im Browser ein; wie das abläuft, steht unten
+      unter „Nach dem Flashen". Danach ist das Gerät fertig eingerichtet,
+      Updates kommen später über Home Assistant.
     </p>
   </details>
 
@@ -304,18 +300,16 @@ details[open] .chev { transform: rotate(90deg); }
         In Home Assistant taucht es danach unter
         <em>Einstellungen → Geräte &amp; Dienste</em> als ESPHome-Gerät auf. Beim
         Hinzufügen fragt Home Assistant nach einem Verschlüsselungsschlüssel —
-        für diesen anonymen Build ist das ein fest hinterlegter, nicht geheimer
-        Platzhalter:
+        das ist ein fest hinterlegter, nicht geheimer Platzhalter:
       </p>
       <pre style="background: var(--color-surface); border-radius: var(--radius-md); padding: 12px 16px; overflow-x: auto; font-size: 13px; color: var(--color-accent-300); margin: 0;">Bw1nT2P6zfBP++xn1gTvfloJweHwPrXXRj0I01RdKZk=</pre>
       <p style="margin: 0;">
         Dieser Schlüssel steht offen im Quelltext (<code style="background: color-mix(in srgb, var(--color-text) 10%, transparent); padding: 2px 6px; border-radius: 4px; font-size: 0.92em;">secrets.public.yaml</code>)
         und schützt nichts — er ist nur nötig, damit Home Assistant sich
-        überhaupt verbindet. Für einen Schlüssel, der wirklich nur dir gehört,
-        einmal lokal neu flashen: <code style="background: color-mix(in srgb, var(--color-text) 10%, transparent); padding: 2px 6px; border-radius: 4px; font-size: 0.92em;">esphome run assist-satellit.yaml --device assist-satellit.local</code> mit einem eigenen
-        <code style="background: color-mix(in srgb, var(--color-text) 10%, transparent); padding: 2px 6px; border-radius: 4px; font-size: 0.92em;">secrets.yaml</code> (Anleitung im
-        <a href="https://github.com/mohoel/home-assistant-voice-lumi#einrichtung" target="_blank" rel="noopener">Haupt-README</a>).
-        Updates danach laufen normal per OTA, ganz ohne diese Seite.
+        überhaupt verbindet. Alles Weitere läuft danach über Home Assistant:
+        Einstellungen sind ganz normale Entities, und neue Firmware-Versionen
+        erscheinen unter <em>Einstellungen → Geräte → Updates</em> mit einem
+        „Installieren“-Knopf — diese Seite braucht es dafür nicht mehr.
       </p>
     </div>
   </details>
@@ -326,8 +320,8 @@ details[open] .chev { transform: rotate(90deg); }
     Diese Seite ist Teil von
     <a href="https://github.com/mohoel/home-assistant-voice-lumi" target="_blank" rel="noopener">home-assistant-voice-lumi</a>
     und wird bei jedem Firmware-Release (Git-Tag) automatisch neu gebaut
-    (<code style="background: var(--color-surface); padding: 1px 5px; border-radius: 4px; font-size: 0.92em;">.github/workflows/release.yml</code>). Quelltext, Hardware-Referenz
-    und die volle Funktionsbeschreibung stehen im Haupt-README.
+    (<code style="background: var(--color-surface); padding: 1px 5px; border-radius: 4px; font-size: 0.92em;">.github/workflows/release.yml</code>). Quelltext und die volle
+    Funktionsbeschreibung stehen im Haupt-README.
   </footer>
 
 </div>

@@ -53,6 +53,9 @@ Helligkeit — sind ganz normale Home-Assistant-Entities.
   Antworttext. Die Ergebnisanzeige (Messwert vs. Bestätigung vs. Fließtext)
   ist deshalb eine Heuristik über diesen Satz, kein echtes Wissen über das
   geschaltete Gerät.
+- **Updates laufen ebenfalls über Home Assistant.** Neue Firmware-Versionen
+  erscheinen dort im Update-Dashboard und werden mit einem Klick installiert —
+  kein Rechner, kein Terminal, kein erneutes Flashen per USB.
 - **Farben und Timings sind Compile-Zeit-Werte.** Es gibt keine
   Laufzeit-Einstellung dafür — wer die Optik ändern will, ändert die
   Substitutions in `common-substitutions.yaml` und baut neu.
@@ -106,9 +109,9 @@ werden — für dieses Board von Grund auf neu geschrieben.
 
 Das hat eine Konsequenz für Updates: **Neue Features oder Fixes an der
 Sprachlogik in den offiziellen Repos kommen nicht automatisch hier an.**
-`assist-satellit.yaml` bindet über `packages:` ausschließlich lokale Dateien
-aus diesem Repo ein (siehe *Aufbau*), keine externe Paket-Abhängigkeit — wer
-Änderungen von dort übernehmen will, muss sie von Hand nachbauen. Bei neuen
+`lumi.yaml` bindet über `packages:` ausschließlich lokale Dateien aus diesem
+Repo ein, keine externe Paket-Abhängigkeit — wer Änderungen von dort
+übernehmen will, muss sie von Hand nachbauen. Bei neuen
 Features lohnt sich deshalb immer zuerst ein Blick in die beiden Repos, wie
 Nabu Casa bzw. ESPHome das offiziell gelöst haben.
 
@@ -195,142 +198,65 @@ bleibt es unverändert bei Mikrofon, Punkten und Balken.
   Stummschaltung, Wake-Word-Optionen und Displayhelligkeit sind Entities
 
 ### Firmware-Updates
-**Wer das Gerät über den Browser geflasht hat** (Abschnitt *Einrichtung*),
-aktualisiert es genau wie jede andere Home-Assistant-Integration: unter
-Einstellungen → Geräte → Updates erscheint ein „Firmware"-Eintrag mit
-„Installieren"-Knopf, sobald eine neuere Version auf GitHub liegt. Ein Klick
-genügt — das Gerät lädt sich die neue Firmware selbst herunter und startet
-neu, kein Mac, keine ESPHome-Kenntnisse nötig. Möglich ist das, weil dieser
-Build nie WLAN-Zugangsdaten einkompiliert hat (siehe *Einrichtung*) — im
-heruntergeladenen Firmware-Image steckt also kein Geheimnis, das dabei
-verloren gehen könnte. Es gibt dafür kein Bedienelement am Gerät selbst,
-alles läuft über HAs eigenes Update-Dashboard.
-
-**Ein Gerät mit echtem `secrets.yaml` (WLAN einkompiliert) bekommt bewusst
-keine solche Update-Entity** — ein Selbst-Flash mit dem WLAN-losen
-öffentlichen Image würde das WLAN löschen. Für ein solches Gerät bleibt der
-Weg aus Abschnitt *Updates* unten der richtige.
-
-## Warum nicht das ESPHome-Add-on in Home Assistant?
-
-Voice-Assistant-Konfigurationen sind zu groß, um auf einem Raspberry Pi
-zuverlässig zu kompilieren. Deshalb ist der **Mac der Build-Host**: ESPHome
-kompiliert lokal und schickt das Update per OTA direkt ans Gerät. Home
-Assistant braucht nur die **ESPHome-Integration**, nicht das Builder-Add-on.
+Aktualisiert wird genau wie bei jeder anderen Home-Assistant-Integration:
+unter Einstellungen → Geräte → Updates erscheint ein „Firmware"-Eintrag mit
+„Installieren"-Knopf, sobald eine neuere Version veröffentlicht ist. Ein
+Klick genügt — das Gerät lädt sich die neue Firmware selbst herunter und
+startet neu, ohne Rechner und ohne ESPHome-Kenntnisse. Möglich ist das, weil
+die Firmware nie WLAN-Zugangsdaten einkompiliert hat (siehe *Einrichtung*) —
+im heruntergeladenen Image steckt also kein Geheimnis, das dabei verloren
+gehen könnte; das WLAN liegt getrennt davon im Flash-Speicher des Geräts und
+überlebt jedes Update. Es gibt dafür kein Bedienelement am Gerät selbst,
+alles läuft über Home Assistants eigenes Update-Dashboard.
 
 ## Einrichtung
 
 ### 1. Firmware flashen
 
-**Der einfachste Weg ist die Browser-Flash-Seite** — kein `esphome`, kein
-Terminal, keine Installation:
+Geflasht wird im Browser — kein `esphome`, kein Terminal, keine Installation:
 [mohoel.github.io/home-assistant-voice-lumi](https://mohoel.github.io/home-assistant-voice-lumi/)
-(`docs/index.html`) flasht per [ESP Web Tools](https://esphome.github.io/esp-web-tools/)
-über Web Serial in Chrome/Edge — Board per USB anschließen, Button klicken,
-fertig. Installiert wird dabei ein **anonymer Standard-Build ohne
-persönliche Daten**, kompiliert automatisch bei jedem Git-Tag durch
-[`.github/workflows/release.yml`](.github/workflows/release.yml) aus
-[`secrets.public.yaml`](secrets.public.yaml) statt aus dem eigenen, nie
-committeten `secrets.yaml`. Direkt im Anschluss fragt ESP Web Tools per
+flasht per [ESP Web Tools](https://esphome.github.io/esp-web-tools/) über Web
+Serial in Chrome/Edge — Board per USB anschließen, Button klicken, fertig.
+Gebaut wird die Firmware automatisch bei jedem Git-Tag durch
+[`.github/workflows/release.yml`](.github/workflows/release.yml).
+
+Direkt im Anschluss fragt ESP Web Tools per
 [Improv Wi-Fi](https://www.improv-wifi.com/) über dieselbe USB-Verbindung nach
 dem eigenen WLAN — kein Hotspot, kein Captive Portal, kein Gerätewechsel
 nötig. Wird dieser Schritt übersprungen, öffnet das Gerät ersatzweise einen
-Fallback-Hotspot mit Captive Portal zum Eintragen der Zugangsdaten. Für den
-dauerhaften Betrieb mit eigenem Verschlüsselungsschlüssel folgt danach am
-besten einmal der manuelle Weg unten, mit eigenem `secrets.yaml`.
+Fallback-Hotspot mit Captive Portal zum Eintragen der Zugangsdaten. Die
+Zugangsdaten landen dabei im Flash-Speicher des Geräts, nicht im
+Firmware-Image — deshalb überstehen sie jedes spätere Update.
 
-Diese Seite läuft über **GitHub Pages** und braucht dafür ein **öffentliches
-Repository** — solange das Repo privat bleibt, ist sie nicht erreichbar (dafür
-gibt es GitHub Pages aus einem privaten Repo nur mit bezahltem Account-Plan).
-
-<details>
-<summary>Manuell flashen (eigener Build, eigenes <code>secrets.yaml</code>)</summary>
-
-#### Voraussetzungen
-
-```bash
-brew install esphome
-```
-
-ESPHome muss mindestens **2026.7.0** sein — erst ab dieser Version ist der
-CST9217-Touchcontroller im Core enthalten.
-
-#### Secrets anlegen
-
-Im Projektordner eine Datei `secrets.yaml` mit diesen fünf Einträgen anlegen:
-
-```yaml
-wifi_ssid: "MeinWLAN"
-wifi_password: "..."
-ap_password: "..."            # Fallback-Hotspot, falls das WLAN fehlt
-api_encryption_key: "..."     # 32 Byte base64, für Home Assistant
-ota_password: "..."
-```
-
-Schlüssel und Passwörter erzeugen:
-
-```bash
-openssl rand -base64 32
-```
-
-Die Datei steht in `.gitignore` und wird nie committet. Es gibt bewusst keine
-Beispieldatei im Repo.
-
-#### Flashen per USB
-
-Board per USB-C an den Mac anschließen. Port suchen:
-
-```bash
-ls /dev/cu.usbmodem*
-```
-
-Flashen (Port ggf. anpassen):
-
-```bash
-esphome run assist-satellit.yaml --device /dev/cu.usbmodem101
-```
-
-Meldet sich kein Port, das Board in den Download-Modus bringen: **BOOT**
-halten, **RESET** kurz drücken, **BOOT** loslassen.
-
-**Alternative: ESPHome Desktop.** Seit August 2026 gibt es unter
-[desktop.esphome.io](https://desktop.esphome.io) ein natives macOS-DMG, das
-Python und ESPHome mitbringt (kein `brew install esphome` nötig) und im
-Browser das ESPHome-Device-Builder-Dashboard startet. Für den USB-Erstflash
-übernimmt die Dashboard-UI die Port-Erkennung und führt visuell durch den
-BOOT/RESET-Download-Modus — praktisch für den fummeligsten Teil des
-Ersteinrichtens. Im Dashboard als Konfigurationsverzeichnis den Projektordner
-wählen, nicht das Default-`~/esphome/`.
-
-⚠️ Das Dashboard committet bei jeder YAML-Änderung automatisch ins lokale
-Git-Repo. Für den einmaligen Erstflash unkritisch, für den laufenden
-Update-Workflow mit getaggten Versionen (siehe unten) sollte weiterhin die
-CLI (`esphome run … --device lumi.local`) genutzt werden, damit
-Commits bewusst gesetzt werden.
-
-</details>
+Meldet sich das Board nicht, hilft der Download-Modus: **BOOT** halten,
+**RESET** kurz drücken, **BOOT** loslassen.
 
 ### 2. In Home Assistant einbinden
 
-Das Gerät meldet sich per mDNS. Unter *Einstellungen → Geräte & Dienste*
-taucht es als ESPHome-Gerät auf — als `lumi` beim eigenen Build über
-`assist-satellit.yaml`, als `assist-satellit` beim anonymen Browser-Flash.
-Beim Hinzufügen fragt Home Assistant nach einem Verschlüsselungscode —
-welcher das ist, hängt davon ab, wie geflasht wurde:
+Das Gerät meldet sich per mDNS als `lumi`. Unter *Einstellungen → Geräte &
+Dienste* taucht es als ESPHome-Gerät auf. Beim Hinzufügen fragt Home
+Assistant nach einem Verschlüsselungscode — das ist ein fester, nicht
+geheimer Platzhalter aus [`secrets.public.yaml`](secrets.public.yaml), der
+auch auf der Flash-Seite selbst im Akkordeon „Nach dem Flashen" steht:
 
-- **Manueller Build:** der `api_encryption_key` aus dem eigenen `secrets.yaml`.
-- **Browser-Flash (anonymer Build):** ein fester, nicht geheimer Platzhalter
-  aus [`secrets.public.yaml`](secrets.public.yaml) — steht auch auf der
-  Flash-Seite selbst im Akkordeon "Nach dem Flashen":
-  ```
-  Bw1nT2P6zfBP++xn1gTvfloJweHwPrXXRj0I01RdKZk=
-  ```
-  Home Assistant schlägt den Code nicht automatisch vor, ein Import über das
-  ESPHome-Dashboard/Builder-Add-on ist dafür nicht nötig — einfach von Hand
-  eintragen.
+```
+Bw1nT2P6zfBP++xn1gTvfloJweHwPrXXRj0I01RdKZk=
+```
+
+Home Assistant schlägt den Code nicht automatisch vor — einfach von Hand
+eintragen.
 
 Danach unter *Einstellungen → Sprachassistenten* eine Assist-Pipeline mit
 deutschem STT/TTS zuweisen.
+
+### 3. Updates kommen über Home Assistant
+
+Ab hier braucht es weder diese Seite noch einen Rechner: Sobald eine neue
+Firmware-Version veröffentlicht ist, erscheint sie unter *Einstellungen →
+Geräte → Updates* als „Firmware"-Eintrag mit „Installieren"-Knopf — genau wie
+bei jeder anderen Home-Assistant-Integration. Das Gerät lädt sich die neue
+Version selbst herunter und startet neu; das eingetragene WLAN bleibt dabei
+erhalten. Details siehe *Firmware-Updates* oben.
 
 ## Bedienung
 
@@ -360,112 +286,6 @@ das WLAN fehlt).
 Alle Einstellungen überstehen einen Neustart. Die Symbolfarben sind fest in
 `common-substitutions.yaml` hinterlegt — eine Änderung braucht einen Neubau
 der Firmware.
-
-Die Geräteadresse für `esphome run` oder `esphome logs` zeigt Home Assistant
-am Geräteeintrag der ESPHome-Integration an.
-
-## Updates
-
-```bash
-git pull && esphome run assist-satellit.yaml --device lumi.local
-```
-
-Kompiliert auf dem Mac, überträgt per OTA über WLAN. Home Assistant ist
-daran nicht beteiligt.
-
-Rollback auf eine getaggte Version:
-
-```bash
-git checkout v0.1.0 && esphome run assist-satellit.yaml --device lumi.local
-```
-
-Ein gepushter Tag `v*.*.*` löst zusätzlich
-[`.github/workflows/release.yml`](.github/workflows/release.yml) aus: baut die
-Firmware mit `secrets.public.yaml` neu und hängt sie als Release-Asset an —
-davon lädt die gehostete Browser-Flash-Seite (siehe *Einrichtung*) **und**
-Home Assistants Update-Entity auf dem öffentlichen Build (Abschnitt
-*Firmware-Updates*). Der eigene Build oben ist davon unabhängig und bleibt
-der Weg für den laufenden Betrieb von Lumi.
-
-**Vor jedem Tag:** `project_version` in `common-substitutions.yaml` auf die
-neue Nummer setzen (ohne `v`-Präfix, z. B. `0.4.2` für den Tag `v0.4.2`) und
-committen, **dann erst taggen**. Home Assistants Update-Entity vergleicht die
-einkompilierte Version als reinen String gegen das Release — weicht
-`project_version` vom Tag ab, zeigt der öffentliche Build dauerhaft „Update
-verfügbar", selbst direkt nach einem frischen Build vom aktuellen Stand.
-
-## Aufbau
-
-| Datei | Inhalt |
-|---|---|
-| `assist-satellit.yaml` | Gerätedatei fürs Hauptgerät „Lumi" (`lumi.local`) |
-| `assist-satellit-prototyp.yaml` | Vorlage für ein weiteres, gleich aufgebautes eigenes Gerät (gleiches `secrets.yaml`, nur ein eigener Name) |
-| `assist-satellit-public.yaml` | Anonymer Build für den Browser-Flash (`docs/`), keine WLAN-Zugangsdaten einkompiliert |
-| `common-substitutions.yaml` | Farben, Phasen-IDs, Timings — von allen drei Gerätedateien gemeinsam genutzt |
-| `packages/core.yaml` | SoC, PSRAM, API, OTA, Zeit, Diagnose |
-| `packages/wifi-local.yaml` | WLAN mit echtem `secrets.yaml` (aktuell nur für `assist-satellit.yaml` im Einsatz) |
-| `packages/wifi-public.yaml` | WLAN ohne einkompilierte Zugangsdaten (für `assist-satellit-public.yaml`) |
-| `packages/hardware.yaml` | I2C, QSPI-Display, Touch, I2S-Audio, Codecs, Media Player |
-| `packages/voice.yaml` | Wake Word, Voice Assistant, Selects, Mute, Text-Sensoren |
-| `packages/ui.yaml` | Fonts, LVGL-Seiten, Phasen-Animationen, Standby-Uhr, Zifferblatt, Gesicht, Timer-Ring |
-| `packages/settings.yaml` | Ausrichtung, Standby-Seite, Standby-Zeit und Standby-Helligkeit als HA-Entities |
-| `packages/update-public.yaml` | Firmware-Update über Home Assistants Update-Entity (nur `assist-satellit-public.yaml`) |
-| `sounds/` | Klingel- und Bestätigungston, direkt in die Firmware eingebettet (Herkunft und Lizenz stehen dort) |
-| `docs/` | Gehostete Browser-Flash-Seite (GitHub Pages), siehe *Einrichtung* — plus `ota-manifest.json`/`firmware.ota.bin` für die Selbst-Installation |
-| `secrets.public.yaml` | Platzhalter-Secrets für den Release-Build hinter `docs/` — keine echten Zugangsdaten, wird committet |
-| `.github/workflows/release.yml` | Baut bei jedem Git-Tag `v*.*.*` die Firmware für `docs/` und veröffentlicht sie als Release-Asset |
-
-Farben, Phasen-IDs und Timings stehen als Substitutions in
-`common-substitutions.yaml` — dort anpassen, nicht in den Packages. Farben
-sind reine Compile-Zeit-Werte, eine Änderung braucht also einen Neubau der
-Firmware. Standby-Zeit und Standby-Helligkeit sind davon ausgenommen: sie
-sind HA-Entities (siehe Tabelle oben unter *Bedienung*) und zur Laufzeit
-einstellbar, ohne Neubau.
-
-**Ein weiteres Gerät einrichten:** eine Kopie von `assist-satellit-prototyp.yaml`
-mit einem neuen `name`/`friendly_name` anlegen (z. B. `assist-satellit-kueche.yaml`
-mit `name: lumi-kueche`). Alle drei nutzen dasselbe `secrets.yaml` — nur der
-Name muss je Gerät eindeutig sein, sonst kollidieren zwei Geräte im lokalen
-Netz um denselben mDNS-Hostnamen (dann hängt mDNS bei einem automatisch ein
-„-2" an, und OTA über den Hostnamen landet unvorhersehbar auf dem einen oder
-anderen Gerät).
-
-## Hardware-Referenz
-
-| Funktion | Pin |
-|---|---|
-| I2C SDA / SCL | GPIO15 / GPIO14 |
-| QSPI CLK | GPIO38 |
-| QSPI Data 0–3 | GPIO4 / GPIO5 / GPIO6 / GPIO7 |
-| Display CS / RST | GPIO12 / GPIO39 (Treiber CO5300) |
-| Touch INT / RST | GPIO11 / GPIO40 (CST9217) |
-| I2S BCLK / LRCLK / MCLK | GPIO9 / GPIO45 / GPIO42 |
-| I2S DOUT / DIN | GPIO8 (ES8311) / GPIO10 (ES7210) |
-| Verstärker-Enable | GPIO46 |
-| SD-Karte D0 / CMD / CLK | GPIO3 / GPIO1 / GPIO2 (ungenutzt) |
-
-SoC: ESP32-S3R8, 16 MB Flash, 8 MB Octal-PSRAM.
-
-GPIO45 und GPIO46 sind Strapping-Pins. Die Warnung beim Kompilieren ist
-bekannt und unkritisch.
-
-## Fehlersuche
-
-**Ton verzerrt oder rauscht.** Mikrofon (16 kHz) und Lautsprecher (48 kHz)
-teilen sich einen I2S-Bus. Falls es Probleme gibt, in
-`packages/hardware.yaml` beide auf `16000` setzen.
-
-**Boot-Loop oder LVGL-Speicherfehler.** In `packages/ui.yaml` `buffer_size`
-von `25%` auf `12%` senken. Die Sensoren „Freier Heap" und „Freier PSRAM" in
-HA zeigen den Speicherdruck.
-
-**Umlaute fehlen auf dem Display.** Im `font:`-Block muss
-`glyphsets: [GF_Latin_Core]` stehen.
-
-**Wake Word reagiert nicht.** Die mitgelieferten Modelle sind englisch
-("Okay Nabu", "Hey Jarvis", "Hey Mycroft"). Deutsch sprechen funktioniert
-erst ab dem Befehl — Sprache und Antwort laufen über die HA-Pipeline.
-Empfindlichkeit über die Select-Entity erhöhen.
 
 ## Lizenz
 
