@@ -19,6 +19,7 @@ Gesicht.
   - [Display-Verhalten](#display-verhalten)
   - [Firmware-Updates](#firmware-updates)
   - [Wetter auf Nachfrage (optional)](#wetter-auf-nachfrage-optional)
+  - [Freie Wetterfragen (optional, nicht lokal)](#freie-wetterfragen-optional-nicht-lokal)
 - [Einrichtung](#einrichtung)
 - [Bedienung](#bedienung)
 - [Automationen](#automationen)
@@ -160,6 +161,63 @@ hängt vom kompilierten Gerätenamen ab (`esphome.<gerätename>_zeige_wetter`,
 z. B. `esphome.lumi_a0d0a8_zeige_wetter`) — zu finden unter
 *Entwicklerwerkzeuge → Dienste* (Suche nach "zeige_wetter"). Funktioniert
 unabhängig vom gewählten Konversationsagenten, auch bei einem LLM wie Claude.
+
+### Freie Wetterfragen (optional, nicht lokal)
+
+Beantwortet offene Fragen ohne festen Satz, z. B. "Wird es morgen regnen?"
+oder "Wie wird das Wetter übermorgen?". Braucht eine KI/LLM-Pipeline als
+Konversationsagent — mit der eingebauten lokalen Intent-Erkennung
+funktioniert das nicht.
+
+Wetter-Entity und folgendes Skript für Sprachassistenten freigeben
+(Entität-Einstellungen bzw. *Einstellungen → Automationen & Szenen →
+Skripte*, YAML-Modus) — kein Satzauslöser nötig, der Konversationsagent
+ruft das Skript selbst als Werkzeug auf:
+
+<details>
+  <summary>Skript (aufklappen)</summary>
+
+```yaml
+alias: "Wettervorhersage abrufen (LLM-Tool)"
+description: >-
+  Zustand, Temperatur und Regenwahrscheinlichkeit für einen Tag - für Fragen
+  wie "wird es morgen regnen" oder "wie wird das Wetter übermorgen".
+fields:
+  tag:
+    description: "'heute', 'morgen', 'übermorgen' oder ein Datum (YYYY-MM-DD)"
+    example: "morgen"
+    required: true
+    selector:
+      text: {}
+variables:
+  wetter_entity: weather.home   # <-- hier die eigene weather.*-Entity eintragen
+sequence:
+  - action: weather.get_forecasts
+    target:
+      entity_id: "{{ wetter_entity }}"
+    data:
+      type: daily
+    response_variable: vorhersage
+  - variables:
+      eintraege: "{{ vorhersage[wetter_entity].forecast }}"
+      tage_versatz: >-
+        {% if tag in ['heute','today'] %}0{% elif tag in ['morgen','tomorrow'] %}1{% elif tag in ['übermorgen','uebermorgen'] %}2{% else %}{{ ((as_datetime(tag) | as_local).date() - now().date()).days }}{% endif %}
+      treffer: "{{ eintraege[([tage_versatz | int(0), 0] | max, (eintraege | length) - 1) | min] }}"
+      ergebnis:
+        zustand: "{{ treffer.condition }}"
+        temperatur_max: "{{ treffer.temperature }}"
+        temperatur_min: "{{ treffer.templow }}"
+        regenwahrscheinlichkeit_prozent: "{{ treffer.precipitation_probability }}"
+  - action: esphome.lumi_zeige_wetter   # Servicename ggf. abweichend, siehe oben
+    continue_on_error: true
+    data:
+      zustand: "{{ treffer.condition }}"
+      temperatur: "{{ treffer.temperature }}"
+      einheit: "{{ state_attr(wetter_entity, 'temperature_unit') or '°C' }}"
+  - stop: "Vorhersage geliefert"
+    response_variable: ergebnis
+```
+</details>
 
 ## Einrichtung
 
@@ -315,7 +373,9 @@ eigenen Automation — siehe Entity **Displayberührung** unter
 [Bedienung](#bedienung).
 
 Ein dritter, umfangreicherer Weg — eine Vorhersage per Sprachbefehl abfragen
-— steht unter [Wetter auf Nachfrage](#wetter-auf-nachfrage-optional).
+— steht unter [Wetter auf Nachfrage](#wetter-auf-nachfrage-optional). Offene
+Fragen ohne festen Satz beantwortet stattdessen
+[Freie Wetterfragen](#freie-wetterfragen-optional-nicht-lokal).
 
 ## Hintergrund
 
