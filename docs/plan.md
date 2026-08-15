@@ -383,13 +383,24 @@ soll weitergebbar sein, ohne dass Fremde erst in HA etwas anlegen müssen.
 Saugroboter). Ohne Push aus HA technisch unmöglich, siehe oben. Der Haken
 `zeige_hinweis` ist der Weg für alle, die es trotzdem wollen.
 
-### Phase 6b — Optional / später
+### Phase 6b — Geprüft und zurückgestellt
 
-- AXP2101-Akku-Telemetrie über eine der Community-External-Components
-  (`stefanthoss/esphome-axp2101` o. Ä.) — nur wenn Akkubetrieb gewünscht
-- QMI8658-IMU als Wake-on-Motion statt/zusätzlich zum Touch
-- SD-Karte für lokale Sounds
-- Deutsches Wake-Word: eigenes microWakeWord-Modell trainieren
+Alle vier Punkte wurden in der Ideen-Review vom 15.08.2026 durchgesprochen und
+bewusst nicht aufgenommen — nicht weil sie technisch unmöglich wären, sondern
+weil der Nutzen für dieses konkrete Gerät (fest montiert, Netzbetrieb) gering
+ist. Bleiben hier dokumentiert, falls sich die Randbedingungen ändern (z. B.
+Akkubetrieb, ein Gerät, das tatsächlich in die Hand genommen wird).
+
+- ~~AXP2101-Akku-Telemetrie~~ über eine der Community-External-Components
+  (`stefanthoss/esphome-axp2101` o. Ä.) — nur bei Akkubetrieb relevant, Lumi
+  läuft am Netz.
+- ~~QMI8658-IMU als Wake-on-Motion~~ — der Sensor erkennt nur Bewegung des
+  Geräts selbst (hochgehoben, gekippt), nicht Raumbewegung. Ein fest
+  montiertes Gerät, das niemand anfasst, liefert nie ein Signal.
+- ~~SD-Karte für lokale Sounds~~ — die eingebetteten FLAC-Dateien in
+  `sounds/` reichen für den aktuellen Umfang.
+- ~~Deutsches Wake-Word~~: eigenes microWakeWord-Modell trainieren ist der
+  teuerste Punkt der ganzen Liste, aktuell keine Priorität.
 
 ### Phase 6c — Wetter auf Nachfrage (optional, HA-Automation nötig) ✅
 
@@ -437,9 +448,18 @@ Aktualisiert wird im Minutentakt (`update_dial`), alles Weitere steht unter
 „Bekannte Einschränkungen" in CLAUDE.md.
 
 - **Sensor-Page**: `text_sensor`/`sensor`-Werte aus HA per `homeassistant:`
-  Plattform einbinden (analog zu `ha_time` in `core.yaml`) — z. B. Innen-/
-  Außentemperatur, Luftfeuchte, ein Kalender-Termin. Layout als einfache
-  Label-Liste, kein Scrollen (rundes Display, Platz ist knapp).
+  Plattform einbinden (analog zu `ha_time` in `core.yaml`). Konkretisiert in
+  der Ideen-Review vom 15.08.2026 (siehe Phase 10): Startinhalt ist
+  Innentemperatur und Luftfeuchte des Raums, in dem das Gerät steht. Layout
+  als einfache Label-Liste, kein Scrollen (rundes Display, Platz ist knapp).
+  Weitere Werte (Außentemperatur, ein Kalender-Termin) bleiben spätere
+  Erweiterungsoptionen derselben Page.
+- **Kalender-Countdown auf Uhr und Zifferblatt.** Nächster Termin aus einer
+  HA-`calendar`-Entity, dezent eingeblendet, wenn gerade kein Timer läuft —
+  bewusst nur auf `page_standby` und `page_dial`, **nicht** auf `page_face`
+  (Entscheidung aus der Ideen-Review vom 15.08.2026): das Gesicht kennt in
+  seinem Entwurf keine Textanzeige, siehe „Das Gesicht ist eine Standby-Seite
+  mit Sonderrolle" in CLAUDE.md.
 - **Grafik-Page**: entweder ein statisches SVG/PNG (LVGL `image`-Widget,
   Asset in `packages/ui.yaml` als `image:`-Ressource) oder ein einfacher
   Sparkline-Chart via LVGL `chart`-Widget für einen Verlaufswert (z. B.
@@ -485,6 +505,12 @@ TTS-Antworten (und ggf. Wake-/Timer-Sounds) auf einem **anderen** `media_player`
 ausgegeben werden als dem eingebauten Lautsprecher — z. B. auf einer im Raum
 stehenden Sonos/Cast-Box.
 
+**Geräteseitige TTS-Umleitung: getestet, nicht umsetzbar** (Ideen-Review vom
+15.08.2026, vom Nutzer selbst ausprobiert). Das bestätigt die Vermutung unten
+— ESPHome hat keinen ausgehenden `media_player.play_media`-Call auf ein
+fremdes HA-Entity, und die naheliegenden HA-Bordmittel tragen das offenbar
+nicht sauber.
+
 - Recherche nötig, ob das über HA-Bordmittel geht (Assist-Satellite-Entity hat
   in aktuellen HA-Versionen teils eine Konfigurationsoption "bevorzugter
   Media Player" für die Pipeline-Ausgabe) oder ob es geräteseitig gelöst werden
@@ -501,6 +527,73 @@ stehenden Sonos/Cast-Box.
   aktuellen HA-Release-Notes zur `assist_satellite`-Plattform).
 - Vor Umsetzung klären: Soll der eingebaute Lautsprecher dabei stumm bleiben
   (echtes Umleiten) oder soll parallel ausgegeben werden?
+
+**Musikwiedergabe per Sprachbefehl auf einen anderen Lautsprecher** ist ein
+anderer Fall als das Obige und bleibt offen: hier soll nicht Lumis eigene
+TTS-Antwort umgeleitet werden, sondern ein Musikwunsch („Spiele Jazz in der
+Küche") direkt auf dem genannten `media_player` landen. Vermutlich kein
+Firmware-Thema — das Zielgerät steckt im Sprachbefehl selbst, nicht in Lumis
+Audio-Pipeline, und dürfte über die in Home Assistant konfigurierte
+Assist-Pipeline bzw. eine Music-Assistant-Integration mit
+Flächen-/Geräte-Targeting laufen. Vor einer Umsetzung klären, ob die aktuelle
+Konversationsagent-Konfiguration das schon trägt oder eine eigene
+Intent-/Skript-Automation nötig ist.
+
+### Phase 10 — Ideen-Review (Nutzerfeedback, 15.08.2026)
+
+Sechs kleinere, in sich abgeschlossene Ergänzungen aus einer Durchsicht
+möglicher neuer Funktionen. Kein zusammenhängender Baustein wie die vorigen
+Phasen, deshalb als lose Liste statt als ein Zielzustand.
+
+- **PCF85063-RTC als Zeit-Fallback.** `time: platform: homeassistant` liefert
+  erst nach erfolgreicher API-Verbindung eine Zeit — Standby-Uhr und
+  Zifferblatt (`update_clock`, `update_dial` in `core.yaml`) haben bis dahin
+  keine verlässliche Zeit. Eine zusätzliche `time: platform: pcf85063`
+  (hängt am selben I2C-Bus wie Touch/Audio-Codecs, keine neue Verdrahtung)
+  liefert die Zeit auch ohne HA-Verbindung; `ha_time.on_time_sync` stellt die
+  RTC bei jeder erfolgreichen Synchronisation nach.
+- **Wake-Word-Sensitivität als HA-Entity.** Vorbild `home-assistant-voice-pe`
+  (`wake_word_sensitivity`-Select). Vor der Umsetzung klären, welcher
+  `micro_wake_word`-Parameter zur Laufzeit überhaupt änderbar ist — die
+  Modelle selbst sind fest kompiliert, betroffen wäre vermutlich nur der
+  lokale Zweig; die HA-Engine hat ihre eigene Sensitivität in der
+  Assist-Pipeline.
+- **VAD-Timeout einstellbar.** Wie lange nach der letzten Spracheingabe
+  gewartet wird, als `number:`-Entity statt fest verdrahtet — Kandidat ist
+  `vad: silence_before_stop` (vgl. `home-assistant-voice-pe`), vor der
+  Umsetzung gegenprüfen.
+- **Gute-Nacht-Miene fürs Gesicht.** Ein weiterer Farb-/Ausdruckszustand für
+  `page_face`, analog zum bestehenden Blau/Orange/Grün-Wechsel (siehe
+  CLAUDE.md, Abschnitt zum Gesicht), getriggert über den vorhandenen Haken
+  `api: actions: zeige_hinweis` bei einer HA-Nachtszene. Keine neue
+  Infrastruktur, nur ein weiterer Zweig im bestehenden Zustands-`switch`.
+- **Domain-Icon-Blueprint.** Das im README dokumentierte Copy-Paste-Skript
+  für `zeige_hinweis` als importierbares HA-Blueprint verpacken. Reine
+  Doku-/Packaging-Arbeit, keine Firmware-Änderung.
+- **Mehrsprachigkeit der Display-Texte.** Sprachdatei analog zu den
+  Farb-Substitutions in `common-substitutions.yaml`. Betrifft nur die
+  Display-Texte selbst (Statusicons sind ohnehin sprachneutral) — STT/TTS
+  bleiben unabhängig davon auf Deutsch, das Wake Word auf Englisch (siehe
+  „Bekannte Einschränkungen" in CLAUDE.md).
+
+**Geprüft und verworfen (gleiche Review):**
+
+- Mehrere lokale Wake Words parallel — kein aktueller Bedarf, würde die
+  ohnehin schon knappe Erkennungsgenauigkeit weiter verteilen.
+- Bilderrahmen-Modus als vierte Standby-Seite — zurückgestellt, die
+  Sensor-Page (siehe Phase 7) hat Vorrang.
+- Präsenz-Entity aus Touch-/Bewegungsdaten — ohne externen Präsenzsensor
+  (PIR/mmWave) liefert das Gerät bestenfalls „kürzlich berührt", keine echte
+  Präsenz; als eigenständiges Feature verworfen.
+- Wachhund für eine tote API-Session, Diagnose-Sensor „Sekunden seit letztem
+  Wake Word", OTA-Hinweis nach Neustart — drei Diagnose-Ideen, aktuell kein
+  konkreter Anlass, den sie lösen würden.
+- Editierbare Raumbezeichnung, Gruppen-Mute — beides HA-seitig ohnehin lösbar
+  (Umbenennen des Geräts bzw. ein Skript über vorhandene Mute-Entities),
+  keine Firmware-Änderung nötig.
+- Zweiter, leiserer Nachtklingelton, Lautstärke-Ducking — aktuell kein
+  Bedarf; Ducking wäre ohnehin erst mit einem zweiten Media-Player-Ziel
+  relevant (siehe Phase 9).
 
 ---
 
