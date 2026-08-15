@@ -42,8 +42,10 @@ globals:
     initial_value: "false"
 
   # ------------------------------------------------- Ergebnis eines Befehls
-  # 1 = Messwert (result_value/result_unit), 2 = Bestaetigung (Haken).
-  # Gesetzt in on_tts_start aus dem Antworttext, ausgewertet in update_ui.
+  # 1 = Messwert (result_value/result_unit), 2 = Bestaetigung (Haken),
+  # 3 = Wetter (weather_icon_glyph + result_value/result_unit).
+  # Gesetzt in on_tts_start aus dem Antworttext (1/2) bzw. in stage_weather
+  # aus der API-Aktion zeige_wetter (3), ausgewertet in update_ui.
   - id: result_kind
     type: int
     restore_value: false
@@ -54,6 +56,20 @@ globals:
   - id: result_unit
     type: std::string
     restore_value: false
+  # Icon-Codepoint fuer die Wetteranzeige (result_kind == 3), gesetzt in
+  # stage_weather, gelesen in update_ui. Kein Gegenstueck bei Messwert/
+  # Bestaetigung noetig - deren Icon steht fest im Lambda von update_ui.
+  - id: weather_icon_glyph
+    type: std::string
+    restore_value: false
+  # Merker zwischen stage_weather und on_tts_start: verhindert, dass die
+  # Text-Heuristik dort ein gerade erst gesetztes result_kind == 3 wieder
+  # ueberschreibt. Sicherheitsnetz in on_listening, falls doch kein
+  # on_tts_start folgt.
+  - id: weather_shown
+    type: bool
+    restore_value: false
+    initial_value: "false"
   # Merker, ob in diesem Durchgang ueberhaupt eine Sprachausgabe kam. Bleibt er
   # false, hat Home Assistant den Befehl stumm ausgefuehrt - dann uebernimmt der
   # lokale Bestaetigungston die Rueckmeldung (siehe on_end).
@@ -174,6 +190,12 @@ voice_assistant:
         // Ein vorgemerkter Ton aus einem abgebrochenen Durchgang gehoert nicht
         // in den neuen hinein.
         id(confirm_pending) = false;
+        // Sicherheitsnetz: falls zeige_wetter ausgeloest wurde, aber aus
+        // irgendeinem Grund kein on_tts_start folgte (z. B. das HA-Skript
+        // bricht vorher ab), darf der naechste echte Sprachvorgang die
+        // Bestaetigungs-/Messwert-Heuristik dort nicht faelschlich
+        // ueberspringen.
+        id(weather_shown) = false;
     - lambda: id(voice_assistant_phase) = ${phase_listening};
     - text_sensor.template.publish:
         id: text_request
@@ -205,6 +227,18 @@ voice_assistant:
   on_tts_start:
     - lambda: |-
         id(had_tts) = true;
+
+        // zeige_wetter (core.yaml) -> stage_weather (weiter unten in dieser
+        // Datei) hat result_kind/result_value/result_unit/weather_icon_glyph
+        // bereits gesetzt, bevor die Sprachausgabe beginnt. Die Heuristik
+        // unten wuerde das mit ihrem eigenen result_kind = 0 als erste Zeile
+        // sofort wieder ueberschreiben - deshalb hier abfangen. Der Tail
+        // (Phasensetzung + Log, ganz unten) bleibt unveraendert und
+        // funktioniert bereits generisch fuer result_kind == 3, weil er nur
+        // auf != 0 prueft.
+        if (id(weather_shown)) {
+          id(weather_shown) = false;
+        } else {
         id(result_kind) = 0;
         id(result_value).clear();
         id(result_unit).clear();
@@ -382,6 +416,7 @@ voice_assistant:
           }
 
         }
+        }
 
         id(voice_assistant_phase) =
             (id(result_kind) != 0) ? ${phase_result} : ${phase_replying};
@@ -390,8 +425,11 @@ voice_assistant:
         // billig, und ohne sie ist nicht zu unterscheiden, ob die Erkennung
         // danebenlag oder die Anzeige. Genau diese Frage kostete beim ersten
         // Fehlerbild eine komplette Runde aus Compile und OTA.
+        // x statt t: t ist nur eine Referenz auf x und lebt nur innerhalb des
+        // else-Zweigs oben (weather_shown-Guard) - x selbst ist der
+        // Funktionsparameter und bleibt bis hierhin gueltig.
         ESP_LOGI("ergebnis", "Antwort='%s' -> art=%d wert='%s' einheit='%s'",
-                 t.c_str(), id(result_kind), id(result_value).c_str(),
+                 x.c_str(), id(result_kind), id(result_value).c_str(),
                  id(result_unit).c_str());
     - text_sensor.template.publish:
         id: text_response
@@ -1042,6 +1080,74 @@ script:
           id: text_response
           state: ""
       - script.execute: update_ui
+
+  # ------------------------------------------------- Wetter auf Nachfrage
+  # Gegenstueck zur optionalen API-Aktion zeige_wetter (packages/core.yaml).
+  # Setzt nur State, fasst kein Widget an - das uebernimmt update_ui weiter
+  # oben ueber on_tts_start, sobald die gesprochene Antwort einsetzt (siehe
+  # dort, weather_shown). Ohne einen Aufruf aus Home Assistant (README,
+  # Abschnitt "Wetter auf Nachfrage") laeuft dieses Skript nie.
+  - id: stage_weather
+    mode: restart
+    parameters:
+      zustand: string
+      temperatur: float
+      einheit: string
+    then:
+      - lambda: |-
+          // Sieben vereinfachte Zustaende statt aller vierzehn Home-Assistant-
+          // Wetterzustaende - das reicht auf einem 466 px runden Display aus,
+          // um sie unterscheidbar zu zeigen. Unbekannte/kuenftige Zustaende
+          // (auch "exceptional" und "fog") fallen auf bewoelkt zurueck.
+          // Codepoints aus demselben Material-Symbols-Codepoint-Register wie
+          // font_icon (Link dort, packages/ui.yaml).
+          struct Eintrag { const char *ha; const char *glyph; };
+          static const char *const G_SONNIG     = "\U0000E81A"; // sunny
+          static const char *const G_KLAR_NACHT = "\U0000F159"; // clear_night
+          static const char *const G_BEWOELKT   = "\U0000F15C"; // cloud
+          static const char *const G_REGNERISCH = "\U0000F176"; // rainy
+          static const char *const G_GEWITTRIG  = "\U0000EBDB"; // thunderstorm
+          static const char *const G_SCHNEEIG   = "\U0000E2CD"; // weather_snowy
+          static const char *const G_WINDIG     = "\U0000EFD8"; // air
+
+          static const Eintrag ZUSTAENDE[] = {
+              {"sunny",           G_SONNIG},
+              {"clear-night",     G_KLAR_NACHT},
+              {"cloudy",          G_BEWOELKT},
+              {"partlycloudy",    G_BEWOELKT},
+              {"exceptional",     G_BEWOELKT},
+              {"fog",             G_BEWOELKT},
+              {"rainy",           G_REGNERISCH},
+              {"pouring",         G_REGNERISCH},
+              {"hail",            G_REGNERISCH},
+              {"lightning",       G_GEWITTRIG},
+              {"lightning-rainy", G_GEWITTRIG},
+              {"snowy",           G_SCHNEEIG},
+              {"snowy-rainy",     G_SCHNEEIG},
+              {"windy",           G_WINDIG},
+              {"windy-variant",   G_WINDIG}};
+
+          const char *glyph = G_BEWOELKT;
+          bool bekannt = false;
+          for (const Eintrag &e : ZUSTAENDE)
+            if (zustand == e.ha) { glyph = e.glyph; bekannt = true; break; }
+          id(weather_icon_glyph) = glyph;
+
+          // Gleiches Rundungsmuster wie die Messwerterkennung in
+          // on_tts_start: eine Nachkommastelle, Komma statt Punkt. temperatur
+          // ist hier schon ein float - kein strtod noetig, das braucht nur
+          // die Textheuristik dort.
+          id(result_value) = esphome::str_sprintf("%.1f", temperatur);
+          for (char &c : id(result_value))
+            if (c == '.') c = ',';
+
+          id(result_unit) = einheit;
+          id(result_kind) = 3;
+          id(weather_shown) = true;
+
+          // Gegenstueck zur "ergebnis"-Zeile in on_tts_start.
+          ESP_LOGI("wetter", "zustand='%s' bekannt=%d temperatur=%.1f einheit='%s'",
+                   zustand.c_str(), bekannt, temperatur, einheit.c_str());
 
 # ------------------------------------------------------ Wake-Word-Wachhund
 # Das Geraet kann taub werden, ohne dass es jemand merkt: micro_wake_word

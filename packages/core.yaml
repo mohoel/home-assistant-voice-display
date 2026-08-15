@@ -137,6 +137,31 @@ api:
             nachricht: !lambda return nachricht;
             sekunden: !lambda return sekunden;
 
+    # Zweiter Haken, diesmal keine Zusatz-, sondern eine Kernfunktion: anders
+    # als zeige_hinweis kommt die Wetteranzeige ohne eine HA-Automation gar
+    # nicht zustande, weil auch hier gilt, was oben steht - das Geraet
+    # erfaehrt nie, was ein Befehl bewirkt hat, und eine Vorhersage fuer einen
+    # bestimmten Tag/eine bestimmte Stunde gibt es nur ueber
+    # weather.get_forecasts, das ausschliesslich in Home Assistant aufrufbar
+    # ist. Einrichtung (Skript + Satzausloeser zum Kopieren) steht in
+    # README.md, Abschnitt "Wetter auf Nachfrage".
+    #
+    # zustand ist der rohe Home-Assistant-Wetterzustand (z.B. "partlycloudy"),
+    # wird in stage_weather (packages/voice.yaml) auf einen von sieben
+    # vereinfachten Icon-Buckets abgebildet. einheit ist meist "°C" - die
+    # HA-Automation entscheidet, das Geraet nimmt sie unveraendert.
+    - action: zeige_wetter
+      variables:
+        zustand: string
+        temperatur: float
+        einheit: string
+      then:
+        - script.execute:
+            id: stage_weather
+            zustand: !lambda return zustand;
+            temperatur: !lambda return temperatur;
+            einheit: !lambda return einheit;
+
 ota:
   - platform: esphome
     password: !secret ota_password

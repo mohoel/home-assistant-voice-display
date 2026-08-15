@@ -129,6 +129,24 @@ font:
       - "\U0000E668" # check                 - Befehl ausgefuehrt
       - "\U0000E7F7" # notifications_active   - Timer klingelt
 
+  # Wetter-Icons fuer die optionale API-Aktion zeige_wetter (core.yaml) ->
+  # stage_weather (voice.yaml) -> result_kind == 3. Eigener, kleinerer Font
+  # statt Zweitverwendung von font_icon: der ist mit 216 px fest auf die
+  # Statusicons in der Bildschirmmitte ausgelegt (dot_gap/bar_gap haengen an
+  # genau dieser Groesse) und fuer eine zusaetzliche Zeile (Temperatur
+  # darunter) zu gross. Codepoints aus demselben Register wie font_icon oben.
+  - file: "gfonts://Material+Symbols+Outlined"
+    id: font_weather_icon
+    size: ${weather_icon_font_size}
+    glyphs:
+      - "\U0000E81A" # sunny          - sonnig
+      - "\U0000F159" # clear_night    - klar-nacht
+      - "\U0000F15C" # cloud          - bewoelkt (auch Fallback)
+      - "\U0000F176" # rainy          - regnerisch
+      - "\U0000EBDB" # thunderstorm   - gewittrig
+      - "\U0000E2CD" # weather_snowy  - schneeig
+      - "\U0000EFD8" # air            - windig
+
 lvgl:
   displays: [disp]
   touchscreens: [touch]
@@ -493,6 +511,70 @@ lvgl:
             text_align: CENTER
             long_mode: WRAP
             hidden: true
+
+        # --- Wetter auf Nachfrage: Icon, Temperatur, Trennlinie, Einheit ---
+        # Fuer die optionale API-Aktion zeige_wetter (core.yaml) ueber
+        # stage_weather (voice.yaml), result_kind == 3. Eigene Widget-Gruppe
+        # statt Zweitverwendung von box_result, aus demselben Grund wie bei
+        # lbl_hint_icon/lbl_hint_text oben: box_result hat kein Icon-Kind,
+        # und soll auch keins bekommen - die Gruppe bleibt unabhaengig
+        # aenderbar.
+        #
+        # Struktur wie box_result (feste Breite 440, COLUMN-Flex, result_gap
+        # als pad_row) plus ein viertes Kind ganz oben, das Icon. Farben wie
+        # box_result: die Zahl in color_text (wie lbl_value), Trennlinie/
+        # Einheit in color_result (wie result_divider/lbl_unit); das Icon
+        # zusaetzlich in color_result, als Akzentfarbe analog zum gruenen
+        # Haken-Icon in phase_result.
+        - obj:
+            id: box_weather
+            align: CENTER
+            width: 440
+            height: SIZE_CONTENT
+            bg_opa: TRANSP
+            border_width: 0
+            pad_all: 0
+            layout:
+              type: FLEX
+              flex_flow: COLUMN
+              flex_align_main: CENTER
+              flex_align_cross: CENTER
+              pad_row: ${result_gap}
+            hidden: true
+            widgets:
+              # Feste Breite 440 wie lbl_value/lbl_unit - sonst zentriert Flex
+              # ein Label mit Standard-long_mode WRAP in der Kreuzachse nicht
+              # zuverlaessig (siehe Kommentar bei box_result oben).
+              - label:
+                  id: lbl_weather_icon
+                  text: ""
+                  text_font: font_weather_icon
+                  text_color: ${color_result}
+                  text_align: CENTER
+                  width: 440
+              - label:
+                  id: lbl_weather_value
+                  text: ""
+                  text_font: font_result_value
+                  text_color: ${color_text}
+                  text_align: CENTER
+                  width: 440
+              - obj:
+                  id: weather_divider
+                  width: ${result_divider_width}
+                  height: ${result_divider_height}
+                  bg_color: ${color_result}
+                  bg_opa: COVER
+                  border_width: 0
+                  radius: 0
+              - label:
+                  id: lbl_weather_unit
+                  text: ""
+                  text_font: font_unit
+                  text_color: ${color_result}
+                  text_align: CENTER
+                  text_letter_space: ${result_unit_letter_space}
+                  width: 440
 
     # --------------------------------------------------------------- Standby
     - id: page_standby
@@ -988,7 +1070,7 @@ script:
           lv_obj_t *const alle[] = {
               id(lbl_icon), id(dot_1), id(dot_2), id(dot_3),
               id(bar_1), id(bar_2), id(bar_3), id(bar_4), id(bar_5),
-              id(box_result),
+              id(box_result), id(box_weather),
               id(lbl_hint_icon), id(lbl_hint_text)};
           for (lv_obj_t *w : alle)
             lv_obj_add_flag(w, LV_OBJ_FLAG_HIDDEN);
@@ -1040,6 +1122,18 @@ script:
                 lv_label_set_text(id(lbl_value), id(result_value).c_str());
                 lv_label_set_text(id(lbl_unit), id(result_unit).c_str());
                 lv_obj_remove_flag(id(box_result), LV_OBJ_FLAG_HIDDEN);
+              } else if (id(result_kind) == 3) {
+                // Wetter auf Nachfrage (zeige_wetter -> stage_weather). Icon,
+                // Zahl und Einheit kommen fertig aus stage_weather in
+                // packages/voice.yaml - hier wird nur noch gesetzt und
+                // gezeigt, wie beim Messwert oben.
+                lv_label_set_text(id(lbl_weather_icon),
+                                   id(weather_icon_glyph).c_str());
+                lv_label_set_text(id(lbl_weather_value),
+                                   id(result_value).c_str());
+                lv_label_set_text(id(lbl_weather_unit),
+                                   id(result_unit).c_str());
+                lv_obj_remove_flag(id(box_weather), LV_OBJ_FLAG_HIDDEN);
               } else {
                 glyph = "\U0000E668";  // check
                 farbe = ${color_result};
@@ -1102,9 +1196,11 @@ script:
           // wurde. Erst beides zusammen trennt "falsch erkannt" von "nicht
           // angezeigt" - ohne das kostet die Unterscheidung eine Runde aus
           // Compile und OTA.
-          ESP_LOGI("anzeige", "phase=%d art=%d wert_sichtbar=%d icon_sichtbar=%d",
+          ESP_LOGI("anzeige",
+                   "phase=%d art=%d wert_sichtbar=%d wetter_sichtbar=%d icon_sichtbar=%d",
                    id(voice_assistant_phase), id(result_kind),
                    !lv_obj_has_flag(id(box_result), LV_OBJ_FLAG_HIDDEN),
+                   !lv_obj_has_flag(id(box_weather), LV_OBJ_FLAG_HIDDEN),
                    !lv_obj_has_flag(id(lbl_icon), LV_OBJ_FLAG_HIDDEN));
 
       # Im Leerlauf gibt es nichts anzuzeigen -> Standby-Seite (Uhr,

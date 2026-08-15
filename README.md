@@ -209,6 +209,101 @@ gehen könnte; das WLAN liegt getrennt davon im Flash-Speicher des Geräts und
 überlebt jedes Update. Es gibt dafür kein Bedienelement am Gerät selbst,
 alles läuft über Home Assistants eigenes Update-Dashboard.
 
+### Wetter auf Nachfrage (optional)
+
+Home Assistant kann gezielte Wetterfragen ("Wie wird das Wetter morgen um
+14 Uhr?") beantworten und dazu auf dem Gerät ein passendes Icon plus die
+Temperatur anzeigen — genau wie eine gewöhnliche Messwertanzeige: sie
+erscheint mit der gesprochenen Antwort und bleibt danach die eingestellte
+Standzeit stehen. Sieben vereinfachte Icon-Zustände decken alle vierzehn
+Home-Assistant-Wetterzustände ab (sonnig, klar-nacht, bewölkt, regnerisch,
+gewittrig, schneeig, windig); unbekannte oder künftige Zustände fallen auf
+"bewölkt" zurück.
+
+Anders als der Rest dieser Firmware kommt diese Funktion **nicht** ohne eine
+einmalige Einrichtung in Home Assistant aus — die sonst geltende Regel "keine
+Automation nötig" gilt hier bewusst nicht. Der Grund ist derselbe wie beim
+optionalen Haken `zeige_hinweis` (siehe [`packages/core.yaml`](packages/core.yaml)):
+ohne einen eigenen Intent, der die Vorhersage per `weather.get_forecasts`
+abruft und ans Gerät zurückschickt, hat die Firmware keinen Weg an
+Wetterdaten heranzukommen — sie erfährt sonst nie mehr als den gesprochenen
+Antworttext (siehe oben, *"Das Gerät weiß nie, was ein Befehl bewirkt hat"*).
+Wer die Funktion nicht braucht, lässt die beiden Blöcke unten einfach weg —
+am übrigen Betrieb ändert sich nichts.
+
+Einzurichten sind zwei Dinge: ein Skript, das die Vorhersage holt und die
+Custom Action `zeige_wetter` aufruft, und ein Satzauslöser, der das Skript
+mit Tag und Stunde aus dem gesprochenen Satz füttert. In der Skript-Variable
+`wetter_entity` unten die eigene `weather.*`-Entity eintragen (Einstellungen
+→ Geräte & Dienste → Entitäten, Domain `weather`) — das ist zugleich der Weg,
+wie man in Home Assistant eine Wetter-Entität für diese Funktion auswählt,
+ein zusätzlicher Helfer ist dafür nicht nötig.
+
+Einzufügen unter *Einstellungen → Automationen & Szenen → Skripte*, im
+YAML-Modus (Drei-Punkte-Menü → "In YAML bearbeiten"):
+
+```yaml
+alias: "Wetter auf Nachfrage"
+fields:
+  tag:
+    description: "Erkannter Tag ('heute', 'morgen', ...)"
+    example: "morgen"
+  stunde:
+    description: "Erkannte Stunde (0-23)"
+    example: 14
+variables:
+  wetter_entity: weather.home   # <-- hier die eigene weather.*-Entity eintragen
+sequence:
+  - action: weather.get_forecasts
+    target:
+      entity_id: "{{ wetter_entity }}"
+    data:
+      type: hourly
+    response_variable: vorhersage
+  - variables:
+      eintraege: "{{ vorhersage[wetter_entity].forecast }}"
+      ziel_tag: >-
+        {{ (now() + timedelta(days=1)).strftime('%Y-%m-%d') if tag == 'morgen'
+           else now().strftime('%Y-%m-%d') }}
+      treffer: >-
+        {{ (eintraege | selectattr('datetime', 'match',
+             '^' + ziel_tag + 'T' + '%02d' | format(stunde | int)) | list
+             | first) or eintraege[0] }}
+  - action: esphome.lumi_zeige_wetter   # Servicename ggf. abweichend, siehe unten
+    data:
+      zustand: "{{ treffer.condition }}"
+      temperatur: "{{ treffer.temperature }}"
+      einheit: "{{ state_attr(wetter_entity, 'temperature_unit') or '°C' }}"
+  - set_conversation_response: >-
+      {{ treffer.temperature }} Grad und {{ treffer.condition }},
+      {{ tag }} um {{ stunde }} Uhr.
+```
+
+Einzufügen unter *Einstellungen → Automationen & Szenen → Automationen*,
+ebenfalls im YAML-Modus, als neue Automation:
+
+```yaml
+alias: "Wetter auf Nachfrage - Satzauslöser"
+triggers:
+  - trigger: conversation
+    command:
+      - "wie wird das wetter [am] {tag} um {stunde} uhr"
+      - "wie ist das wetter [am] {tag} um {stunde} uhr"
+      - "wetter {tag} um {stunde} uhr"
+actions:
+  - action: script.wetter_auf_nachfrage
+    data:
+      tag: "{{ trigger.slots.tag }}"
+      stunde: "{{ trigger.slots.stunde }}"
+```
+
+Der Servicename der Custom Action hängt vom kompilierten Gerätenamen ab
+(`esphome.<gerätename>_zeige_wetter`) und weicht durch `name_add_mac_suffix`
+(siehe [CLAUDE.md](CLAUDE.md)) pro physischem Gerät leicht ab, z. B.
+`esphome.lumi_a0d0a8_zeige_wetter` statt `esphome.lumi_zeige_wetter`. Den
+tatsächlichen Namen findet man in Home Assistant unter *Entwicklerwerkzeuge
+→ Dienste* (Suche nach "zeige_wetter").
+
 ## Einrichtung
 
 ### 1. Firmware flashen
