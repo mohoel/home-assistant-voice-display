@@ -349,14 +349,29 @@ voice_assistant:
                 for (char &c : id(result_value))
                   if (c == '.') c = ',';
 
-                // Grossbuchstaben fuers Design: die Einheit steht als kleine,
-                // grossgeschriebene Bildunterschrift unter der Trennlinie
-                // (packages/ui.yaml, font_unit). Dieselbe ASCII-Schleife wie
-                // beim Kleinschreiben oben, nur andersherum.
-                std::string e_gross = einheit;
-                for (char &c : e_gross)
-                  if (c >= 'a' && c <= 'z') c -= 32;
-                id(result_unit) = e_gross;
+                // "Grad" und "Prozent" sind ausgeschriebene Woerter, keine
+                // Einheitensymbole - Home Assistant spricht Temperatur und
+                // Anteil so aus, gemeint ist aber "°C" bzw. "%". Sie werden
+                // deshalb auf ihr Symbol abgebildet statt wie die uebrigen
+                // Eintraege in EINHEITEN nur grossgeschrieben zu werden.
+                //
+                // Alle anderen Eintraege sind bereits Symbole und bekommen
+                // wie bisher nur Grossbuchstaben fuers Design: die Einheit
+                // steht als kleine, grossgeschriebene Bildunterschrift unter
+                // der Trennlinie (packages/ui.yaml, font_unit). Dieselbe
+                // ASCII-Schleife wie beim Kleinschreiben oben, nur
+                // andersherum.
+                std::string e_anzeige;
+                if (einheit == "Grad") {
+                  e_anzeige = "°C";
+                } else if (einheit == "Prozent") {
+                  e_anzeige = "%";
+                } else {
+                  e_anzeige = einheit;
+                  for (char &c : e_anzeige)
+                    if (c >= 'a' && c <= 'z') c -= 32;
+                }
+                id(result_unit) = e_anzeige;
 
                 id(result_kind) = 1;
                 break;
