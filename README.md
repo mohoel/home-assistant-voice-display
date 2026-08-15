@@ -9,6 +9,33 @@ bekommt Home Assistant hier einen kleinen Bildschirm, der zeigt, was gerade
 passiert: zuhören, nachdenken, antworten — und wenn man mag, sogar ein
 Gesicht, das einen dabei ansieht.
 
+## Inhaltsverzeichnis
+
+- [Lernt Lumi kennen](#lernt-lumi-kennen)
+- [Konzept](#konzept)
+- [Lokal oder mit einer KI-Pipeline](#lokal-oder-mit-einer-ki-pipeline)
+- [Verhältnis zu den offiziellen ESPHome-Voice-Projekten](#verhältnis-zu-den-offiziellen-esphome-voice-projekten)
+- [Features](#features)
+  - [Sprachsteuerung](#sprachsteuerung)
+  - [Statusanzeige](#statusanzeige)
+  - [Standby-Seiten](#standby-seiten)
+  - [Timer](#timer)
+  - [Display-Verhalten](#display-verhalten)
+  - [Firmware-Updates](#firmware-updates)
+  - [Wetter auf Nachfrage (optional)](#wetter-auf-nachfrage-optional)
+- [Einbindung in Automationen](#einbindung-in-automationen)
+  - [Hinweis anzeigen (`zeige_hinweis`)](#hinweis-anzeigen-zeige_hinweis)
+  - [Ansage abspielen (`assist_satellite.announce` / `ask_question`)](#ansage-abspielen-assist_satelliteannounce--ask_question)
+  - [Kombiniert: Icon und Ansage zusammen](#kombiniert-icon-und-ansage-zusammen)
+  - [Andere Richtung: Gerät meldet sich bei Home Assistant](#andere-richtung-gerät-meldet-sich-bei-home-assistant)
+  - [Wetter auf Nachfrage](#wetter-auf-nachfrage)
+- [Einrichtung](#einrichtung)
+  - [1. Firmware flashen](#1-firmware-flashen)
+  - [2. In Home Assistant einbinden](#2-in-home-assistant-einbinden)
+  - [3. Updates kommen über Home Assistant](#3-updates-kommen-über-home-assistant)
+- [Bedienung](#bedienung)
+- [Lizenz](#lizenz)
+
 ## Lernt Lumi kennen
 
 Stellt euch einen Sprachassistenten vor, der nicht nur zuhört, sondern euch
