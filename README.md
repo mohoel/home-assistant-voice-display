@@ -14,7 +14,7 @@ Gesicht, das einen dabei ansieht.
 - [Lernt Lumi kennen](#lernt-lumi-kennen)
 - [Konzept](#konzept)
 - [Lokal oder mit einer KI-Pipeline](#lokal-oder-mit-einer-ki-pipeline)
-- [Verhältnis zu den offiziellen ESPHome-Voice-Projekten](#verhältnis-zu-den-offiziellen-esphome-voice-projekten)
+- [Verhältnis zu den offiziellen ESPHome-Voice-Projekten](#verhaeltnis-projekte)
 - [Features](#features)
   - [Sprachsteuerung](#sprachsteuerung)
   - [Statusanzeige](#statusanzeige)
@@ -27,12 +27,12 @@ Gesicht, das einen dabei ansieht.
   - [Hinweis anzeigen (`zeige_hinweis`)](#hinweis-anzeigen-zeige_hinweis)
   - [Ansage abspielen (`assist_satellite.announce` / `ask_question`)](#ansage-abspielen-assist_satelliteannounce--ask_question)
   - [Kombiniert: Icon und Ansage zusammen](#kombiniert-icon-und-ansage-zusammen)
-  - [Andere Richtung: Gerät meldet sich bei Home Assistant](#andere-richtung-gerät-meldet-sich-bei-home-assistant)
+  - [Andere Richtung: Gerät meldet sich bei Home Assistant](#andere-richtung)
   - [Wetter auf Nachfrage](#wetter-auf-nachfrage)
 - [Einrichtung](#einrichtung)
   - [1. Firmware flashen](#1-firmware-flashen)
   - [2. In Home Assistant einbinden](#2-in-home-assistant-einbinden)
-  - [3. Updates kommen über Home Assistant](#3-updates-kommen-über-home-assistant)
+  - [3. Updates kommen über Home Assistant](#updates-via-ha)
 - [Bedienung](#bedienung)
 - [Lizenz](#lizenz)
 
@@ -117,6 +117,7 @@ fünf Balken) ist eine Heuristik über kurze, formelhafte Antwortsätze wie
 in ganzen Sätzen — dann greift die Heuristik seltener und es bleibt beim
 Balken-Äqualizer, technisch korrekt, aber ohne die Zusatzanzeige.
 
+<a id="verhaeltnis-projekte"></a>
 ## Verhältnis zu den offiziellen ESPHome-Voice-Projekten
 
 Lumi ist **kein Fork** von Nabu Casas offizieller Firmware, sondern eine
@@ -443,6 +444,7 @@ actions:
       message: "Es klingelt an der Haustür."
 ```
 
+<a id="andere-richtung"></a>
 ### Andere Richtung: Gerät meldet sich bei Home Assistant
 
 Nicht nur Home Assistant kann Lumi ansprechen — umgekehrt melden sich Tipp
@@ -497,6 +499,7 @@ eintragen.
 Danach unter *Einstellungen → Sprachassistenten* eine Assist-Pipeline mit
 deutschem STT/TTS zuweisen.
 
+<a id="updates-via-ha"></a>
 ### 3. Updates kommen über Home Assistant
 
 Ab hier braucht es weder diese Seite noch einen Rechner: Sobald eine neue
