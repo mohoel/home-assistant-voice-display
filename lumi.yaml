@@ -15,10 +15,14 @@
 # dabei verloren gehen koennte.
 #
 # name ist zugleich mDNS-Hostname (lumi.local) und Name des Build-Ordners.
-# Mehrere Geraete mit demselben Namen kollidieren im lokalen Netz - mDNS
-# haengt dann an eines von ihnen automatisch ein "-2" an. Wer ein zweites
-# Geraet betreibt, benennt es in Home Assistant um bzw. vergibt beim Bauen
-# einen eigenen Namen.
+# packages/core.yaml setzt zusaetzlich name_add_mac_suffix: true - dadurch
+# haengt jedes Geraet zur Laufzeit die letzten 6 Hexzeichen seiner eigenen
+# Chip-MAC an (z.B. lumi-a0d0a8.local). Mehrere aus derselben Browser-Flash-
+# Firmware geflashte Geraete kollidieren dadurch nicht mehr im Netz - jedes
+# bekommt ohne Zutun einen eindeutigen Hostnamen. Der Build-Ordner bleibt
+# "lumi" (Compile-Zeit-Name), das betrifft nur parallele lokale Builds, nicht
+# den Browser-Flash-Weg. Details und die Historie der fruehe Kollision siehe
+# CLAUDE.md.
 
 substitutions:
   <<: !include common-substitutions.yaml
