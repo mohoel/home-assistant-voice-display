@@ -4,6 +4,11 @@ secrets.yaml
 # Internes QA-Dokument, bleibt lokal statt im (kuenftig oeffentlichen) Repo
 docs/testplan.md
 
+# Umsetzungsplan mit internen Notizen (u.a. lokaler Klartext-Pfad,
+# veralteter Hinweis auf ein "privates Repo") - bleibt aus demselben Grund
+# wie testplan.md lokal, CLAUDE.md verlinkt ihn weiterhin von dort aus
+docs/plan.md
+
 # Interne Arbeitsanleitung fuer Claude Code, bleibt lokal statt im
 # oeffentlichen Repo - Claude Code liest sie ohnehin direkt aus dem
 # Projektordner, nicht aus GitHub
