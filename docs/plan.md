@@ -619,10 +619,15 @@ cd /Users/moritzholzer/Claude/Assist && git pull && esphome run lumi.yaml --devi
    aber leere Kästchen zur Laufzeit (deshalb Schritt 4).
 3. Freien Heap/PSRAM nach dem Build gegen die Baseline aus Phase 5 vergleichen
    — ein zweiter eingebetteter Font kostet Flash/RAM.
-4. OTA-Flash, danach am physischen Gerät: HA-Skript `wetter_auf_nachfrage`
-   manuell mit Testwerten für `tag`/`stunde` ausführen (Entwicklerwerkzeuge →
-   Aktionen), Servicename vorher unter Entwicklerwerkzeuge → Dienste
-   nachschlagen.
+4. OTA-Flash, danach am physischen Gerät: Automation
+   `Wetter auf Nachfrage - Satzauslöser` per gesprochenem Satzauslöser oder
+   manuell mit Testwerten für `tag`/`stunde` auslösen, Servicename der
+   Custom Action vorher unter Entwicklerwerkzeuge → Dienste nachschlagen.
+   (Stand ursprünglich als separates Skript `wetter_auf_nachfrage`, das per
+   `set_conversation_response` antwortete — die Antwort einer *aufgerufenen*
+   Sub-Automation/-Skript erreicht Assist aber nie, siehe README.md,
+   Abschnitt "Wetter auf Nachfrage". Seither eine einzige Automation ohne
+   separates Skript.)
 5. Alle sieben Icon-Buckets einzeln durchtesten (`sunny`, `clear-night`,
    `cloudy`, `rainy`, `lightning`, `snowy`, `windy`) — keine leeren Kästchen.
 6. Größenbudget am Gerät ansehen: Icon + Zahl + Trennlinie + Einheit dürfen
