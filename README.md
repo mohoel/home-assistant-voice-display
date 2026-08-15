@@ -304,6 +304,99 @@ Der Servicename der Custom Action hängt vom kompilierten Gerätenamen ab
 tatsächlichen Namen findet man in Home Assistant unter *Entwicklerwerkzeuge
 → Dienste* (Suche nach "zeige_wetter").
 
+## Einbindung in Automationen
+
+Lumi braucht für den normalen Betrieb keine einzige Automation (siehe
+*Konzept* oben) — wer aber gezielt etwas auf dem Display oder über den
+Lautsprecher auslösen will, hat von Home Assistant aus mehrere Wege. Wie beim
+Wetter-Beispiel oben gilt für alle Servicenamen: sie hängen vom kompilierten
+Gerätenamen ab (`esphome.<gerätename>_<aktion>`) und weichen durch
+`name_add_mac_suffix` pro physischem Gerät leicht ab, z. B.
+`esphome.lumi_a0d0a8_zeige_hinweis` statt `esphome.lumi_zeige_hinweis`. Den
+tatsächlichen Namen findet man in Home Assistant unter *Entwicklerwerkzeuge →
+Dienste* bzw. *→ Entitäten*.
+
+### Hinweis anzeigen (`zeige_hinweis`)
+
+Zeigt für eine wählbare Dauer ein Icon mit Text in der Bildschirmmitte —
+unabhängig davon, was das Gerät gerade tut. Praktisch für alles, wovon die
+Firmware selbst nichts wissen kann: eine Türklingel, ein Paket, ein
+Leck-Sensor.
+
+```yaml
+alias: "Hinweis bei offener Haustür"
+triggers:
+  - trigger: state
+    entity_id: binary_sensor.haustuer
+    to: "on"
+actions:
+  - action: esphome.lumi_zeige_hinweis   # Servicename ggf. abweichend, siehe oben
+    data:
+      icon: "mdi:door-open"
+      nachricht: "Haustür offen"
+      sekunden: 15
+```
+
+`icon` versteht echte `mdi:`-Namen wie im Home-Assistant-Icon-Picker — aber
+nur eine feste, in die Firmware eingebettete Auswahl. Ein nicht gelisteter
+Name zeigt nur den Text, kein Icon:
+
+| mdi-Name | Bedeutung |
+|---|---|
+| `mdi:bell` | Glocke |
+| `mdi:door`, `mdi:door-open` | Tür zu, Tür offen |
+| `mdi:motion-sensor` | Bewegung erkannt |
+| `mdi:water`, `mdi:water-alert` | Wasser, Leck/Wasseralarm |
+| `mdi:fire` | Feuer |
+| `mdi:thermometer` | Temperatur |
+| `mdi:package-variant` | Paket |
+| `mdi:lock`, `mdi:lock-open` | Schloss zu, Schloss offen |
+| `mdi:battery-alert` | Akku niedrig |
+| `mdi:email` | Post |
+| `mdi:alert`, `mdi:alert-circle` | Warnung |
+| `mdi:wifi-off` | Verbindung getrennt |
+| `mdi:help` | Frage |
+| `mdi:check` | Erledigt |
+| `mdi:microphone`, `mdi:microphone-off` | Mikrofon an, Mikrofon aus |
+
+Die sieben ursprünglichen deutschen Namen (`mikrofon`, `stumm`, `warnung`,
+`offline`, `frage`, `haken`, `glocke`) funktionieren weiterhin und zeigen
+dieselben Icons wie ihr mdi-Gegenstück in der Tabelle. Fehlt ein Icon: es
+lässt sich ergänzen (Details in [`packages/ui.yaml`](packages/ui.yaml), Font
+`font_hint_icon`) — kostet aber einen Neubau der Firmware.
+
+### Ansage abspielen (`assist_satellite.announce` / `ask_question`)
+
+Kein eigener Haken von Lumi, sondern eine eingebaute Home-Assistant-Aktion,
+die auf jedem `assist_satellite`-Gerät funktioniert (auch auf Nabu Casas
+Voice PE). Sie spielt einen beliebigen Text als gesprochene Ansage über den
+Lautsprecher ab — ohne Wake Word, auch während das Gerät gerade lauscht:
+
+```yaml
+alias: "Ansage: Waschmaschine fertig"
+triggers:
+  - trigger: state
+    entity_id: sensor.waschmaschine_status
+    to: "fertig"
+actions:
+  - action: assist_satellite.announce
+    target:
+      entity_id: assist_satellite.lumi   # Entity-ID ggf. abweichend, siehe oben
+    data:
+      message: "Die Waschmaschine ist fertig."
+```
+
+`assist_satellite.ask_question` funktioniert genauso, erwartet danach aber
+eine gesprochene Antwort — das Gerät zeigt dabei automatisch das
+Fragezeichen-Icon, ganz ohne eigenes Zutun der Automation (siehe
+*Sprachsteuerung* oben, „Rückfrage").
+
+### Wetter auf Nachfrage
+
+Ein dritter, umfangreicherer Weg — eine Vorhersage für einen bestimmten Tag
+per Sprachbefehl abfragen — steht weiter unten in einem eigenen Abschnitt:
+[*Wetter auf Nachfrage*](#wetter-auf-nachfrage-optional).
+
 ## Einrichtung
 
 ### 1. Firmware flashen
