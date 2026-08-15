@@ -52,7 +52,7 @@ font:
     glyphsets: [GF_Latin_Core]
 
   # Einheit unter einem Messwert ("22,4" / "°C"), Design "Rundes Display
-  # Konzepte" (Konzept 1a): klein, in Grossbuchstaben und mit Laufweite als
+  # Konzepte" (Konzept 1a): in Grossbuchstaben und mit Laufweite als
   # Bildunterschrift unter der Trennlinie - nicht mehr die grosse Einheit
   # neben der Zahl aus dem fruehesten Entwurf. Die Grossschreibung setzt
   # packages/voice.yaml selbst (ASCII-Schleife wie beim Kleinschreiben der
@@ -61,9 +61,19 @@ font:
   # Gradzeichen und Schraegstrich ("km/h") liegen ausserhalb von
   # GF_Latin_Core; glyphs und glyphsets werden vereinigt (font/__init__.py:563),
   # die Angabe ergaenzt den Satz nur.
+  #
+  # 78 px = 300% der urspruenglichen 26 px (Wunsch: um 200% vergroessert).
+  # box_result und lbl_unit bleiben bei ihrer festen Breite 440 - nach den
+  # echten Zeichenbreiten der Figtree-500-Datei (fontTools, hmtx) bleibt
+  # selbst die breiteste real vorkommende Einheit ("KM/H", seit der
+  # Grad/Prozent-Symbolabbildung in on_tts_start die einzige vierstellige)
+  # bei rund 220 px, weit unter der Boxbreite. Ungeprueft bleibt dagegen die
+  # Hoehe: box_result waechst mit lbl_unit automatisch nach oben (COLUMN-
+  # Flex, height: SIZE_CONTENT), das noch nicht auf dem runden Display
+  # gegengeprueft ist.
   - file: "gfonts://Figtree@500"
     id: font_unit
-    size: 26
+    size: 78
     glyphsets: [GF_Latin_Core]
     glyphs: ["°", "/"]
   - file: "gfonts://Figtree@700"
