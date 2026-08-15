@@ -14,7 +14,7 @@
 # War lange nicht synchron gehalten (stand auf "0.1.0", obwohl der letzte Tag
 # v0.4.1 war) - das faellt jetzt sofort auf, weil das Geraet sonst dauerhaft
 # "Update verfuegbar" zeigt.
-project_version: "0.5.4"
+project_version: "0.5.5"
 
 # Voice-Assistant-Phasen. Die IDs entsprechen dem offiziellen
 # ESP32-S3-Box-3-Projekt, damit spaeter Code von dort uebernommen werden kann.
