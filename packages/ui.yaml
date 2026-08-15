@@ -147,6 +147,42 @@ font:
       - "\U0000E2CD" # weather_snowy  - schneeig
       - "\U0000EFD8" # air            - windig
 
+  # Eigener Font nur fuer den optionalen Hinweis (api: actions: zeige_hinweis,
+  # Widget lbl_hint_icon). Bewusst getrennt von font_icon oben: der traegt die
+  # sieben fest verdrahteten Phasenicons und soll von einer Erweiterung hier
+  # unberuehrt bleiben. Quelle ist diesmal nicht Material Symbols, sondern der
+  # echte MDI-Webfont (Templarian/MaterialDesign-Webfont) - dessen Codepoints
+  # sind identisch mit denen, die Home Assistants Icon-Picker als "mdi:name"
+  # kennt. zeige_hinweis kann deshalb echte mdi:-Namen entgegennehmen, siehe
+  # show_hint weiter unten; render- und damit einbettbar ist trotzdem nur die
+  # hier gelistete, zur Compile-Zeit feste Auswahl - ein "mdi:xyz" ausserhalb
+  # dieser Liste zeigt weiterhin nur Text, siehe show_hint.
+  # Codepoints nachgeschlagen auf https://pictogrammers.com/library/mdi/icon/<name>/.
+  - file: "https://github.com/Templarian/MaterialDesign-Webfont/raw/master/fonts/materialdesignicons-webfont.ttf"
+    id: font_hint_icon
+    size: 216
+    glyphs:
+      - "\U000F036C" # microphone
+      - "\U000F036D" # microphone-off
+      - "\U000F0026" # alert
+      - "\U000F05AA" # wifi-off
+      - "\U000F02D6" # help
+      - "\U000F012C" # check
+      - "\U000F009A" # bell
+      - "\U000F0028" # alert-circle
+      - "\U000F081A" # door
+      - "\U000F081C" # door-open
+      - "\U000F0D91" # motion-sensor
+      - "\U000F058C" # water
+      - "\U000F1502" # water-alert
+      - "\U000F0238" # fire
+      - "\U000F050F" # thermometer
+      - "\U000F03D6" # package-variant
+      - "\U000F033E" # lock
+      - "\U000F033F" # lock-open
+      - "\U000F0083" # battery-alert
+      - "\U000F01EE" # email
+
 lvgl:
   displays: [disp]
   touchscreens: [touch]
@@ -496,7 +532,7 @@ lvgl:
             width: 240
             height: 240
             text: ""
-            text_font: font_icon
+            text_font: font_hint_icon
             text_color: ${color_text}
             text_align: CENTER
             hidden: true
@@ -995,25 +1031,50 @@ script:
       sekunden: int
     then:
       - lambda: |-
-          // icon ist ein *Name* aus der Liste unten, nicht "mdi:irgendwas".
-          // Material Design Icons gibt es auf dem Geraet nicht, und der Font
-          // traegt nur die sieben eingebetteten Glyphen - alles andere ergab
-          // bisher das leere Kaestchen des Fonts. Unbekannte Namen zeigen
-          // deshalb gar kein Icon, nur den Text.
+          // icon ist ein Name aus der Liste unten - entweder einer der
+          // sieben alten deutschen Namen (bleiben aus Kompatibilitaet
+          // erhalten) oder ein echter mdi:name wie ihn Home Assistants
+          // Icon-Picker verwendet (z.B. "mdi:door-open"). Der Font
+          // font_hint_icon traegt dafuer den echten MDI-Webfont mit
+          // identischen Codepoints - "mdi:" ist deshalb kein Etikettenschwindel,
+          // sondern rendert echt. Eingebettet ist trotzdem nur eine feste,
+          // zur Compile-Zeit gewaehlte Auswahl (siehe font_hint_icon oben);
+          // jeder andere mdi:-Name ergab bisher das leere Kaestchen des Fonts
+          // und zeigt deshalb gar kein Icon, nur den Text. Ein "mdi-" statt
+          // "mdi:" wird ebenso akzeptiert, falls jemand den Doppelpunkt in
+          // einer Automation nicht einfach eintippen kann.
           //
           // Ein roher Codepoint funktioniert weiterhin (alles, was ein Byte
           // >= 0x80 enthaelt, geht unveraendert durch) - dann muss der Glyph
-          // aber in font_icon eingebettet sein.
+          // aber in font_hint_icon eingebettet sein.
           struct Eintrag { const char *name; const char *glyph; };
           static const Eintrag ICONS[] = {
-              {"mikrofon", "\U0000E31D"}, {"stumm", "\U0000E02B"},
-              {"warnung",  "\U0000F083"}, {"offline", "\U0000E648"},
-              {"frage",    "\U0000EB8B"}, {"haken",   "\U0000E668"},
-              {"glocke",   "\U0000E7F7"}};
+              // Alte deutsche Namen - unveraendert nutzbar, jetzt auf den
+              // dazu naechstliegenden MDI-Glyphen statt auf Material Symbols.
+              {"mikrofon", "\U000F036C"}, {"stumm",   "\U000F036D"},
+              {"warnung",  "\U000F0026"}, {"offline", "\U000F05AA"},
+              {"frage",    "\U000F02D6"}, {"haken",   "\U000F012C"},
+              {"glocke",   "\U000F009A"},
+              // mdi:-Namen, direkt aus der MDI-Bibliothek. Deckungsgleich mit
+              // den sieben oben (microphone == mikrofon usw.) plus ein
+              // Startset gaengiger Benachrichtigungs-Icons.
+              {"microphone", "\U000F036C"}, {"microphone-off", "\U000F036D"},
+              {"alert",      "\U000F0026"}, {"wifi-off",       "\U000F05AA"},
+              {"help",       "\U000F02D6"}, {"check",          "\U000F012C"},
+              {"bell",       "\U000F009A"}, {"alert-circle",   "\U000F0028"},
+              {"door",       "\U000F081A"}, {"door-open",      "\U000F081C"},
+              {"motion-sensor", "\U000F0D91"}, {"water",       "\U000F058C"},
+              {"water-alert",   "\U000F1502"}, {"fire",        "\U000F0238"},
+              {"thermometer",   "\U000F050F"},
+              {"package-variant", "\U000F03D6"},
+              {"lock",       "\U000F033E"}, {"lock-open",      "\U000F033F"},
+              {"battery-alert", "\U000F0083"}, {"email",       "\U000F01EE"}};
 
           std::string name = icon;
           for (char &c : name)
             if (c >= 'A' && c <= 'Z') c += 32;
+          if (name.rfind("mdi:", 0) == 0 || name.rfind("mdi-", 0) == 0)
+            name = name.substr(4);
 
           const char *glyph = nullptr;
           for (const Eintrag &e : ICONS)

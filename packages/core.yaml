@@ -114,13 +114,21 @@ api:
   # beim Schalten, ein Hinweis bei der Tuerklingel - kann von HA aus
   #
   #   action: esphome.assist_satellit_zeige_hinweis
-  #   data: {icon: "glocke", nachricht: "Post da", sekunden: 10}
+  #   data: {icon: "mdi:door-open", nachricht: "Haustuer offen", sekunden: 10}
   #
-  # rufen. icon ist einer von sieben Namen - mikrofon, stumm, warnung,
-  # offline, frage, haken, glocke -, weil der Font font_icon (packages/ui.yaml)
-  # genau diese sieben Glyphen eingebettet hat. "mdi:..." funktioniert *nicht*:
-  # Material Design Icons gibt es auf dem Geraet nicht. Ein unbekannter Name
-  # zeigt nur den Text; ein roher Codepoint ("\U0000E31D") geht weiterhin durch.
+  # icon ist entweder einer von sieben alten deutschen Namen (mikrofon, stumm,
+  # warnung, offline, frage, haken, glocke) oder ein echter mdi:name wie ihn
+  # Home Assistants Icon-Picker verwendet, z.B. mdi:bell, mdi:door-open,
+  # mdi:water-alert. Der Font font_hint_icon (packages/ui.yaml) traegt dafuer
+  # den echten MDI-Webfont - "mdi:" rendert also wirklich, ist kein reiner
+  # Namensalias. Eingebettet ist trotzdem nur eine feste, zur Compile-Zeit
+  # gewaehlte Auswahl: microphone, microphone-off, alert, wifi-off, help,
+  # check, bell, alert-circle, door, door-open, motion-sensor, water,
+  # water-alert, fire, thermometer, package-variant, lock, lock-open,
+  # battery-alert, email. Jeder andere mdi:-Name zeigt nur den Text, kein
+  # Icon - neue Namen brauchen einen Eintrag in font_hint_icon/show_hint
+  # (packages/ui.yaml) plus Compile und OTA. Ein roher Codepoint
+  # ("\U000F009A") geht weiterhin unveraendert durch.
   #
   # Der Parameter heisst nachricht und nicht text, weil cv.validate_id_name die
   # Namen der ESPHome-Plattformen sperrt - "text" ist eine davon.
