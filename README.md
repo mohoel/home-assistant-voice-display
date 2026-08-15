@@ -106,6 +106,8 @@ In der Variable `wetter_entity` die eigene `weather.*`-Entity eintragen
 (Einstellungen → Geräte & Dienste → Entitäten, Domain `weather`) und als
 neue Automation einfügen (*Einstellungen → Automationen & Szenen →
 Automationen*, YAML-Modus):
+<details>
+  <summary>Automation (aufklappen)</summary>
 
 ```yaml
 alias: "Wetter auf Nachfrage - Satzauslöser"
@@ -151,6 +153,7 @@ actions:
       {{ tag_text }} um {{ stunde_zahl }} Uhr ist es {{ zustand_text }} mit
       {{ treffer.temperature | round(0) | int }} Grad.
 ```
+</details>
 
 Ergibt z. B. "Morgen um 14 Uhr ist es bewölkt mit 24 Grad." Der Servicename
 hängt vom kompilierten Gerätenamen ab (`esphome.<gerätename>_zeige_wetter`,
@@ -232,8 +235,9 @@ Zeigt für eine wählbare Dauer ein Icon mit Text in der Bildschirmmitte,
 unabhängig davon, was das Gerät gerade tut — praktisch für alles, wovon die
 Firmware selbst nichts wissen kann: eine Türklingel, ein Paket, ein
 Leck-Sensor.
-
-```yaml
+<details>
+  <summary>Automation (aufklappen)</summary>
+  ```yaml
 alias: "Hinweis bei offener Haustür"
 triggers:
   - trigger: state
@@ -246,6 +250,8 @@ actions:
       nachricht: "Haustür offen"
       sekunden: 15
 ```
+</details>
+
 
 `icon` versteht echte `mdi:`-Namen wie im Home-Assistant-Icon-Picker, aber
 nur eine feste, eingebettete Auswahl. Ein nicht gelisteter Name zeigt nur
@@ -280,7 +286,9 @@ Kein eigener Haken von Lumi, sondern die eingebaute Home-Assistant-Aktion
 (auch Nabu Casas Voice PE) und spielt Text als Ansage ab, ohne Wake Word,
 auch während das Gerät gerade lauscht:
 
-```yaml
+<details>
+  <summary>Automation (aufklappen)</summary>
+  ```yaml
 alias: "Ansage: Waschmaschine fertig"
 triggers:
   - trigger: state
@@ -293,6 +301,8 @@ actions:
     data:
       message: "Die Waschmaschine ist fertig."
 ```
+</details>
+
 
 `assist_satellite.ask_question` funktioniert genauso, erwartet danach aber
 eine gesprochene Antwort — das Gerät zeigt dabei automatisch das
