@@ -1097,7 +1097,21 @@ script:
                    !lv_obj_has_flag(id(box_result), LV_OBJ_FLAG_HIDDEN),
                    !lv_obj_has_flag(id(lbl_icon), LV_OBJ_FLAG_HIDDEN));
 
-      # Im Leerlauf gibt es nichts anzuzeigen -> Standby.
+      # Im Leerlauf gibt es nichts anzuzeigen -> Standby-Seite (Uhr,
+      # Zifferblatt oder Gesicht, je nach sel_standby_page), nicht sofort aus.
+      # Bis hierhin ging update_ui beim Wechsel nach phase_idle direkt in
+      # sleep_display: nach einer Bestaetigung oder dem Ende der Sprachausgabe
+      # wurde das Display schwarz, bevor sich etwa das Gesicht sichtbar wieder
+      # in seinen wartenden Ausdruck haette zuruecknehmen koennen (der Takt in
+      # der Animationsschleife unten hatte die Farbe zwar schon zurueckgesetzt
+      # - man hat es nur nie gesehen). Jetzt zeigt es wie ein Tippen auf den
+      # dunklen Bildschirm zunaechst die Standby-Seite bei
+      # num_standby_brightness und faellt erst nach num_standby_timeout ueber
+      # standby_return in sleep_display. Das gilt fuer jeden Uebergang nach
+      # phase_idle - auch nach einem Abbruch per Antippen, nach einer
+      # Fehleranzeige und beim Hochfahren, wo das Display bis hierhin sofort
+      # dunkel blieb.
+      #
       # Alles andere weckt das Display, ein anstehender Hinweis eingeschlossen -
       # sonst schoebe sleep_display die Standby-Seite darueber.
       - if:
@@ -1106,7 +1120,12 @@ script:
               return id(voice_assistant_phase) == ${phase_idle}
                   && !id(hint_active);
           then:
-            - script.execute: sleep_display
+            - script.execute: show_standby_page
+            - light.turn_on:
+                id: display_level
+                brightness: !lambda "return id(num_standby_brightness).state / 100.0f;"
+            - light.turn_on: display_brightness
+            - script.execute: standby_return
           else:
             - script.execute: wake_display
 
