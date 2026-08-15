@@ -391,6 +391,33 @@ Saugroboter). Ohne Push aus HA technisch unmöglich, siehe oben. Der Haken
 - SD-Karte für lokale Sounds
 - Deutsches Wake-Word: eigenes microWakeWord-Modell trainieren
 
+### Phase 6c — Wetter auf Nachfrage (optional, HA-Automation nötig) ✅
+
+Neue Custom Action `api: actions: zeige_wetter` (`packages/core.yaml`), analog
+zu `zeige_hinweis`: zeigt ein Wetter-Icon (sieben vereinfachte Zustände) plus
+Temperatur zeitlich genauso wie die Messwertanzeige (`result_kind == 3`,
+erscheint mit `on_tts_start`, bleibt `result_hold_time` stehen).
+
+**Weicht bewusst von der Leitplanke aus Phase 6 ab** ("keine Automation in
+Home Assistant"): ohne einen eigenen Intent, der `weather.get_forecasts`
+abruft und die Custom Action aufruft, gibt es keinen Weg an eine Vorhersage
+jenseits des Antworttexts heranzukommen — dieselbe technische Grenze wie bei
+`zeige_hinweis`. Deshalb rein optional und HA-seitig nicht im Repo, sondern
+als Kopier-YAML dokumentiert (README, Abschnitt "Wetter auf Nachfrage").
+
+- `stage_weather` (`packages/voice.yaml`) setzt nur State (Icon-Bucket in
+  `weather_icon_glyph`, `result_value`/`result_unit`, `result_kind = 3`,
+  `weather_shown = true`) — kein Widget-Zugriff, das übernimmt `update_ui`
+  über `on_tts_start` wie beim Messwert. `weather_shown` verhindert, dass die
+  Text-Heuristik in `on_tts_start` das gerade gesetzte `result_kind`
+  überschreibt; ein Sicherheitsnetz in `on_listening` setzt es zurück, falls
+  aus irgendeinem Grund kein `on_tts_start` folgte.
+- Eigener, kleinerer zweiter Icon-Font (`font_weather_icon`,
+  `weather_icon_font_size`) statt `font_icon` (216 px, für die Statusicons
+  reserviert).
+- Eigene Widget-Gruppe `box_weather` (`packages/ui.yaml`) statt
+  Zweitverwendung von `box_result` — Vorbild `lbl_hint_icon`/`lbl_hint_text`.
+
 ### Phase 7 — Weitere Standby-Bildschirme (HA-Sensoren, Grafik)
 
 Statt einer einzelnen Standby-Uhr mehrere Standby-Pages. Die Auswahl läuft
@@ -580,6 +607,43 @@ cd /Users/moritzholzer/Claude/Assist && git pull && esphome run lumi.yaml --devi
   CLAUDE.md, Abschnitt zum Gesicht, für die Vorgeschichte).
 - Freien Heap prüfen: ohne Webserver muss er über dem alten Stand von rund
   161 700 B liegen (Baseline v0.1 ohne Webserver: 172 732 B).
+
+**Phase 6c — Wetter auf Nachfrage**
+
+1. `esphome config lumi.yaml` — validiert, dass `zeige_wetter`,
+   `stage_weather`, `box_weather`, `font_weather_icon` syntaktisch korrekt
+   sind und keine ID-Kollision besteht (insbesondere `weather_divider` vs.
+   `result_divider`, `lbl_weather_*` vs. `lbl_*`).
+2. `esphome compile lumi.yaml` — prüft, dass die Material-Symbols-Codepoints
+   tatsächlich im Font-Subset existieren; Build bricht sonst nicht ab, zeigt
+   aber leere Kästchen zur Laufzeit (deshalb Schritt 4).
+3. Freien Heap/PSRAM nach dem Build gegen die Baseline aus Phase 5 vergleichen
+   — ein zweiter eingebetteter Font kostet Flash/RAM.
+4. OTA-Flash, danach am physischen Gerät: HA-Skript `wetter_auf_nachfrage`
+   manuell mit Testwerten für `tag`/`stunde` ausführen (Entwicklerwerkzeuge →
+   Aktionen), Servicename vorher unter Entwicklerwerkzeuge → Dienste
+   nachschlagen.
+5. Alle sieben Icon-Buckets einzeln durchtesten (`sunny`, `clear-night`,
+   `cloudy`, `rainy`, `lightning`, `snowy`, `windy`) — keine leeren Kästchen.
+6. Größenbudget am Gerät ansehen: Icon + Zahl + Trennlinie + Einheit dürfen
+   nicht über den runden Bildschirmrand hinauswachsen
+   (`weather_icon_font_size` ggf. nachjustieren).
+7. Zeitverhalten prüfen: Anzeige erscheint mit der gesprochenen Antwort,
+   bleibt `result_hold_time` (3 s) stehen, dann zurück in den Standby.
+8. Sentence-Trigger live per Sprache testen: „Wie wird das Wetter morgen um
+   14 Uhr?", Icon + Temperatur müssen zur tatsächlichen Vorhersage passen.
+9. **Regressionstest, kritisch wegen `weather_shown`:** direkt nach einem
+   Wetter-Aufruf eine normale Messwertfrage stellen ("Wie warm ist es im
+   Bad?") — muss weiterhin `result_kind == 1` liefern (`box_result`, nicht
+   `box_weather`); Log-Zeile `"ergebnis"` muss `art=1` zeigen.
+10. Denselben Regressionstest für den Abbruch-Fall prüfen (Wetter-Action
+    ausgelöst, aber `on_tts_start` feuert nie, z. B. HA-Skript bricht vorher
+    ab) — der nächste normale Befehl muss trotzdem korrekt klassifiziert
+    werden (testet `weather_shown = false` in `on_listening`).
+11. Gesichtsmodus (`sel_standby_page` = „Gesicht") zusätzlich testen: bei
+    einer Wetterantwort muss `page_main`/`box_weather` erscheinen, nicht das
+    Gesicht (`wake_display` bleibt unverändert korrekt, da nur auf
+    `result_kind == 2` geprüft wird).
 
 ---
 

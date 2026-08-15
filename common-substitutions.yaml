@@ -136,6 +136,17 @@ result_unit_letter_space: "5"
 # die 440 px breite Box unten.
 result_value_font_size: "150"
 
+# Icon-Groesse der optionalen Wetteranzeige (result_kind == 3, box_weather in
+# ui.yaml, gefuellt ueber die API-Aktion zeige_wetter -> stage_weather in
+# packages/voice.yaml). Kleiner als font_icon (216 px, dort fest auf die
+# Statusicons in der Bildschirmmitte ausgelegt) und kleiner als der Messwert
+# selbst, weil hier zusaetzlich Zahl, Trennlinie und Einheit darunter Platz
+# brauchen - Ueberschlagsrechnung 96 (Icon) + 18 (Gap) + 150 (Zahl) + 2
+# (Trennlinie) + 18 (Gap) + 26 (Einheit) + 18 (Gap) ~= 328 px, deutlich unter
+# den 466 px Bildschirmdurchmesser. Wie bei result_value_font_size ungeprueft
+# - echte Verifikation erst am Geraet nach OTA.
+weather_icon_font_size: "96"
+
 # Timer. Home Assistant schickt Timer-Ereignisse von sich aus an den
 # Satelliten (on_timer_* in packages/voice.yaml) - dafuer braucht es keine
 # Automation in HA. Waehrend ein Timer laeuft, liegt ein Ring am
