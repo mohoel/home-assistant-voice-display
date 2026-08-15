@@ -1,13 +1,13 @@
 {
   "name": "Lumi",
-  "version": "0.5.5",
+  "version": "0.5.6",
   "builds": [
     {
       "chipFamily": "ESP32-S3",
       "ota": {
         "path": "firmware.ota.bin",
-        "md5": "ffdd3bc3ff5ba54b7e75b7babbf3905c",
-        "release_url": "https://github.com/mohoel/home-assistant-voice-lumi/releases/tag/v0.5.5"
+        "md5": "75e308d0170f7d890095a61355420e76",
+        "release_url": "https://github.com/mohoel/home-assistant-voice-lumi/releases/tag/v0.5.6"
       }
     }
   ]
