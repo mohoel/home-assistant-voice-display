@@ -391,6 +391,39 @@ eine gesprochene Antwort — das Gerät zeigt dabei automatisch das
 Fragezeichen-Icon, ganz ohne eigenes Zutun der Automation (siehe
 *Sprachsteuerung* oben, „Rückfrage").
 
+### Kombiniert: Icon und Ansage zusammen
+
+Beide Aktionen lassen sich in derselben Automation kombinieren — sinnvoll,
+wenn ein Ereignis sowohl sichtbar als auch hörbar auffallen soll, zum
+Beispiel eine Video-Türklingel:
+
+```yaml
+alias: "Klingel: Hinweis und Ansage"
+triggers:
+  - trigger: state
+    entity_id: binary_sensor.tuerklingel
+    to: "on"
+actions:
+  - action: esphome.lumi_zeige_hinweis   # Servicename ggf. abweichend, siehe oben
+    data:
+      icon: "mdi:bell"
+      nachricht: "Es klingelt"
+      sekunden: 15
+  - action: assist_satellite.announce
+    target:
+      entity_id: assist_satellite.lumi   # Entity-ID ggf. abweichend, siehe oben
+    data:
+      message: "Es klingelt an der Haustür."
+```
+
+### Andere Richtung: Gerät meldet sich bei Home Assistant
+
+Nicht nur Home Assistant kann Lumi ansprechen — umgekehrt melden sich Tipp
+und Doppeltipp auf den Bildschirm als Event (`single_press`/`double_press`)
+bei Home Assistant, auswertbar in einer eigenen Automation, genau wie bei
+einem smarten Schalter. Die zugehörige Entity (`Displayberührung`) steht in
+der Tabelle im Abschnitt *Bedienung* weiter unten.
+
 ### Wetter auf Nachfrage
 
 Ein dritter, umfangreicherer Weg — eine Vorhersage für einen bestimmten Tag
