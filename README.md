@@ -275,9 +275,7 @@ Sprachvorgang ab.
 | **Erkannter Text**, **Antwort** | Frage und Antwort des letzten Vorgangs. |
 | **Displayberührung** (Event) | `single_press` bei einem Tipp, `double_press` bei einem Doppeltipp — nur im Wartezustand, während eines Sprachvorgangs bricht Tippen stattdessen ab. |
 
-Alle Einstellungen überstehen einen Neustart. Symbolfarben sind fest in
-`common-substitutions.yaml` hinterlegt — eine Änderung braucht einen Neubau
-der Firmware.
+Alle Einstellungen überstehen einen Neustart.
 
 ## Automationen
 
@@ -339,7 +337,7 @@ aber einen Neubau der Firmware.
 
 ### Ansage abspielen
 
-Kein eigener Haken von Lumi, sondern die eingebaute Home-Assistant-Aktion
+Keine eigene Funktion von Lumi, sondern die eingebaute Home-Assistant-Aktion
 `assist_satellite.announce` — funktioniert auf jedem `assist_satellite`-Gerät
 (auch Nabu Casas Voice PE) und spielt Text als Ansage ab, ohne Wake Word,
 auch während das Gerät gerade lauscht:
