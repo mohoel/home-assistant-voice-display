@@ -293,6 +293,7 @@ Firmware selbst nichts wissen kann: eine Türklingel, ein Paket, ein
 Leck-Sensor.
 <details>
   <summary>Automation (aufklappen)</summary>
+
   ```yaml
 alias: "Hinweis bei offener Haustür"
 triggers:
@@ -344,6 +345,7 @@ auch während das Gerät gerade lauscht:
 
 <details>
   <summary>Automation (aufklappen)</summary>
+
   ```yaml
 alias: "Ansage: Waschmaschine fertig"
 triggers:
