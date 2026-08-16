@@ -23,11 +23,12 @@ blueprint:
         entity: {}
     trigger_to:
       name: Zielzustand
-      description: Der Zustand, bei dem der Hinweis erscheint.
+      description: >-
+        Der Zustand, bei dem der Hinweis erscheint, z. B. `on`, `open` oder
+        `detected` — genau wie er bei der Entity oben angezeigt wird.
       default: "on"
       selector:
-        state:
-          entity_id: !input trigger_entity
+        text: {}
     hinweis_aktion:
       name: Hinweis-Aktion
       description: >-

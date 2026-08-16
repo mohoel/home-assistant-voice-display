@@ -23,11 +23,12 @@ blueprint:
         entity: {}
     trigger_to:
       name: Zielzustand
-      description: Der Zustand, bei dem angesagt wird.
+      description: >-
+        Der Zustand, bei dem angesagt wird, z. B. `on` oder `fertig` — genau
+        wie er bei der Entity oben angezeigt wird.
       default: "on"
       selector:
-        state:
-          entity_id: !input trigger_entity
+        text: {}
     satellite:
       name: Assist-Satellite-Gerät
       description: Das Gerät, das die Ansage spricht (z. B. Lumi).
