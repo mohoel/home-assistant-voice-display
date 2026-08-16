@@ -1,0 +1,96 @@
+blueprint:
+  name: "Lumi: Musik-Cover anzeigen"
+  description: >-
+    Zeigt Cover, Titel und Interpret/Podcast auf Lumis Display, solange Musik
+    über Lumis **eigenen** Lautsprecher läuft — also nur, wenn Music Assistant
+    tatsächlich Lumis eigene Media-Player-Entity als Wiedergabeziel nutzt.
+    Ersetzt dabei die normale Standby-Seite (Uhr/Zifferblatt/Gesicht); sobald
+    die Wiedergabe endet, kehrt Lumi von sich aus dorthin zurück — dafür ist
+    keine eigene Automation nötig, das erledigt das Gerät selbst.
+
+    **Nicht** das richtige Blueprint für das häufigere Muster "Lumi hört den
+    Sprachbefehl, der Ton kommt aber aus einem anderen Gerät" (z. B. über das
+    Blueprint "Lumi: Musik abspielen" mit einem Music-Assistant-Player als
+    Ziel) — dafür bringt "Lumi: Musik abspielen" die Cover-Anzeige bereits
+    selbst mit, siehe dessen Beschreibung. Dieses Blueprint hier greift nur,
+    wenn der Ton wirklich aus Lumi selbst kommt.
+
+    Die Cover-Aktion ist wie bei anderen Lumi-Automationen frei wählbar, weil
+    ihr Servicename vom kompilierten Gerätenamen abhängt: als Aktion die
+    eigene `zeige_musik`-Aktion des Geräts suchen und darin folgende drei
+    Vorlagen eintragen —
+
+    ```
+
+    titel: {{ titel }}
+
+    untertitel: {{ untertitel }}
+
+    cover_url: {{ cover_url }}
+
+    ```
+
+    `entity_picture` liefert bei den meisten Playern (auch Music Assistant)
+    einen relativen Pfad statt einer vollständigen Adresse — das Gerät lädt
+    das Bild aber selbst per HTTP und kennt Home Assistants Adresse nicht.
+    Deshalb baut dieses Blueprint aus der `entity_picture` und der unten
+    eingetragenen Basis-Adresse selbst eine vollständige URL, außer das Bild
+    ist ohnehin schon vollständig (z. B. ein Radiosender-Icon).
+
+    Ohne gewählte Aktion passiert nichts — der normale Betrieb (inklusive der
+    Wiedergabe selbst) kommt ohne dieses Blueprint aus.
+  domain: automation
+  source_url: https://github.com/mohoel/home-assistant-voice-lumi/blob/main/blueprints/automation/lumi/musik_cover_anzeigen.yaml
+  homeassistant:
+    min_version: "2024.10.0"
+  input:
+    media_player_entity:
+      name: Lumis Media-Player-Entity
+      description: >-
+        Die `media_player.*`-Entity, die die ESPHome-Integration für Lumis
+        eigenen Lautsprecher angelegt hat — nicht die Entity eines anderen
+        Music-Assistant-Players im Haus.
+      selector:
+        entity:
+          domain: media_player
+    basis_url:
+      name: Basis-Adresse von Home Assistant
+      description: >-
+        Wird nur vor eine relative `entity_picture`-Adresse gesetzt (die
+        meisten Player liefern keine vollständige URL). Z. B.
+        `http://homeassistant.local:8123` oder die externe Adresse aus den
+        Home-Assistant-Einstellungen. Leer lassen, wenn ohnehin nur Player
+        mit vollständiger Bild-URL genutzt werden (z. B. reine
+        Radiosender).
+      default: ""
+      selector:
+        text: {}
+    zeige_musik_aktion:
+      name: Cover-Aktion (optional)
+      description: Die Lumi-Aktion `zeige_musik` — siehe Beschreibung oben.
+      default: []
+      selector:
+        action: {}
+
+triggers:
+  - trigger: state
+    entity_id: !input media_player_entity
+    to:
+      - playing
+      - paused
+
+variables:
+  media_player_entity: !input media_player_entity
+  basis_url: !input basis_url
+  roh_cover: "{{ state_attr(media_player_entity, 'entity_picture') | default('', true) }}"
+  cover_url: >-
+    {{ roh_cover if roh_cover.startswith('http')
+       else (basis_url ~ roh_cover if roh_cover else '') }}
+  titel: "{{ state_attr(media_player_entity, 'media_title') | default('', true) }}"
+  untertitel: >-
+    {{ state_attr(media_player_entity, 'media_artist')
+       or (state_attr(media_player_entity, 'media_content_type') | default('', true) | title) }}
+
+actions:
+  - if: []
+    then: !input zeige_musik_aktion

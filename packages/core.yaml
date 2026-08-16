@@ -180,6 +180,47 @@ api:
             temperatur: !lambda return temperatur;
             einheit: !lambda return einheit;
 
+    # Dritter Haken, aus demselben Grund wie zeige_wetter zwingend: ein reiner
+    # Audio-Stream traegt keine Metadaten, das Geraet kann Titel/Cover einer
+    # eigenen Wiedergabe also nicht selbst kennen. Ohne einen Aufruf von hier
+    # bleibt page_music (packages/ui.yaml) ungenutzt.
+    #
+    # cover_url muss absolut sein (https://...) - das Geraet laedt sie selbst
+    # per HTTP, ein relativer Home-Assistant-Pfad (wie ihn entity_picture oft
+    # liefert) waere fuer das Geraet nicht aufloesbar. Das jeweilige Blueprint
+    # baut die absolute URL, nicht die Firmware.
+    #
+    # Zwei Einrichtungswege, siehe README.md, Abschnitt "Blueprints":
+    #   - "Lumi: Musik-Cover anzeigen" - Lumi selbst ist das Music-Assistant-
+    #     Wiedergabeziel. Dort braucht es keinen eigenen Aufruf von
+    #     verstecke_musik (siehe dort): media_out kennt seinen eigenen
+    #     Leerlauf selbst (hide_music, packages/ui.yaml).
+    #   - "Lumi: Musik abspielen" - Lumi steuert nur, der Ton kommt aus einem
+    #     anderen Music-Assistant-Player. media_out bleibt dabei die ganze
+    #     Zeit im Leerlauf und weiss nichts vom fremden Wiedergabeende - dort
+    #     ruft das Blueprint deshalb selbst verstecke_musik auf, sobald sein
+    #     Zielgeraet nicht mehr spielt.
+    - action: zeige_musik
+      variables:
+        titel: string
+        untertitel: string
+        cover_url: string
+      then:
+        - script.execute:
+            id: stage_music
+            titel: !lambda return titel;
+            untertitel: !lambda return untertitel;
+            cover_url: !lambda return cover_url;
+
+    # Gegenstueck zu zeige_musik, ohne Parameter. Fuer "Lumi: Musik-Cover
+    # anzeigen" ueberfluessig (media_out raeumt dort selbst auf, siehe oben),
+    # aber die einzige Moeglichkeit fuer "Lumi: Musik abspielen": dessen
+    # Zielgeraet ist ein fremder Music-Assistant-Player, dessen Wiedergabeende
+    # dem Geraet sonst nie mitgeteilt wuerde.
+    - action: verstecke_musik
+      then:
+        - script.execute: hide_music
+
 ota:
   - platform: esphome
     password: !secret ota_password
