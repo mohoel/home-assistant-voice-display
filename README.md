@@ -20,6 +20,7 @@ Gesicht.
   - [Firmware-Updates](#firmware-updates)
   - [Wetter auf Nachfrage (optional)](#wetter-auf-nachfrage-optional)
   - [Freie Wetterfragen (optional, nicht lokal)](#freie-wetterfragen-optional-nicht-lokal)
+  - [Verzögerte Aktionen (optional, nicht lokal)](#verzögerte-aktionen-optional-nicht-lokal)
 - [Einrichtung](#einrichtung)
 - [Bedienung](#bedienung)
 - [Automationen](#automationen)
@@ -218,6 +219,246 @@ sequence:
     response_variable: ergebnis
 ```
 </details>
+
+### Verzögerte Aktionen (optional, nicht lokal)
+
+Führt eine Aktion nach einer Wartezeit aus, z. B. "Schalte das Licht in 5
+Minuten aus", "Schließe das Rollo in 10 Minuten" oder "Fahr das Rollo in 20
+Minuten auf 30 Prozent". Wie bei den freien Wetterfragen ruft der
+Konversationsagent das Skript als Werkzeug auf, kein Satzauslöser nötig —
+das braucht eine KI/LLM-Pipeline, die eingebaute lokale Intent-Erkennung
+kann keine Werkzeuge mit Freitext-Parametern aufrufen. Anders als die
+Wetterfunktion ist das kein Lumi-spezifisches Feature: es löst keine
+Display-Aktion des Geräts aus und funktioniert mit jedem Assist-fähigen
+Eingabeweg (Lumi, App, andere Satellites, …) und mit beliebigen eigenen
+Entities — der Name eines Geräts genügt, keine `entity_id` muss von Hand
+eingetragen werden.
+
+Zwei Skripte anlegen (*Einstellungen → Automationen & Szenen → Skripte*,
+YAML-Modus). `Timer Aktion starten` ist das Werkzeug, das für Assist
+freigegeben wird — es startet `Verzögerte Aktion` im Hintergrund und wartet
+nicht auf deren Ende, damit Assist sofort antworten kann:
+
+<details>
+  <summary>Skript 1: „Timer Aktion starten" (aufklappen)</summary>
+
+```yaml
+alias: Timer Aktion starten
+description: >-
+  Startet eine verzögerte Aktion im Hintergrund, ohne auf das Ende zu warten.
+  Für Assist z.B.: 'Schließe das Rollo in 10 Minuten' oder 'Schalte das Licht
+  in 5 Minuten aus'.
+fields:
+  aktion:
+    name: Aktion
+    description: Welche Aktion nach der Wartezeit ausgeführt wird
+    required: true
+    selector:
+      select:
+        options:
+          - label: An
+            value: an
+          - label: Aus
+            value: aus
+          - label: Öffnen
+            value: oeffnen
+          - label: Schließen
+            value: schliessen
+          - label: Auf Position fahren
+            value: position
+  dauer_minuten:
+    name: Dauer in Minuten
+    description: >-
+      Wartezeit bevor die Aktion ausgeführt wird. Bei Angaben unter einer
+      Minute (z.B. Sekunden) auf 1 aufrunden.
+    required: true
+    selector:
+      number:
+        min: 1
+        max: 720
+        unit_of_measurement: Minuten
+  geraete_namen:
+    name: Geräte
+    description: >-
+      Ein oder mehrere Gerätenamen wie im Satz genannt, durch Komma getrennt.
+      Bei mehrdeutigen Namen (z.B. einzelne Segmente eines Geräts wie 'Regal
+      links') zusätzlich den Raum angeben, z.B. 'Regal Wohnzimmer' statt nur
+      'Regal'. Niemals eine entity_id raten — nur den gesprochenen Namen
+      übergeben.
+    required: true
+    selector:
+      text: {}
+  position_prozent:
+    name: Position in Prozent
+    description: Nur bei Aktion 'Auf Position fahren' nötig, 0 = zu, 100 = offen
+    required: false
+    selector:
+      number:
+        min: 0
+        max: 100
+        unit_of_measurement: "%"
+max: 20
+mode: parallel
+sequence:
+  - action: script.turn_on
+    data:
+      variables:
+        aktion: "{{ aktion }}"
+        dauer_minuten: "{{ dauer_minuten }}"
+        geraete_namen: "{{ geraete_namen }}"
+        position_prozent: "{{ position_prozent | default(0) }}"
+    target:
+      entity_id: script.verzoegerte_aktion
+```
+</details>
+
+<details>
+  <summary>Skript 2: „Verzögerte Aktion" (aufklappen)</summary>
+
+```yaml
+alias: Verzögerte Aktion
+description: >-
+  Führt nach einer Wartezeit eine Aktion (an, aus, öffnen, schließen,
+  Position) auf einem oder mehreren Geräten aus. Löst Gerätenamen erst
+  unmittelbar vor dem Warten zu echten entity_ids auf und meldet nicht
+  eindeutig zuordenbare Geräte sofort per persistent_notification, statt
+  erst nach Ablauf der Wartezeit stumm zu scheitern.
+fields:
+  aktion:
+    name: Aktion
+    description: Welche Aktion nach der Wartezeit ausgeführt wird
+    required: true
+    selector:
+      select:
+        options:
+          - label: An
+            value: an
+          - label: Aus
+            value: aus
+          - label: Öffnen
+            value: oeffnen
+          - label: Schließen
+            value: schliessen
+          - label: Auf Position fahren
+            value: position
+  dauer_minuten:
+    name: Dauer in Minuten
+    description: Wartezeit bevor die Aktion ausgeführt wird
+    required: true
+    selector:
+      number:
+        min: 1
+        max: 720
+        unit_of_measurement: Minuten
+  geraete_namen:
+    name: Geräte
+    description: >-
+      Ein oder mehrere Gerätenamen wie im Satz genannt, durch Komma
+      getrennt. Bei mehrdeutigen Namen zusätzlich den Raum angeben, z.B.
+      'Regal Wohnzimmer' statt nur 'Regal'.
+    required: true
+    selector:
+      text: {}
+  position_prozent:
+    name: Position in Prozent
+    description: Nur bei Aktion 'Auf Position fahren' nötig, 0 = zu, 100 = offen
+    required: false
+    selector:
+      number:
+        min: 0
+        max: 100
+        unit_of_measurement: "%"
+max: 20
+mode: parallel
+sequence:
+  # Domains, auf denen die jeweilige Aktion sinnvoll ist — bei Bedarf
+  # erweitern (z.B. um alarm_control_panel, scene, ...).
+  - variables:
+      aktion_domains:
+        an: [light, switch, cover, fan, media_player, climate, input_boolean, humidifier, vacuum, lock]
+        aus: [light, switch, cover, fan, media_player, climate, input_boolean, humidifier, vacuum, lock]
+        oeffnen: [cover]
+        schliessen: [cover]
+        position: [cover]
+  # Löst jeden übergebenen Namen gegen die echten friendly_names auf:
+  # alle Wörter des Namens müssen im friendly_name vorkommen. Genau ein
+  # Treffer -> aufgelöst, kein Treffer oder mehrdeutig -> Fehlerliste.
+  - variables:
+      aufgeloesung: |-
+        {% set domains = aktion_domains[aktion] %}
+        {% set ns = namespace(ids=[], fehler=[]) %}
+        {% for roh in geraete_namen.split(',') %}
+          {% set woerter = roh.strip().lower().split() %}
+          {% set kandidaten = namespace(ids=[]) %}
+          {% for s in states | selectattr('domain','in', domains) %}
+            {% set n = s.name | lower %}
+            {% if woerter | select('in', n) | list | length == woerter | length %}
+              {% set kandidaten.ids = kandidaten.ids + [s.entity_id] %}
+            {% endif %}
+          {% endfor %}
+          {% if kandidaten.ids | length == 1 %}
+            {% set ns.ids = ns.ids + kandidaten.ids %}
+          {% elif kandidaten.ids | length == 0 %}
+            {% set ns.fehler = ns.fehler + ['„' ~ roh.strip() ~ '“ nicht gefunden'] %}
+          {% else %}
+            {% set ns.fehler = ns.fehler + ['„' ~ roh.strip() ~ '“ mehrdeutig: ' ~ (kandidaten.ids | join(', '))] %}
+          {% endif %}
+        {% endfor %}
+        {{ {'ids': ns.ids, 'fehler': ns.fehler} }}
+  # Fail fast: nicht erst nach der Wartezeit lautlos ins Leere laufen.
+  - if:
+      - condition: template
+        value_template: "{{ aufgeloesung.fehler | length > 0 }}"
+    then:
+      - action: persistent_notification.create
+        data:
+          title: Verzögerte Aktion fehlgeschlagen
+          message: >-
+            {{ aufgeloesung.fehler | join('; ') }}. Angefragt:
+            "{{ geraete_namen }}" ({{ aktion }}, in {{ dauer_minuten }}
+            Minuten). Ausgeführt wurde nichts.
+      - stop: Geräte nicht eindeutig aufgelöst
+        error: true
+  - delay:
+      minutes: "{{ dauer_minuten }}"
+  - choose:
+      - conditions: "{{ aktion == 'an' }}"
+        sequence:
+          - action: homeassistant.turn_on
+            target:
+              entity_id: "{{ aufgeloesung.ids }}"
+      - conditions: "{{ aktion == 'aus' }}"
+        sequence:
+          - action: homeassistant.turn_off
+            target:
+              entity_id: "{{ aufgeloesung.ids }}"
+      - conditions: "{{ aktion == 'oeffnen' }}"
+        sequence:
+          - action: cover.open_cover
+            target:
+              entity_id: "{{ aufgeloesung.ids }}"
+      - conditions: "{{ aktion == 'schliessen' }}"
+        sequence:
+          - action: cover.close_cover
+            target:
+              entity_id: "{{ aufgeloesung.ids }}"
+      - conditions: "{{ aktion == 'position' }}"
+        sequence:
+          - action: cover.set_cover_position
+            data:
+              position: "{{ position_prozent | int(0) }}"
+            target:
+              entity_id: "{{ aufgeloesung.ids }}"
+```
+</details>
+
+Der Grund für die Namensauflösung: Der Konversationsagent bekommt zu einem
+Gerät nur Name, Domain und Bereich mitgeteilt, nie die tatsächliche
+`entity_id` — eine geratene ID schlägt zuverlässig fehl (Home Assistant
+protokolliert das nur als stille `WARNING`, der Aufruf selbst meldet
+trotzdem Erfolg). Nur das erste Skript muss für Assist freigegeben werden
+(Entität-Einstellungen von `script.timer_aktion_starten` → „Für
+Sprachassistenten verfügbar machen"); das zweite bleibt intern.
 
 ## Einrichtung
 
