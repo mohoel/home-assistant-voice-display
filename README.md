@@ -300,6 +300,14 @@ Music-Assistant-Player geprüft, dann gegen Bereichsnamen; ohne Treffer
 zählt der Bereich des ansprechenden Assist-Geräts, erst danach der oben
 gewählte Standard-Player.
 
+Bevor etwas abgespielt wird, sucht das Blueprint selbst mit
+`music_assistant.search` nach einer eindeutigen Treffer-URI (25 Kandidaten,
+bevorzugt ein exakter Namenstreffer), statt sich auf die eingebaute, auf
+8 Kandidaten begrenzte Namensauflösung von `play_media` zu verlassen — bei
+Radiosendern mit vielen ähnlich benannten Einträgen (z. B. über
+Radio-Browser) blieb die sonst öfter erfolglos. Findet auch diese Suche
+nichts, greift ersatzweise der rohe gesprochene Name wie zuvor.
+
 Für frei formulierte Musikwünsche ohne festen Satz ("Spiel mal was zum
 Entspannen") reicht dieses Blueprint nicht — dafür fehlt bislang ein
 eigenes LLM-Werkzeug-Skript nach dem Muster von „Freie Wetterfragen"
