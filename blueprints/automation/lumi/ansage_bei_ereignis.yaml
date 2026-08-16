@@ -1,0 +1,81 @@
+blueprint:
+  name: "Lumi: Ansage bei Ereignis"
+  description: >-
+    Spielt eine Ansage ab, sobald eine Entity einen bestimmten Zustand
+    erreicht — ohne Wake Word, auch während das Gerät gerade lauscht.
+    Nutzt die eingebaute Home-Assistant-Aktion `assist_satellite.announce`
+    (bzw. optional `ask_question` für eine Rückfrage) und funktioniert
+    deshalb auf jedem `assist_satellite`-Gerät, nicht nur auf Lumi.
+
+    Für eine Rückfrage `ask_question` wählen: das Gerät zeigt dabei
+    automatisch das Fragezeichen-Icon und wartet danach auf eine gesprochene
+    Antwort. Die optionale Zusatzaktion eignet sich z. B., um zugleich
+    `zeige_hinweis` aufzurufen, etwa bei einer Video-Türklingel.
+  domain: automation
+  source_url: https://github.com/mohoel/home-assistant-voice-lumi/blob/main/blueprints/automation/lumi/ansage_bei_ereignis.yaml
+  homeassistant:
+    min_version: "2024.10.0"
+  input:
+    trigger_entity:
+      name: Auslösende Entity
+      description: Die Entity, deren Zustandswechsel die Ansage auslöst.
+      selector:
+        entity: {}
+    trigger_to:
+      name: Zielzustand
+      description: Der Zustand, bei dem angesagt wird.
+      default: "on"
+      selector:
+        state:
+          entity_id: !input trigger_entity
+    satellite:
+      name: Assist-Satellite-Gerät
+      description: Das Gerät, das die Ansage spricht (z. B. Lumi).
+      selector:
+        entity:
+          domain: assist_satellite
+    message:
+      name: Text
+      description: Was gesagt bzw. gefragt werden soll.
+      selector:
+        text: {}
+    rueckfrage:
+      name: Als Rückfrage stellen
+      description: >-
+        Nutzt `ask_question` statt `announce` und wartet danach auf eine
+        gesprochene Antwort.
+      default: false
+      selector:
+        boolean: {}
+    zusatzaktion:
+      name: Zusätzliche Aktion (optional)
+      description: >-
+        Läuft parallel zur Ansage, z. B. die Lumi-Aktion `zeige_hinweis`.
+      default: []
+      selector:
+        action: {}
+
+triggers:
+  - trigger: state
+    entity_id: !input trigger_entity
+    to: !input trigger_to
+
+variables:
+  rueckfrage: !input rueckfrage
+
+actions:
+  - choose:
+      - conditions: "{{ rueckfrage }}"
+        sequence:
+          - action: assist_satellite.ask_question
+            data:
+              entity_id: !input satellite
+              question: !input message
+    default:
+      - action: assist_satellite.announce
+        target:
+          entity_id: !input satellite
+        data:
+          message: !input message
+  - if: []
+    then: !input zusatzaktion

@@ -1,0 +1,44 @@
+blueprint:
+  name: "Lumi: Hinweis bei Ereignis"
+  description: >-
+    Zeigt für eine wählbare Dauer ein Icon mit Text auf Lumis Display, sobald
+    eine Entity einen bestimmten Zustand erreicht — praktisch für alles,
+    wovon die Firmware selbst nichts wissen kann: eine Türklingel, ein
+    Paket, ein Leck-Sensor.
+
+    Als Aktion die eigene `zeige_hinweis`-Aktion des Geräts wählen
+    (Aktions-Editor öffnen, nach dem kompilierten Gerätenamen suchen, z. B.
+    „lumi_a0d0a8") und dort Icon, Text und Anzeigedauer eintragen. Welche
+    `mdi:`-Icons eingebettet sind, steht in der
+    [Lumi-Doku](https://github.com/mohoel/home-assistant-voice-lumi#hinweis-anzeigen-zeige_hinweis).
+  domain: automation
+  source_url: https://github.com/mohoel/home-assistant-voice-lumi/blob/main/blueprints/automation/lumi/hinweis_bei_ereignis.yaml
+  homeassistant:
+    min_version: "2024.10.0"
+  input:
+    trigger_entity:
+      name: Auslösende Entity
+      description: Die Entity, deren Zustandswechsel den Hinweis auslöst.
+      selector:
+        entity: {}
+    trigger_to:
+      name: Zielzustand
+      description: Der Zustand, bei dem der Hinweis erscheint.
+      default: "on"
+      selector:
+        state:
+          entity_id: !input trigger_entity
+    hinweis_aktion:
+      name: Hinweis-Aktion
+      description: >-
+        Die Lumi-Aktion `zeige_hinweis` mit Icon, Text und Anzeigedauer als
+        Daten — im Aktions-Editor nach dem Gerätenamen suchen.
+      selector:
+        action: {}
+
+triggers:
+  - trigger: state
+    entity_id: !input trigger_entity
+    to: !input trigger_to
+
+actions: !input hinweis_aktion

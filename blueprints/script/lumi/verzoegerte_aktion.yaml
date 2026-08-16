@@ -1,0 +1,155 @@
+blueprint:
+  name: "Lumi: Verzögerte Aktion"
+  description: >-
+    Führt nach einer Wartezeit eine Aktion (an, aus, öffnen, schließen,
+    Position) auf einem oder mehreren Geräten aus. Löst Gerätenamen erst
+    unmittelbar vor dem Warten zu echten entity_ids auf und meldet nicht
+    eindeutig zuordenbare Geräte sofort per persistent_notification, statt
+    erst nach Ablauf der Wartezeit stumm zu scheitern.
+
+    Ist das eine Gegenstück zum Skript-Blueprint „Lumi: Timer Aktion
+    starten" — dort die aus diesem Blueprint erstellte Skript-Instanz
+    auswählen. Kein Lumi-spezifisches Feature: löst keine Display-Aktion
+    aus und funktioniert mit beliebigen eigenen Entities, nicht nur über
+    Lumi als Eingabeweg.
+  domain: script
+  source_url: https://github.com/mohoel/home-assistant-voice-lumi/blob/main/blueprints/script/lumi/verzoegerte_aktion.yaml
+  homeassistant:
+    min_version: "2024.10.0"
+  input:
+    max_gleichzeitig:
+      name: Maximal gleichzeitige Läufe
+      description: Wie viele verzögerte Aktionen parallel warten dürfen.
+      default: 20
+      selector:
+        number:
+          min: 1
+          max: 100
+
+fields:
+  aktion:
+    name: Aktion
+    description: Welche Aktion nach der Wartezeit ausgeführt wird
+    required: true
+    selector:
+      select:
+        options:
+          - label: An
+            value: an
+          - label: Aus
+            value: aus
+          - label: Öffnen
+            value: oeffnen
+          - label: Schließen
+            value: schliessen
+          - label: Auf Position fahren
+            value: position
+  dauer_minuten:
+    name: Dauer in Minuten
+    description: Wartezeit bevor die Aktion ausgeführt wird
+    required: true
+    selector:
+      number:
+        min: 1
+        max: 720
+        unit_of_measurement: Minuten
+  geraete_namen:
+    name: Geräte
+    description: >-
+      Ein oder mehrere Gerätenamen wie im Satz genannt, durch Komma
+      getrennt. Bei mehrdeutigen Namen zusätzlich den Raum angeben, z.B.
+      'Regal Wohnzimmer' statt nur 'Regal'.
+    required: true
+    selector:
+      text: {}
+  position_prozent:
+    name: Position in Prozent
+    description: Nur bei Aktion 'Auf Position fahren' nötig, 0 = zu, 100 = offen
+    required: false
+    selector:
+      number:
+        min: 0
+        max: 100
+        unit_of_measurement: "%"
+
+max: !input max_gleichzeitig
+mode: parallel
+sequence:
+  # Domains, auf denen die jeweilige Aktion sinnvoll ist — bei Bedarf
+  # erweitern (z.B. um alarm_control_panel, scene, ...).
+  - variables:
+      aktion_domains:
+        an: [light, switch, cover, fan, media_player, climate, input_boolean, humidifier, vacuum, lock]
+        aus: [light, switch, cover, fan, media_player, climate, input_boolean, humidifier, vacuum, lock]
+        oeffnen: [cover]
+        schliessen: [cover]
+        position: [cover]
+  # Löst jeden übergebenen Namen gegen die echten friendly_names auf:
+  # alle Wörter des Namens müssen im friendly_name vorkommen. Genau ein
+  # Treffer -> aufgelöst, kein Treffer oder mehrdeutig -> Fehlerliste.
+  - variables:
+      aufgeloesung: |-
+        {% set domains = aktion_domains[aktion] %}
+        {% set ns = namespace(ids=[], fehler=[]) %}
+        {% for roh in geraete_namen.split(',') %}
+          {% set woerter = roh.strip().lower().split() %}
+          {% set kandidaten = namespace(ids=[]) %}
+          {% for s in states | selectattr('domain','in', domains) %}
+            {% set n = s.name | lower %}
+            {% if woerter | select('in', n) | list | length == woerter | length %}
+              {% set kandidaten.ids = kandidaten.ids + [s.entity_id] %}
+            {% endif %}
+          {% endfor %}
+          {% if kandidaten.ids | length == 1 %}
+            {% set ns.ids = ns.ids + kandidaten.ids %}
+          {% elif kandidaten.ids | length == 0 %}
+            {% set ns.fehler = ns.fehler + ['„' ~ roh.strip() ~ '“ nicht gefunden'] %}
+          {% else %}
+            {% set ns.fehler = ns.fehler + ['„' ~ roh.strip() ~ '“ mehrdeutig: ' ~ (kandidaten.ids | join(', '))] %}
+          {% endif %}
+        {% endfor %}
+        {{ {'ids': ns.ids, 'fehler': ns.fehler} }}
+  # Fail fast: nicht erst nach der Wartezeit lautlos ins Leere laufen.
+  - if:
+      - condition: template
+        value_template: "{{ aufgeloesung.fehler | length > 0 }}"
+    then:
+      - action: persistent_notification.create
+        data:
+          title: Verzögerte Aktion fehlgeschlagen
+          message: >-
+            {{ aufgeloesung.fehler | join('; ') }}. Angefragt:
+            "{{ geraete_namen }}" ({{ aktion }}, in {{ dauer_minuten }}
+            Minuten). Ausgeführt wurde nichts.
+      - stop: Geräte nicht eindeutig aufgelöst
+        error: true
+  - delay:
+      minutes: "{{ dauer_minuten }}"
+  - choose:
+      - conditions: "{{ aktion == 'an' }}"
+        sequence:
+          - action: homeassistant.turn_on
+            target:
+              entity_id: "{{ aufgeloesung.ids }}"
+      - conditions: "{{ aktion == 'aus' }}"
+        sequence:
+          - action: homeassistant.turn_off
+            target:
+              entity_id: "{{ aufgeloesung.ids }}"
+      - conditions: "{{ aktion == 'oeffnen' }}"
+        sequence:
+          - action: cover.open_cover
+            target:
+              entity_id: "{{ aufgeloesung.ids }}"
+      - conditions: "{{ aktion == 'schliessen' }}"
+        sequence:
+          - action: cover.close_cover
+            target:
+              entity_id: "{{ aufgeloesung.ids }}"
+      - conditions: "{{ aktion == 'position' }}"
+        sequence:
+          - action: cover.set_cover_position
+            data:
+              position: "{{ position_prozent | int(0) }}"
+            target:
+              entity_id: "{{ aufgeloesung.ids }}"

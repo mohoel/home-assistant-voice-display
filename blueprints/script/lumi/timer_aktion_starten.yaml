@@ -1,0 +1,101 @@
+blueprint:
+  name: "Lumi: Timer Aktion starten"
+  description: >-
+    Werkzeug für den Konversationsagenten: startet eine verzögerte Aktion
+    im Hintergrund, ohne auf das Ende zu warten, damit Assist sofort
+    antworten kann. Für Assist z.B.: 'Schließe das Rollo in 10 Minuten'
+    oder 'Schalte das Licht in 5 Minuten aus'.
+
+    Braucht das Skript-Blueprint „Lumi: Verzögerte Aktion" als Gegenstück —
+    erst dort eine Instanz anlegen und hier auswählen. Kein
+    Lumi-spezifisches Feature: funktioniert mit jedem Assist-fähigen
+    Eingabeweg (Lumi, App, andere Satellites, …) und beliebigen eigenen
+    Entities.
+
+    Nach dem Erstellen muss nur diese Skript-Entity für Sprachassistenten
+    freigegeben werden (Entität-Einstellungen → „Für Sprachassistenten
+    verfügbar machen"); das Gegenstück-Skript bleibt intern.
+  domain: script
+  source_url: https://github.com/mohoel/home-assistant-voice-lumi/blob/main/blueprints/script/lumi/timer_aktion_starten.yaml
+  homeassistant:
+    min_version: "2024.10.0"
+  input:
+    verzoegerte_aktion_script:
+      name: Skript „Verzögerte Aktion“
+      description: >-
+        Die aus dem Blueprint „Lumi: Verzögerte Aktion" erstellte
+        Skript-Instanz.
+      selector:
+        entity:
+          domain: script
+    max_gleichzeitig:
+      name: Maximal gleichzeitige Läufe
+      description: Wie viele Aktionen gleichzeitig gestartet werden dürfen.
+      default: 20
+      selector:
+        number:
+          min: 1
+          max: 100
+
+fields:
+  aktion:
+    name: Aktion
+    description: Welche Aktion nach der Wartezeit ausgeführt wird
+    required: true
+    selector:
+      select:
+        options:
+          - label: An
+            value: an
+          - label: Aus
+            value: aus
+          - label: Öffnen
+            value: oeffnen
+          - label: Schließen
+            value: schliessen
+          - label: Auf Position fahren
+            value: position
+  dauer_minuten:
+    name: Dauer in Minuten
+    description: >-
+      Wartezeit bevor die Aktion ausgeführt wird. Bei Angaben unter einer
+      Minute (z.B. Sekunden) auf 1 aufrunden.
+    required: true
+    selector:
+      number:
+        min: 1
+        max: 720
+        unit_of_measurement: Minuten
+  geraete_namen:
+    name: Geräte
+    description: >-
+      Ein oder mehrere Gerätenamen wie im Satz genannt, durch Komma getrennt.
+      Bei mehrdeutigen Namen (z.B. einzelne Segmente eines Geräts wie 'Regal
+      links') zusätzlich den Raum angeben, z.B. 'Regal Wohnzimmer' statt nur
+      'Regal'. Niemals eine entity_id raten — nur den gesprochenen Namen
+      übergeben.
+    required: true
+    selector:
+      text: {}
+  position_prozent:
+    name: Position in Prozent
+    description: Nur bei Aktion 'Auf Position fahren' nötig, 0 = zu, 100 = offen
+    required: false
+    selector:
+      number:
+        min: 0
+        max: 100
+        unit_of_measurement: "%"
+
+max: !input max_gleichzeitig
+mode: parallel
+sequence:
+  - action: script.turn_on
+    data:
+      variables:
+        aktion: "{{ aktion }}"
+        dauer_minuten: "{{ dauer_minuten }}"
+        geraete_namen: "{{ geraete_namen }}"
+        position_prozent: "{{ position_prozent | default(0) }}"
+    target:
+      entity_id: !input verzoegerte_aktion_script
