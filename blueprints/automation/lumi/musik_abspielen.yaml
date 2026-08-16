@@ -23,7 +23,10 @@ blueprint:
     Künstlername als Teil des Titels/Albumnamens, was Music Assistant meist
     trotzdem findet, nur weniger präzise), und immer optional ein Zielraum
     oder -gerät ("in der Küche", "auf dem Wohnzimmer-Lautsprecher") — fehlt
-    er, spielt der unten gewählte Standard-Player.
+    er, spielt der Bereich des ansprechenden Assist-Geräts, also derselbe
+    Raum, in dem der Sprachbefehl fiel. Steht dort kein
+    Music-Assistant-Player, bricht der Befehl mit einer gesprochenen
+    Fehlermeldung ab, statt irgendwo anders zu spielen.
 
     Beispiele:
 
@@ -44,8 +47,9 @@ blueprint:
     ```
 
     Die Zielsuche prüft in dieser Reihenfolge: ein Player- oder
-    Bereichsname im Satz, dann der Bereich des ansprechenden Assist-Geräts,
-    zuletzt der Standard-Player unten.
+    Bereichsname im Satz, sonst der Bereich des ansprechenden Assist-Geräts.
+    Findet sich dort kein Music-Assistant-Player, bricht der Befehl ab — es
+    gibt keinen weiteren Ausweich-Player.
 
     Bevor etwas abgespielt wird, sucht das Blueprint selbst mit
     `music_assistant.search` (25 Kandidaten statt der 8, die `play_media`
@@ -61,17 +65,6 @@ blueprint:
   source_url: https://github.com/mohoel/home-assistant-voice-lumi/blob/main/blueprints/automation/lumi/musik_abspielen.yaml
   homeassistant:
     min_version: "2024.10.0"
-  input:
-    standard_player:
-      name: Standard-Media-Player
-      description: >-
-        Der Music-Assistant-Player, der spielt, wenn der Satz weder einen
-        passenden Bereich noch ein passendes Gerät nennt.
-      selector:
-        entity:
-          filter:
-            integration: music_assistant
-            domain: media_player
 
 triggers:
   - trigger: conversation
@@ -103,13 +96,11 @@ conditions: []
 
 actions:
   - variables:
-      standard_player: !input standard_player
       medientyp: "{{ trigger.id }}"
       assist_geraet_id: "{{ trigger.device_id }}"
       medium: "{{ trigger.slots.medium }}"
       kuenstler: "{{ trigger.slots.kuenstler | default }}"
       ziel_name: "{{ trigger.slots.ziel | default }}"
-      mass_config_entry_id: "{{ config_entry_id(standard_player) }}"
       mass_ergebnisfeld: >-
         {{ {"artist": "artists", "track": "tracks", "album": "albums",
             "playlist": "playlists", "podcast": "podcasts",
@@ -128,8 +119,25 @@ actions:
            | select('in', integration_entities('music_assistant')) | list }}
       media_player_ziel: |
         {{ spieler_nach_playername or spieler_nach_bereichsname
-           or spieler_nach_geraetebereich or [standard_player] }}
+           or spieler_nach_geraetebereich }}
       media_player_name: "{{ media_player_ziel | map('state_attr', 'friendly_name') | join(', ') }}"
+  # Kein Ausweich-Player mehr: ohne Treffer im Satz zaehlt ausschliesslich
+  # der Bereich des ansprechenden Assist-Geraets (= "gleicher Raum"). Findet
+  # sich dort kein Music-Assistant-Player, bricht der Befehl hier ab -
+  # config_entry_id(media_player_ziel[0]) weiter unten wuerde sonst auf
+  # einer leeren Liste mit einem unklaren Fehler abbrechen.
+  - if:
+      - condition: template
+        value_template: "{{ media_player_ziel == [] }}"
+    then:
+      - set_conversation_response: >-
+          Ich habe keinen Lautsprecher gefunden. Bitte einen Raum oder ein
+          Gerät nennen.
+      - stop: >-
+          Kein Music-Assistant-Player im Satz, im genannten Bereich oder im
+          Bereich des Assist-Geräts gefunden.
+  - variables:
+      mass_config_entry_id: "{{ config_entry_id(media_player_ziel[0]) }}"
   - alias: >-
       Eindeutige URI für den Medienwunsch suchen, statt play_media raten zu
       lassen

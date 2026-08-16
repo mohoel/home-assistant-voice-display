@@ -277,10 +277,14 @@ vorgeschaltet ist. Die Automation muss für den Sprachassistenten freigegeben we
 
 [![Blueprint importieren](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmohoel%2Fhome-assistant-voice-lumi%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Flumi%2Fmusik_abspielen.yaml)
 
-Importieren, daraus eine Automation anlegen und darin einen
-**Standard-Media-Player** wählen (die Music-Assistant-Entity, die spielt,
-wenn der Satz keinen Raum oder kein Gerät nennt). Erkannt werden sechs
-Medientypen, jeweils eingeleitet mit "Spiele"/"Höre"/"Spiel":
+Importieren und daraus eine Automation anlegen — ohne weitere Eingaben nötig.
+Nennt der Satz keinen Raum und kein Gerät, spielt automatisch der
+Music-Assistant-Player im Bereich des ansprechenden Assist-Geräts, also
+derselbe Raum, in dem der Sprachbefehl fiel. Steht dort kein
+Music-Assistant-Player, bricht der Befehl mit einer gesprochenen
+Fehlermeldung ab — ein anderer Raum wird dann nur erreicht, wenn er im Satz
+genannt wird. Erkannt werden sechs Medientypen, jeweils eingeleitet mit
+"Spiele"/"Höre"/"Spiel":
 
 | Medientyp | Beispielsatz |
 |---|---|
@@ -297,8 +301,9 @@ dem Wort "Künstler"/"Band"/"Gruppe" ("… vom Künstler …" / "… von der Ban
 Assistant meist trotzdem findet, nur weniger präzise. Der optionale Zielraum bzw.
 das Zielgerät am Satzende wird zuerst gegen die Namen aller
 Music-Assistant-Player geprüft, dann gegen Bereichsnamen; ohne Treffer
-zählt der Bereich des ansprechenden Assist-Geräts, erst danach der oben
-gewählte Standard-Player.
+zählt der Bereich des ansprechenden Assist-Geräts — findet sich dort kein
+Music-Assistant-Player, bricht der Befehl mit einer gesprochenen
+Fehlermeldung ab, es gibt keinen weiteren Ausweich-Player.
 
 Bevor etwas abgespielt wird, sucht das Blueprint selbst mit
 `music_assistant.search` nach einer eindeutigen Treffer-URI (25 Kandidaten,
