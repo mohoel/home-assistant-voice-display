@@ -285,7 +285,7 @@ Medientypen, jeweils eingeleitet mit "Spiele"/"Höre"/"Spiel":
 |---|---|
 | Künstler/Band/Gruppe | "Spiele den Künstler Herbert Grönemeyer im Wohnzimmer" |
 | Lied/Titel/Song | "Spiele den Titel Bochum im Schlafzimmer" |
-| Album/Platte | "Höre das Album Mensch vom Künstler Herbert Grönemeyer in der Küche" |
+| Album | "Höre das Album Mensch vom Künstler Herbert Grönemeyer in der Küche" |
 | Playlist/Wiedergabeliste | "Höre die Playlist Fokus Musik auf dem Sonos" |
 | Podcast | "Spiele den Podcast Baywatch Berlin" |
 | Radiosender/Radio/Sender | "Höre das Radio Deutschlandfunk in der Küche" |
