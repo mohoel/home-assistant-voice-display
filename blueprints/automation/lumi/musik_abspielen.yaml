@@ -240,19 +240,32 @@ actions:
     then:
       - variables:
           cover_ziel: "{{ media_player_ziel[0] }}"
-      # Bis zu einer Minute warten, bis das Zielgeraet wirklich zu spielen
-      # beginnt - Music Assistant braucht je nach Quelle und Netzwerk einen
-      # Moment zum Puffern. Startet es in der Zeit nicht, bleibt die
-      # Cover-Anzeige fuer diesen Aufruf einfach aus.
-      - wait_for_trigger:
-          - trigger: state
-            entity_id: "{{ cover_ziel }}"
-            to:
-              - playing
-              - paused
-        timeout: "00:01:00"
+      # Absichtlich delay/repeat statt wait_for_trigger: ein Trigger prueft
+      # sein entity_id-Feld beim Erzeugen der Automation aus dem Blueprint
+      # als woertlichen Wert (cv.entity_id), nicht als Vorlage - cover_ziel
+      # steht aber erst zur Laufzeit fest, nicht beim Uebersetzen des
+      # Blueprints. `entity_id: "{{ cover_ziel }}"` scheiterte deshalb schon
+      # beim Anlegen der Automation ("Entity {{ cover_ziel }} ist weder eine
+      # gueltige Entity-ID noch eine UUID") - nicht erst beim Ausfuehren,
+      # die Automation existierte in dem Zustand ueberhaupt nicht.
+      #
+      # Bis zu 20 s abwarten, bis das Zielgeraet wirklich zu spielen beginnt
+      # - Music Assistant braucht je nach Quelle/Netzwerk einen Moment zum
+      # Puffern. Startet es in der Zeit nicht, bleibt die Cover-Anzeige fuer
+      # diesen Aufruf einfach aus.
+      - repeat:
+          while:
+            - condition: template
+              value_template: >-
+                {{ repeat.index <= 20
+                   and not (is_state(cover_ziel, 'playing')
+                            or is_state(cover_ziel, 'paused')) }}
+          sequence:
+            - delay: "00:00:01"
       - if:
-          - "{{ wait.completed }}"
+          - condition: template
+            value_template: >-
+              {{ is_state(cover_ziel, 'playing') or is_state(cover_ziel, 'paused') }}
         then:
           - repeat:
               while:
@@ -272,15 +285,14 @@ actions:
                          or (state_attr(cover_ziel, 'media_content_type') | default('', true) | title) }}
                 - if: []
                   then: !input zeige_musik_aktion
-                # Wartet auf die naechste Aenderung (Titelwechsel in einer
-                # Playlist, Pause, Stopp). Der Timeout ist nur ein
-                # Sicherheitsnetz gegen ein Geraet, das stundenlang ohne
-                # jede Aenderung durchlaeuft (z. B. Wortradio) - dann laeuft
-                # die Schleife einmal ungenutzt durch und wartet erneut,
-                # ohne die Anzeige zu unterbrechen.
-                - wait_for_trigger:
-                    - trigger: state
-                      entity_id: "{{ cover_ziel }}"
-                  timeout: "03:00:00"
+                # Alle 5 s erneut pruefen (Titelwechsel, Pause, Stopp) -
+                # Polling statt eines Events, aus demselben Grund wie oben.
+                # Kein unnoetiger Download am Geraet: stage_music
+                # (packages/ui.yaml) ueberspringt das Neuladen der
+                # Cover-Bilder, wenn sich Titel/Untertitel/Cover-URL
+                # gegenueber dem letzten Aufruf nicht geaendert haben -
+                # sonst luede ein stundenlang laufendes Wortradio sein
+                # eigenes Cover alle 5 s neu herunter.
+                - delay: "00:00:05"
           - if: []
             then: !input verstecke_musik_aktion

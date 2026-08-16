@@ -1292,6 +1292,16 @@ globals:
     restore_value: false
     initial_value: "false"
 
+  # Letzte per zeige_musik gemeldete Cover-URL. stage_music vergleicht
+  # jeden Aufruf dagegen und ueberspringt den Bild-Download, wenn sie sich
+  # nicht geaendert hat - ohne das laedt ein per Polling alle 5 s
+  # aufgerufenes Blueprint (siehe "Lumi: Musik abspielen") bei einem
+  # stundenlang unveraenderten Wortradio sein eigenes Cover staendig neu
+  # herunter.
+  - id: last_music_cover_url
+    type: std::string
+    restore_value: false
+
   # Zwischenstand des ausblendenden Timer-Rings (ring_fade_out). Als Globals
   # und nicht als static im Lambda, weil das Skript ueber mehrere Durchlaeufe
   # eines repeat: laeuft und mode: restart jederzeit neu ansetzen kann.
@@ -1428,12 +1438,19 @@ script:
           // aussichtsloser HTTP-Request, der nur den on_error-Log der beiden
           // image:-Eintraege oben fuellt. music_cover_box zeigt in dem Fall
           // einfach seine Platzhalterfarbe weiter.
-          if (!cover_url.empty()) {
+          //
+          // Dieselbe URL wie beim letzten Aufruf ueberspringt den Download
+          // ebenfalls: "Lumi: Musik abspielen" ruft diese Aktion per Polling
+          // alle 5 s auf (siehe dort), nicht nur bei einer echten Aenderung.
+          // Ohne den Vergleich luede ein stundenlang unveraendertes
+          // Wortradio sein eigenes Cover bei jedem Poll neu herunter.
+          if (!cover_url.empty() && cover_url != id(last_music_cover_url)) {
             id(img_cover).set_url(cover_url);
             id(img_cover).update();
             id(img_cover_blur).set_url(cover_url);
             id(img_cover_blur).update();
           }
+          id(last_music_cover_url) = cover_url;
 
           // Wie die "ergebnis"/"wetter"/"hinweis"-Zeilen an den
           // entsprechenden Stellen in packages/voice.yaml: ohne sie ist bei
@@ -1462,6 +1479,10 @@ script:
           lv_label_set_text(id(lbl_music_subtitle), "");
           id(img_cover).release();
           id(img_cover_blur).release();
+          // Sonst haelt stage_music beim naechsten Titel faelschlich fuer
+          // "unveraendert", obwohl die Bildpuffer gerade freigegeben wurden,
+          // und ueberspringt den eigentlich noetigen Neu-Download.
+          id(last_music_cover_url) = "";
       - script.execute: music_page_sync
 
   # ------------------------------------- Standby-Seite live nachfuehren
