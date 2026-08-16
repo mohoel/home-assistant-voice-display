@@ -46,6 +46,17 @@ blueprint:
     Die Zielsuche prüft in dieser Reihenfolge: ein Player- oder
     Bereichsname im Satz, dann der Bereich des ansprechenden Assist-Geräts,
     zuletzt der Standard-Player unten.
+
+    Bevor etwas abgespielt wird, sucht das Blueprint selbst mit
+    `music_assistant.search` (25 Kandidaten statt der 8, die `play_media`
+    intern für seine eigene Namenssuche verwendet) nach einer eindeutigen
+    URI und bevorzugt darunter einen exakten Namenstreffer — das umgeht
+    Music Assistants eingebaute Namensauflösung, die bei mehrdeutigen oder
+    unsauber katalogisierten Einträgen (typisch bei Radiosendern über
+    Radio-Browser) nicht zuverlässig den richtigen ersten Treffer liefert.
+    Schlägt die Suche fehl oder findet nichts, greift ersatzweise wieder der
+    rohe, gesprochene Name wie zuvor — nichts wird dadurch unzuverlässiger
+    als ohne diesen Schritt, nur ein klein wenig langsamer.
   domain: automation
   source_url: https://github.com/mohoel/home-assistant-voice-lumi/blob/main/blueprints/automation/lumi/musik_abspielen.yaml
   homeassistant:
@@ -96,11 +107,13 @@ actions:
       medientyp: "{{ trigger.id }}"
       assist_geraet_id: "{{ trigger.device_id }}"
       medium: "{{ trigger.slots.medium }}"
+      kuenstler: "{{ trigger.slots.kuenstler | default }}"
       ziel_name: "{{ trigger.slots.ziel | default }}"
-      spieldaten:
-        media_id: "{{ trigger.slots.medium }}"
-        media_type: "{{ medientyp }}"
-        artist: "{{ trigger.slots.kuenstler | default }}"
+      mass_config_entry_id: "{{ config_entry_id(standard_player) }}"
+      mass_ergebnisfeld: >-
+        {{ {"artist": "artists", "track": "tracks", "album": "albums",
+            "playlist": "playlists", "podcast": "podcasts",
+            "radio": "radio"}[trigger.id] }}
       spieler_nach_playername: >-
         {{ integration_entities('music_assistant') | expand
            | selectattr('name', 'match', ziel_name ~ '$', ignorecase=true)
@@ -117,6 +130,28 @@ actions:
         {{ spieler_nach_playername or spieler_nach_bereichsname
            or spieler_nach_geraetebereich or [standard_player] }}
       media_player_name: "{{ media_player_ziel | map('state_attr', 'friendly_name') | join(', ') }}"
+  - alias: >-
+      Eindeutige URI für den Medienwunsch suchen, statt play_media raten zu
+      lassen
+    action: music_assistant.search
+    continue_on_error: true
+    response_variable: mass_suche
+    data: >-
+      {{ dict({"config_entry_id": mass_config_entry_id, "name": medium,
+               "artist": kuenstler, "media_type": [medientyp],
+               "search_options": {"limit": 25}}.items() | selectattr('1')) }}
+  - variables:
+      mass_treffer_liste: >-
+        {{ mass_suche[mass_ergebnisfeld]
+           if mass_suche is defined and mass_suche is mapping else [] }}
+      mass_treffer: >-
+        {{ (mass_treffer_liste
+            | selectattr('name', 'match', '^' ~ medium ~ '$', ignorecase=true)
+            | list or mass_treffer_liste) | first | default(none) }}
+      spieldaten:
+        media_id: "{{ mass_treffer.uri if mass_treffer else medium }}"
+        media_type: "{{ medientyp }}"
+        artist: "{{ kuenstler }}"
   - alias: Medium an den ermittelten Music-Assistant-Player schicken
     action: music_assistant.play_media
     target:
