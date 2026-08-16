@@ -294,6 +294,22 @@ face_mouth_radius_lachen: "26"
 face_tongue_w: "44"
 face_tongue_h: "34"
 face_tongue_dy: "124"
+# Schlafmuetze (Paket 4, "Gute-Nacht-Miene fuers Gesicht", nur ausgeloest
+# durch die Antwort des eigenen "Gute Nacht"-Skripts in Home Assistant -
+# result_kind == 4, siehe on_tts_start in packages/voice.yaml). Zwei feste
+# Formen statt einer echten Kegelform, die LVGLs einheitlicher Eckenradius
+# nicht hergibt: ein Bund quer ueber die Stirn (face_cap_band_*) plus ein
+# Bommel seitlich-tiefer (face_cap_pom_*) als Andeutung der schlaff
+# haengenden Spitze. Beide sitzen ueber den Augen (face_eye_dy) und sind nur
+# waehrend der Anzeige sichtbar, siehe packages/ui.yaml.
+face_cap_band_w: "200"
+face_cap_band_h: "30"
+face_cap_band_radius: "15"
+face_cap_band_dy: "150"
+face_cap_pom_d: "26"
+face_cap_pom_radius: "13"
+face_cap_pom_dx: "90"
+face_cap_pom_dy: "128"
 # Zuhoeren (blau) und Verarbeitung (orange) faerben Augen, Mund und Zunge
 # direkt ein (siehe die Farbwahl im `if (phase != last_phase)`-Zweig,
 # packages/ui.yaml) - Ersatz fuer das fruehere Fragezeichen beim Denken, das

@@ -43,8 +43,10 @@ globals:
 
   # ------------------------------------------------- Ergebnis eines Befehls
   # 1 = Messwert (result_value/result_unit), 2 = Bestaetigung (Haken),
-  # 3 = Wetter (weather_icon_glyph + result_value/result_unit).
-  # Gesetzt in on_tts_start aus dem Antworttext (1/2) bzw. in stage_weather
+  # 3 = Wetter (weather_icon_glyph + result_value/result_unit),
+  # 4 = Gute-Nacht-Bestaetigung (Schlafmuetze statt Haken, nur auf page_face -
+  # siehe wake_display/update_ui in ui.yaml).
+  # Gesetzt in on_tts_start aus dem Antworttext (1/2/4) bzw. in stage_weather
   # aus der API-Aktion zeige_wetter (3), ausgewertet in update_ui.
   - id: result_kind
     type: int
@@ -290,10 +292,23 @@ voice_assistant:
                 "gestartet", "gestoppt", "angehalten", "fortgesetzt",
                 "geöffnet", "geschlossen", "aktiviert", "deaktiviert", "gedimmt"};
             if (k.size() <= 45) {
-              for (const char *b : BESTAETIGUNG) {
-                if (k.find(b) != std::string::npos) {
-                  id(result_kind) = 2;
-                  break;
+              // Gute-Nacht-Skript: bewusst eine woertliche Erkennung von
+              // "nacht" statt eines generischen Mechanismus (Paket 4,
+              // Ideen-Review) - das eigene Skript in Home Assistant heisst
+              // "Gute Nacht" und antwortet entsprechend ("Gute Nacht.",
+              // "Gute Nacht aktiviert." o. Ae.), und genau darauf soll die
+              // Erkennung zielen, nicht auf jede beliebige Bestaetigung.
+              // Steht deshalb *vor* der allgemeinen Liste: "Gute Nacht
+              // aktiviert" enthaelt sonst auch "aktiviert" und liefe als
+              // gewoehnlicher Haken statt der Schlafmuetze durch.
+              if (k.find("nacht") != std::string::npos) {
+                id(result_kind) = 4;
+              } else {
+                for (const char *b : BESTAETIGUNG) {
+                  if (k.find(b) != std::string::npos) {
+                    id(result_kind) = 2;
+                    break;
+                  }
                 }
               }
             }
