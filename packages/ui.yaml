@@ -964,6 +964,54 @@ lvgl:
             shadow_color: ${color_face}
             shadow_opa: ${face_glow_opa}
 
+        # Schlafmuetze (Paket 4, "Gute-Nacht-Miene"): erscheint statt des
+        # gruenen Hakens, wenn die Antwort auf das eigene "Gute Nacht"-Skript
+        # in Home Assistant kommt (result_kind == 4, siehe on_tts_start in
+        # voice.yaml). Zwei einfache Formen statt einer echten Kegelform -
+        # LVGL kennt nur einen einheitlichen Eckenradius je Widget, keine
+        # zulaufende Spitze (siehe "border-radius" Einschraenkung beim Mund
+        # weiter oben). Ein Bund quer ueber die Stirn, dazu ein Bommel
+        # seitlich-tiefer als Andeutung der schlaff haengenden Spitze. Farbe
+        # bewusst color_face wie der Rest des Gesichts, kein eigener
+        # Farbzustand - siehe der `if (phase != last_phase)`-Zweig weiter
+        # unten, der beide Widgets ein- und ausblendet.
+        - obj:
+            id: face_cap_band
+            align: CENTER
+            x: 0
+            y: -${face_cap_band_dy}
+            width: ${face_cap_band_w}
+            height: ${face_cap_band_h}
+            radius: ${face_cap_band_radius}
+            bg_color: ${color_face}
+            bg_opa: COVER
+            border_width: 0
+            pad_all: 0
+            clickable: false
+            shadow_width: ${face_glow}
+            shadow_spread: 0
+            shadow_color: ${color_face}
+            shadow_opa: ${face_glow_opa}
+            hidden: true
+        - obj:
+            id: face_cap_pom
+            align: CENTER
+            x: ${face_cap_pom_dx}
+            y: -${face_cap_pom_dy}
+            width: ${face_cap_pom_d}
+            height: ${face_cap_pom_d}
+            radius: ${face_cap_pom_radius}
+            bg_color: ${color_face}
+            bg_opa: COVER
+            border_width: 0
+            pad_all: 0
+            clickable: false
+            shadow_width: ${face_glow}
+            shadow_spread: 0
+            shadow_color: ${color_face}
+            shadow_opa: ${face_glow_opa}
+            hidden: true
+
     # ------------------------------------------------------ Bildschirm aus
     # Leere schwarze Seite - der Standby-Zustand des Geraets. Sie ist der
     # zweite Teil des Ausschaltens: die Helligkeit allein genuegt nicht, weil
@@ -1470,11 +1518,12 @@ script:
   # on_screen_touch gleichermassen gerufen. Damit gibt es genau einen Ort, an
   # dem die Auswahl haengt.
   #
-  # Das Gesicht bekommt die drei animierten Phasen plus eine vierte
-  # Ausnahme: eine Bestaetigung (result_kind == 2). Statt auf page_main
-  # umzuschalten und dort den Haken zu zeigen, bleibt das Gesicht vorne und
-  # faerbt sich stattdessen gruen (siehe der `if (phase != last_phase)`-Zweig
-  # im Animations-Takt unten). Ein Messwert (result_kind == 1) ist davon
+  # Das Gesicht bekommt die drei animierten Phasen plus zwei weitere
+  # Ausnahmen bei einer Bestaetigung (phase_result): result_kind == 2 faerbt
+  # das Gesicht gruen, result_kind == 4 (Gute-Nacht-Skript) zeigt stattdessen
+  # die Schlafmuetze - beides statt auf page_main umzuschalten und dort den
+  # Haken zu zeigen (siehe der `if (phase != last_phase)`-Zweig im
+  # Animations-Takt unten). Ein Messwert (result_kind == 1) ist davon
   # ausdruecklich ausgenommen: eine Zahl mit Einheit kennt das Design-Mockup
   # nicht als Miene, die bleibt wie Fehler, stumm, nicht bereit und
   # klingelnder Timer auf page_main. Ein Hinweis von aussen (hint_active)
@@ -1492,7 +1541,7 @@ script:
                       || id(voice_assistant_phase) == ${phase_thinking}
                       || id(voice_assistant_phase) == ${phase_replying}
                       || (id(voice_assistant_phase) == ${phase_result}
-                          && id(result_kind) == 2));
+                          && (id(result_kind) == 2 || id(result_kind) == 4)));
           then:
             - lvgl.page.show: page_face
           else:
@@ -2198,16 +2247,21 @@ interval:
                   // dagegen so billig wie jeder andere Style-Wechsel in
                   // diesem Takt.
                   //
-                  // Der Bestaetigungs-Zweig braucht keine eigene Pruefung auf
-                  // result_kind: page_face liegt waehrend phase_result
-                  // ueberhaupt nur vorne, wenn wake_display zuvor
-                  // result_kind == 2 festgestellt hat (ein Messwert bleibt
-                  // auf page_main) - dieser Takt laeuft ja nur, solange
-                  // page_face gezeigt wird (is_showing-Guard oben).
+                  // page_face liegt waehrend phase_result ueberhaupt nur
+                  // vorne, wenn wake_display zuvor result_kind == 2 oder
+                  // == 4 festgestellt hat (ein Messwert bleibt auf
+                  // page_main) - dieser Takt laeuft ja nur, solange page_face
+                  // gezeigt wird (is_showing-Guard oben). Die beiden
+                  // Bestaetigungsarten unterscheiden sich trotzdem: == 2
+                  // faerbt gruen wie bisher, == 4 (Gute-Nacht-Skript) laesst
+                  // die Gesichtsfarbe unveraendert und zeigt stattdessen die
+                  // Schlafmuetze - deshalb hier die explizite Pruefung auf
+                  // result_kind statt nur auf die Phase.
                   const int gesichtsfarbe =
                       (phase == ${phase_listening}) ? ${color_listening}
                       : (phase == ${phase_thinking}) ? ${color_thinking}
-                      : (phase == ${phase_result}) ? ${color_result}
+                      : (phase == ${phase_result} && id(result_kind) == 2)
+                          ? ${color_result}
                       : ${color_face};
                   lv_obj_t *const teile[] = {
                       id(face_eye_l), id(face_eye_r), id(face_mouth),
@@ -2219,6 +2273,18 @@ interval:
                     lv_obj_set_style_shadow_color(
                         w, lv_color_hex((uint32_t) gesichtsfarbe),
                         LV_PART_MAIN);
+                  }
+
+                  // Schlafmuetze: nur bei der Gute-Nacht-Bestaetigung sichtbar,
+                  // sonst versteckt - insbesondere auch beim Verlassen von
+                  // phase_result wieder, sonst bliebe sie beim naechsten
+                  // Aufwachen faelschlich stehen.
+                  if (phase == ${phase_result} && id(result_kind) == 4) {
+                    lv_obj_remove_flag(id(face_cap_band), LV_OBJ_FLAG_HIDDEN);
+                    lv_obj_remove_flag(id(face_cap_pom), LV_OBJ_FLAG_HIDDEN);
+                  } else {
+                    lv_obj_add_flag(id(face_cap_band), LV_OBJ_FLAG_HIDDEN);
+                    lv_obj_add_flag(id(face_cap_pom), LV_OBJ_FLAG_HIDDEN);
                   }
                 }
 

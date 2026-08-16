@@ -68,6 +68,7 @@ Assistant und braucht keine Anpassung an der Firmware.
 ### Statusanzeige
 - Jede Phase ein farbcodiertes Element in der Bildschirmmitte: atmendes Mikrofon (Zuhören), Punktwelle (Verarbeitung), Äqualizer (Antwort), Icon (Fehler/Stumm/nicht bereit)
 - Messwerte ("Wie warm ist es im Bad?") erscheinen als große Zahl mit Einheit, kurze Bestätigungen ("Eingeschaltet") als Haken — erkannt per Heuristik über den Antworttext, setzt die eingebaute Intent-Erkennung voraus (bei einem LLM-Konversationsagenten bleibt es beim Äqualizer)
+- Enthält die Antwort das Wort „Nacht" (z. B. das eigene „Gute Nacht"-Skript), erscheint auf der Gesicht-Seite statt des grünen Hakens eine Schlafmütze — sonst wie jede andere Bestätigung
 
 ### Standby-Seiten
 Drei Ansichten, umschaltbar über eine Select-Entity, wirkt sofort:
