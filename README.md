@@ -18,12 +18,14 @@ Gesicht.
   - [Timer](#timer)
   - [Display-Verhalten](#display-verhalten)
   - [Firmware-Updates](#firmware-updates)
+- [Einrichtung](#einrichtung)
+- [Bedienung](#bedienung)
+- [Blueprints](#blueprints)
+  - [Hinweis bei Ereignis](#hinweis-bei-ereignis)
+  - [Ansage bei Ereignis](#ansage-bei-ereignis)
   - [Wetter auf Nachfrage (optional)](#wetter-auf-nachfrage-optional)
   - [Freie Wetterfragen (optional, nicht lokal)](#freie-wetterfragen-optional-nicht-lokal)
   - [Verzögerte Aktionen (optional, nicht lokal)](#verzögerte-aktionen-optional-nicht-lokal)
-- [Einrichtung](#einrichtung)
-- [Bedienung](#bedienung)
-- [Automationen](#automationen)
 - [Hintergrund](#hintergrund)
 - [Lizenz](#lizenz)
 
@@ -96,6 +98,146 @@ bei Uhr und Zifferblatt bleibt es bei Mikrofon, Punkten und Balken.
 Erscheinen unter *Einstellungen → Geräte → Updates* wie bei jeder anderen
 Home-Assistant-Integration — ein Klick installiert, kein Rechner nötig. Das
 WLAN bleibt dabei erhalten, weil es nie Teil des Firmware-Images war.
+
+## Einrichtung
+
+### 1. Firmware flashen
+
+Geflasht wird im Browser, ganz ohne Terminal:
+[mohoel.github.io/home-assistant-voice-lumi](https://mohoel.github.io/home-assistant-voice-lumi/)
+per [ESP Web Tools](https://esphome.github.io/esp-web-tools/) über Web
+Serial in Chrome/Edge — Board per USB anschließen, Button klicken, fertig.
+
+Direkt danach fragt [Improv Wi-Fi](https://www.improv-wifi.com/) über
+dieselbe USB-Verbindung nach dem eigenen WLAN. Wird das übersprungen, öffnet
+das Gerät ersatzweise einen Hotspot mit Captive Portal zum Eintragen der
+Zugangsdaten. Diese landen im Flash-Speicher des Geräts, nicht im
+Firmware-Image, und überstehen deshalb jedes spätere Update.
+
+Meldet sich das Board nicht: **BOOT** halten, **RESET** kurz drücken,
+**BOOT** loslassen (Download-Modus).
+
+### 2. In Home Assistant einbinden
+
+Das Gerät meldet sich per mDNS als `lumi` und taucht unter *Einstellungen →
+Geräte & Dienste* als ESPHome-Gerät auf. Beim Hinzufügen fragt Home
+Assistant nach einem Verschlüsselungscode — ein fester, nicht geheimer
+Platzhalter (steht auch auf der Flash-Seite im Akkordeon „Nach dem
+Flashen"), von Hand einzutragen:
+
+```
+Bw1nT2P6zfBP++xn1gTvfloJweHwPrXXRj0I01RdKZk=
+```
+
+Danach unter *Einstellungen → Sprachassistenten* eine Assist-Pipeline mit
+deutschem STT/TTS zuweisen.
+
+### 3. Updates
+
+Ab hier reicht Home Assistant: Neue Firmware-Versionen erscheinen unter
+*Einstellungen → Geräte → Updates* mit „Installieren"-Knopf, das Gerät lädt
+sie selbst herunter und startet neu — kein Rechner mehr nötig.
+
+## Bedienung
+
+Bedient wird ausschließlich über Home Assistant. Der Touchscreen kennt nur
+eine Geste: Antippen weckt das Display oder bricht einen laufenden
+Sprachvorgang ab.
+
+| Entity | Wirkung |
+|---|---|
+| **Ausrichtung** | Dreht das Bild in 90-Grad-Schritten (0/90/180/270), Touch-Koordinaten drehen mit. |
+| **Standby-Seite** | Uhr, Zifferblatt oder Gesicht. Läuft ein Timer, zeigt der Standby unabhängig davon den Countdown. |
+| **Standby-Zeit** | Wie lange der Bildschirm nach der letzten Berührung anbleibt, bevor er ausgeht (Sekunden, 5–300). |
+| **Standby-Helligkeit** | Helligkeit von Uhr, Zifferblatt, Gesicht, Verarbeitung, Antwort usw. — alles außer dem Zuhören, das fest auf 100 % läuft (Prozent, 10–100). |
+| **Display** | Helligkeit; Einschalten aus HA weckt den Bildschirm für die Standby-Zeit. |
+| **Mikrofon stumm**, **Wake-Word-Engine**, **Wake-Word-Empfindlichkeit** | Sprachbetrieb. |
+| **Erkannter Text**, **Antwort** | Frage und Antwort des letzten Vorgangs. |
+| **Displayberührung** (Event) | `single_press` bei einem Tipp, `double_press` bei einem Doppeltipp — nur im Wartezustand, während eines Sprachvorgangs bricht Tippen stattdessen ab. |
+
+Alle Einstellungen überstehen einen Neustart.
+
+## Blueprints
+
+Lumi braucht für den normalen Betrieb keine einzige Automation — wer aber
+gezielt etwas auf dem Display oder über den Lautsprecher auslösen will oder
+Wetter/Timer-Funktionen per Sprache ergänzen möchte, findet hier alle dafür
+vorbereiteten Blueprints an einem Ort, im Ordner
+[`blueprints/`](blueprints/): importieren, Eingaben ausfüllen, fertig,
+statt eigenes YAML zu schreiben. Servicenamen der Lumi-eigenen Aktionen
+hängen vom kompilierten Gerätenamen ab (`esphome.<gerätename>_<aktion>`,
+z. B. `esphome.lumi_a0d0a8_zeige_hinweis`) — zu finden unter
+*Entwicklerwerkzeuge → Aktionen* bzw. *→ Entitäten*.
+
+### Hinweis bei Ereignis
+
+Zeigt für eine wählbare Dauer ein Icon mit Text in der Bildschirmmitte,
+unabhängig davon, was das Gerät gerade tut — praktisch für alles, wovon die
+Firmware selbst nichts wissen kann: eine Türklingel, ein Paket, ein
+Leck-Sensor. Dafür gibt es das Blueprint
+[„Lumi: Hinweis bei Ereignis"](blueprints/automation/lumi/hinweis_bei_ereignis.yaml):
+
+[![Blueprint importieren](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmohoel%2Fhome-assistant-voice-lumi%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Flumi%2Fhinweis_bei_ereignis.yaml)
+
+Importieren, daraus eine Automation anlegen und darin auslösende Entity
+und Zielzustand wählen (z. B. `binary_sensor.haustuer` → `on`). Als
+**Hinweis-Aktion** die eigene `zeige_hinweis`-Aktion suchen (Servicename
+hängt vom kompilierten Gerätenamen ab, z. B.
+`esphome.lumi_a0d0a8_zeige_hinweis`) und darin Icon, Text und Anzeigedauer
+eintragen, z. B. `icon: mdi:door-open`, `nachricht: Haustür offen`,
+`sekunden: 15`.
+
+`icon` versteht echte `mdi:`-Namen wie im Home-Assistant-Icon-Picker, aber
+nur eine feste, eingebettete Auswahl. Ein nicht gelisteter Name zeigt nur
+den Text, kein Icon:
+
+| mdi-Name | Bedeutung |
+|---|---|
+| `mdi:bell` | Glocke |
+| `mdi:door`, `mdi:door-open` | Tür zu, Tür offen |
+| `mdi:motion-sensor` | Bewegung erkannt |
+| `mdi:water`, `mdi:water-alert` | Wasser, Leck/Wasseralarm |
+| `mdi:fire` | Feuer |
+| `mdi:thermometer` | Temperatur |
+| `mdi:package-variant` | Paket |
+| `mdi:lock`, `mdi:lock-open` | Schloss zu, Schloss offen |
+| `mdi:battery-alert` | Akku niedrig |
+| `mdi:email` | Post |
+| `mdi:alert`, `mdi:alert-circle` | Warnung |
+| `mdi:wifi-off` | Verbindung getrennt |
+| `mdi:help` | Frage |
+| `mdi:check` | Erledigt |
+| `mdi:microphone`, `mdi:microphone-off` | Mikrofon an, Mikrofon aus |
+
+Fehlt ein Icon, lässt es sich ergänzen (Details in
+[`packages/ui.yaml`](packages/ui.yaml), Font `font_hint_icon`) — kostet
+aber einen Neubau der Firmware.
+
+### Ansage bei Ereignis
+
+Keine eigene Funktion von Lumi, sondern die eingebaute Home-Assistant-Aktion
+`assist_satellite.announce` — funktioniert auf jedem `assist_satellite`-Gerät
+(auch Nabu Casas Voice PE) und spielt Text als Ansage ab, ohne Wake Word,
+auch während das Gerät gerade lauscht. Dafür gibt es das Blueprint
+[„Lumi: Ansage bei Ereignis"](blueprints/automation/lumi/ansage_bei_ereignis.yaml):
+
+[![Blueprint importieren](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmohoel%2Fhome-assistant-voice-lumi%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Flumi%2Fansage_bei_ereignis.yaml)
+
+Importieren, daraus eine Automation anlegen und darin auslösende Entity,
+Zielzustand, das Assist-Satellite-Gerät (z. B. Lumi) und den Text wählen —
+etwa `sensor.waschmaschine_status` → `fertig`, „Die Waschmaschine ist
+fertig."
+
+Das Blueprint kennt zusätzlich eine Option „Als Rückfrage stellen": nutzt
+`ask_question` statt `announce`, erwartet danach eine gesprochene Antwort
+und zeigt dabei automatisch das Fragezeichen-Icon. Die optionale
+Zusatzaktion lässt sich z. B. mit `zeige_hinweis` kombinieren, etwa bei
+einer Video-Türklingel.
+
+Umgekehrt melden sich Tipp und Doppeltipp auf den Bildschirm als Event
+(`single_press`/`double_press`) bei Home Assistant, auswertbar in einer
+eigenen Automation — siehe Entity **Displayberührung** unter
+[Bedienung](#bedienung).
 
 ### Wetter auf Nachfrage (optional)
 
@@ -183,150 +325,6 @@ Gerät nur Name, Domain und Bereich mitgeteilt, nie die tatsächliche
 `entity_id` — eine geratene ID schlägt zuverlässig fehl (Home Assistant
 protokolliert das nur als stille `WARNING`, der Aufruf selbst meldet
 trotzdem Erfolg).
-
-## Einrichtung
-
-### 1. Firmware flashen
-
-Geflasht wird im Browser, ganz ohne Terminal:
-[mohoel.github.io/home-assistant-voice-lumi](https://mohoel.github.io/home-assistant-voice-lumi/)
-per [ESP Web Tools](https://esphome.github.io/esp-web-tools/) über Web
-Serial in Chrome/Edge — Board per USB anschließen, Button klicken, fertig.
-
-Direkt danach fragt [Improv Wi-Fi](https://www.improv-wifi.com/) über
-dieselbe USB-Verbindung nach dem eigenen WLAN. Wird das übersprungen, öffnet
-das Gerät ersatzweise einen Hotspot mit Captive Portal zum Eintragen der
-Zugangsdaten. Diese landen im Flash-Speicher des Geräts, nicht im
-Firmware-Image, und überstehen deshalb jedes spätere Update.
-
-Meldet sich das Board nicht: **BOOT** halten, **RESET** kurz drücken,
-**BOOT** loslassen (Download-Modus).
-
-### 2. In Home Assistant einbinden
-
-Das Gerät meldet sich per mDNS als `lumi` und taucht unter *Einstellungen →
-Geräte & Dienste* als ESPHome-Gerät auf. Beim Hinzufügen fragt Home
-Assistant nach einem Verschlüsselungscode — ein fester, nicht geheimer
-Platzhalter (steht auch auf der Flash-Seite im Akkordeon „Nach dem
-Flashen"), von Hand einzutragen:
-
-```
-Bw1nT2P6zfBP++xn1gTvfloJweHwPrXXRj0I01RdKZk=
-```
-
-Danach unter *Einstellungen → Sprachassistenten* eine Assist-Pipeline mit
-deutschem STT/TTS zuweisen.
-
-### 3. Updates
-
-Ab hier reicht Home Assistant: Neue Firmware-Versionen erscheinen unter
-*Einstellungen → Geräte → Updates* mit „Installieren"-Knopf, das Gerät lädt
-sie selbst herunter und startet neu — kein Rechner mehr nötig.
-
-## Bedienung
-
-Bedient wird ausschließlich über Home Assistant. Der Touchscreen kennt nur
-eine Geste: Antippen weckt das Display oder bricht einen laufenden
-Sprachvorgang ab.
-
-| Entity | Wirkung |
-|---|---|
-| **Ausrichtung** | Dreht das Bild in 90-Grad-Schritten (0/90/180/270), Touch-Koordinaten drehen mit. |
-| **Standby-Seite** | Uhr, Zifferblatt oder Gesicht. Läuft ein Timer, zeigt der Standby unabhängig davon den Countdown. |
-| **Standby-Zeit** | Wie lange der Bildschirm nach der letzten Berührung anbleibt, bevor er ausgeht (Sekunden, 5–300). |
-| **Standby-Helligkeit** | Helligkeit von Uhr, Zifferblatt, Gesicht, Verarbeitung, Antwort usw. — alles außer dem Zuhören, das fest auf 100 % läuft (Prozent, 10–100). |
-| **Display** | Helligkeit; Einschalten aus HA weckt den Bildschirm für die Standby-Zeit. |
-| **Mikrofon stumm**, **Wake-Word-Engine**, **Wake-Word-Empfindlichkeit** | Sprachbetrieb. |
-| **Erkannter Text**, **Antwort** | Frage und Antwort des letzten Vorgangs. |
-| **Displayberührung** (Event) | `single_press` bei einem Tipp, `double_press` bei einem Doppeltipp — nur im Wartezustand, während eines Sprachvorgangs bricht Tippen stattdessen ab. |
-
-Alle Einstellungen überstehen einen Neustart.
-
-## Automationen
-
-Lumi braucht für den normalen Betrieb keine einzige Automation — wer aber
-gezielt etwas auf dem Display oder über den Lautsprecher auslösen will, hat
-mehrere Wege. Für alle unten beschriebenen liegen fertige Blueprints im
-Ordner [`blueprints/`](blueprints/) — importieren, Eingaben ausfüllen,
-fertig, statt eigenes YAML zu schreiben. Servicenamen hängen vom
-kompilierten Gerätenamen ab (`esphome.<gerätename>_<aktion>`, z. B.
-`esphome.lumi_a0d0a8_zeige_hinweis`) — zu finden unter
-*Entwicklerwerkzeuge → Aktionen* bzw. *→ Entitäten*.
-
-### Hinweis anzeigen (`zeige_hinweis`)
-
-Zeigt für eine wählbare Dauer ein Icon mit Text in der Bildschirmmitte,
-unabhängig davon, was das Gerät gerade tut — praktisch für alles, wovon die
-Firmware selbst nichts wissen kann: eine Türklingel, ein Paket, ein
-Leck-Sensor. Dafür gibt es das Blueprint
-[„Lumi: Hinweis bei Ereignis"](blueprints/automation/lumi/hinweis_bei_ereignis.yaml):
-
-[![Blueprint importieren](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmohoel%2Fhome-assistant-voice-lumi%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Flumi%2Fhinweis_bei_ereignis.yaml)
-
-Importieren, daraus eine Automation anlegen und darin auslösende Entity
-und Zielzustand wählen (z. B. `binary_sensor.haustuer` → `on`). Als
-**Hinweis-Aktion** die eigene `zeige_hinweis`-Aktion suchen (Servicename
-hängt vom kompilierten Gerätenamen ab, z. B.
-`esphome.lumi_a0d0a8_zeige_hinweis`) und darin Icon, Text und Anzeigedauer
-eintragen, z. B. `icon: mdi:door-open`, `nachricht: Haustür offen`,
-`sekunden: 15`.
-
-`icon` versteht echte `mdi:`-Namen wie im Home-Assistant-Icon-Picker, aber
-nur eine feste, eingebettete Auswahl. Ein nicht gelisteter Name zeigt nur
-den Text, kein Icon:
-
-| mdi-Name | Bedeutung |
-|---|---|
-| `mdi:bell` | Glocke |
-| `mdi:door`, `mdi:door-open` | Tür zu, Tür offen |
-| `mdi:motion-sensor` | Bewegung erkannt |
-| `mdi:water`, `mdi:water-alert` | Wasser, Leck/Wasseralarm |
-| `mdi:fire` | Feuer |
-| `mdi:thermometer` | Temperatur |
-| `mdi:package-variant` | Paket |
-| `mdi:lock`, `mdi:lock-open` | Schloss zu, Schloss offen |
-| `mdi:battery-alert` | Akku niedrig |
-| `mdi:email` | Post |
-| `mdi:alert`, `mdi:alert-circle` | Warnung |
-| `mdi:wifi-off` | Verbindung getrennt |
-| `mdi:help` | Frage |
-| `mdi:check` | Erledigt |
-| `mdi:microphone`, `mdi:microphone-off` | Mikrofon an, Mikrofon aus |
-
-Fehlt ein Icon, lässt es sich ergänzen (Details in
-[`packages/ui.yaml`](packages/ui.yaml), Font `font_hint_icon`) — kostet
-aber einen Neubau der Firmware.
-
-### Ansage abspielen
-
-Keine eigene Funktion von Lumi, sondern die eingebaute Home-Assistant-Aktion
-`assist_satellite.announce` — funktioniert auf jedem `assist_satellite`-Gerät
-(auch Nabu Casas Voice PE) und spielt Text als Ansage ab, ohne Wake Word,
-auch während das Gerät gerade lauscht. Dafür gibt es das Blueprint
-[„Lumi: Ansage bei Ereignis"](blueprints/automation/lumi/ansage_bei_ereignis.yaml):
-
-[![Blueprint importieren](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmohoel%2Fhome-assistant-voice-lumi%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Flumi%2Fansage_bei_ereignis.yaml)
-
-Importieren, daraus eine Automation anlegen und darin auslösende Entity,
-Zielzustand, das Assist-Satellite-Gerät (z. B. Lumi) und den Text wählen —
-etwa `sensor.waschmaschine_status` → `fertig`, „Die Waschmaschine ist
-fertig."
-
-Das Blueprint kennt zusätzlich eine Option „Als Rückfrage stellen": nutzt
-`ask_question` statt `announce`, erwartet danach eine gesprochene Antwort
-und zeigt dabei automatisch das Fragezeichen-Icon. Die optionale
-Zusatzaktion lässt sich z. B. mit `zeige_hinweis` kombinieren, etwa bei
-einer Video-Türklingel.
-
-Umgekehrt melden sich Tipp und Doppeltipp auf den Bildschirm als Event
-(`single_press`/`double_press`) bei Home Assistant, auswertbar in einer
-eigenen Automation — siehe Entity **Displayberührung** unter
-[Bedienung](#bedienung).
-
-Ein dritter, umfangreicherer Weg — eine Vorhersage per Sprachbefehl abfragen
-— steht unter [Wetter auf Nachfrage](#wetter-auf-nachfrage-optional). Offene
-Fragen ohne festen Satz beantwortet stattdessen
-[Freie Wetterfragen](#freie-wetterfragen-optional-nicht-lokal).
 
 ## Hintergrund
 
