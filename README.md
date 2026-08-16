@@ -56,6 +56,8 @@ Wie eine Anfrage verarbeitet wird — vollständig lokal (Whisper, Piper) oder
 die [Assist-Pipeline](https://www.home-assistant.io/voice_control/) in Home
 Assistant und braucht keine Anpassung an der Firmware.
 
+Ich habe dieses Tool für meinen eigenen Gebrauch und meine Bedürfnisse mit Claude Code geschrieben. Ich würde mich freuen, wenn es auch anderen Personen gefällt und Ihr es einsetzt. Wenn jemand mehr Ahnung von Code hat, freue ich mich auf Anmerkungen, Kritik und Ergänzungen. Viel Spaß mit Lumi!
+
 ## Features
 
 ### Sprachsteuerung
@@ -166,21 +168,14 @@ vorbereiteten Blueprints an einem Ort, im Ordner
 [`blueprints/`](blueprints/): importieren, Eingaben ausfüllen, fertig,
 statt eigenes YAML zu schreiben. Servicenamen der Lumi-eigenen Aktionen
 hängen vom kompilierten Gerätenamen ab (`esphome.<gerätename>_<aktion>`,
-z. B. `esphome.lumi_a0d0a8_zeige_hinweis`). Ausgewählt wird die passende
-Aktion direkt im Aktions-Editor der Automation, beim Ausfüllen des
-jeweiligen Blueprint-Eingabefelds — dort landet sie auch dauerhaft.
-*Entwicklerwerkzeuge → Aktionen* bzw. *→ Entitäten* eignen sich nur zum
-vorherigen Nachschlagen des genauen Namens oder für einen einmaligen
-Testaufruf; was dort eingetragen wird, ist nach dem Ausführen nicht
-gespeichert und nicht Teil einer Automation.
+z. B. `esphome.lumi_a0d0a8_zeige_hinweis`).
 
 ### Hinweis bei Ereignis
 
 Zeigt für eine wählbare Dauer ein Icon mit Text in der Bildschirmmitte,
 unabhängig davon, was das Gerät gerade tut — praktisch für alles, wovon die
 Firmware selbst nichts wissen kann: eine Türklingel, ein Paket, ein
-Leck-Sensor. Dafür gibt es das Blueprint
-[„Lumi: Hinweis bei Ereignis"](blueprints/automation/lumi/hinweis_bei_ereignis.yaml):
+Leck-Sensor.
 
 [![Blueprint importieren](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmohoel%2Fhome-assistant-voice-lumi%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Flumi%2Fhinweis_bei_ereignis.yaml)
 
@@ -223,8 +218,7 @@ aber einen Neubau der Firmware.
 Keine eigene Funktion von Lumi, sondern die eingebaute Home-Assistant-Aktion
 `assist_satellite.announce` — funktioniert auf jedem `assist_satellite`-Gerät
 (auch Nabu Casas Voice PE) und spielt Text als Ansage ab, ohne Wake Word,
-auch während das Gerät gerade lauscht. Dafür gibt es das Blueprint
-[„Lumi: Ansage bei Ereignis"](blueprints/automation/lumi/ansage_bei_ereignis.yaml):
+auch während das Gerät gerade lauscht.
 
 [![Blueprint importieren](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmohoel%2Fhome-assistant-voice-lumi%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Flumi%2Fansage_bei_ereignis.yaml)
 
@@ -249,8 +243,7 @@ eigenen Automation — siehe Entity **Displayberührung** unter
 Beantwortet gezielte Wetterfragen ("Wie wird das Wetter morgen um 14 Uhr?")
 mit Icon und Temperatur auf dem Display. Anders als der Rest der Firmware
 braucht das eine einmalige Automation in Home Assistant, weil die Firmware
-sonst nie mehr als den gesprochenen Antworttext erfährt — dafür gibt es das
-Blueprint [„Lumi: Wetter auf Nachfrage"](blueprints/automation/lumi/wetter_auf_nachfrage.yaml):
+sonst nie mehr als den gesprochenen Antworttext erfährt.
 
 [![Blueprint importieren](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmohoel%2Fhome-assistant-voice-lumi%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Flumi%2Fwetter_auf_nachfrage.yaml)
 
@@ -259,10 +252,7 @@ Importieren, daraus eine Automation anlegen und darin die eigene
 optional im Aktions-Editor der Automation die eigene `zeige_wetter`-Aktion
 des Geräts suchen und darin folgende drei Vorlagen eintragen. Der
 Servicename hängt vom kompilierten Gerätenamen ab
-(`esphome.<gerätename>_zeige_wetter`, z. B. `esphome.lumi_a0d0a8_zeige_wetter`)
-— unbekannt lässt er sich vorab unter *Entwicklerwerkzeuge → Aktionen*
-nachschlagen (Suche nach "zeige_wetter"), dort Eingegebenes wird aber
-nicht gespeichert:
+(`esphome.<gerätename>_zeige_wetter`, z. B. `esphome.lumi_a0d0a8_zeige_wetter`).
 
 ```
 zustand: {{ zustand }}
@@ -279,9 +269,6 @@ Beantwortet offene Fragen ohne festen Satz, z. B. "Wird es morgen regnen?"
 oder "Wie wird das Wetter übermorgen?". Braucht eine KI/LLM-Pipeline als
 Konversationsagent — mit der eingebauten lokalen Intent-Erkennung
 funktioniert das nicht.
-
-Dafür gibt es das Skript-Blueprint
-[„Lumi: Freie Wetterfragen"](blueprints/script/lumi/freie_wetterfragen.yaml):
 
 [![Blueprint importieren](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmohoel%2Fhome-assistant-voice-lumi%2Fblob%2Fmain%2Fblueprints%2Fscript%2Flumi%2Ffreie_wetterfragen.yaml)
 
@@ -308,7 +295,7 @@ eingetragen werden.
 
 Zwei Skript-Blueprints anlegen, in dieser Reihenfolge:
 
-**1. [„Lumi: Verzögerte Aktion"](blueprints/script/lumi/verzoegerte_aktion.yaml)**
+**1. Verzögerte Aktion**
 — das Gegenstück, das nach der Wartezeit wirklich etwas tut. Löst
 Gerätenamen erst unmittelbar vor dem Warten zu echten `entity_id`s auf und
 meldet nicht eindeutig zuordenbare Geräte sofort per
@@ -317,7 +304,7 @@ scheitern. Bleibt intern, wird nicht für Assist freigegeben.
 
 [![Blueprint importieren](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmohoel%2Fhome-assistant-voice-lumi%2Fblob%2Fmain%2Fblueprints%2Fscript%2Flumi%2Fverzoegerte_aktion.yaml)
 
-**2. [„Lumi: Timer Aktion starten"](blueprints/script/lumi/timer_aktion_starten.yaml)**
+**2. Timer Aktion starten**
 — das Werkzeug, das für Assist freigegeben wird. Startet Skript 1 im
 Hintergrund und wartet nicht auf dessen Ende, damit Assist sofort antworten
 kann. Beim Anlegen die aus Skript 1 erstellte Skript-Instanz als Eingabe
