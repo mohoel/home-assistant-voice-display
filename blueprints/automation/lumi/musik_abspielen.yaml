@@ -57,32 +57,6 @@ blueprint:
     Schlägt die Suche fehl oder findet nichts, greift ersatzweise wieder der
     rohe, gesprochene Name wie zuvor — nichts wird dadurch unzuverlässiger
     als ohne diesen Schritt, nur ein klein wenig langsamer.
-
-    **Cover auf Lumis Display (optional):** Lumi selbst spielt bei diesem
-    Blueprint nichts — der Ton kommt aus dem oben ermittelten Zielgerät, nicht
-    aus Lumis eigenem Lautsprecher. Trotzdem lässt sich das Cover des
-    Zielgeräts auf Lumis Display zeigen, solange dort etwas läuft: dafür unten
-    optional die eigene `zeige_musik`-Aktion des Geräts eintragen (Servicename
-    hängt vom kompilierten Gerätenamen ab, z. B.
-    `esphome.lumi_a0d0a8_zeige_musik`) und darin folgende drei Vorlagen:
-
-    ```
-
-    titel: {{ titel }}
-
-    untertitel: {{ untertitel }}
-
-    cover_url: {{ cover_url }}
-
-    ```
-
-    sowie optional die zugehörige `verstecke_musik`-Aktion, die das Blueprint
-    von selbst aufruft, sobald das Zielgerät nicht mehr spielt — ohne
-    Vorlagen, keine Parameter. Ist eine der beiden Aktionen leer, passiert an
-    dieser Stelle nichts Zusätzliches, der Sprachbefehl selbst funktioniert
-    trotzdem unverändert. Für den umgekehrten Fall — Lumi selbst ist das
-    Music-Assistant-Ziel, der Ton kommt also tatsächlich aus Lumi — gibt es
-    stattdessen das eigenständige Blueprint "Lumi: Musik-Cover anzeigen".
   domain: automation
   source_url: https://github.com/mohoel/home-assistant-voice-lumi/blob/main/blueprints/automation/lumi/musik_abspielen.yaml
   homeassistant:
@@ -98,37 +72,6 @@ blueprint:
           filter:
             integration: music_assistant
             domain: media_player
-    zeige_musik_aktion:
-      name: Cover-Aktion (optional)
-      description: >-
-        Die Lumi-Aktion `zeige_musik` — zeigt das Cover des Zielgeräts auf
-        Lumis Display, siehe Beschreibung oben.
-      default: []
-      selector:
-        action: {}
-    verstecke_musik_aktion:
-      name: Cover-Ausblenden-Aktion (optional)
-      description: >-
-        Die Lumi-Aktion `verstecke_musik` — wird automatisch aufgerufen,
-        sobald das Zielgerät nicht mehr spielt. Nur relevant, wenn oben eine
-        Cover-Aktion gewählt ist.
-      default: []
-      selector:
-        action: {}
-    basis_url:
-      name: Basis-Adresse von Home Assistant (optional)
-      description: >-
-        Nur für die Cover-Anzeige: wird vor eine relative
-        `entity_picture`-Adresse gesetzt, falls das Zielgerät keine
-        vollständige Bild-URL liefert. Z. B.
-        `http://homeassistant.local:8123`. Leer lassen, wenn keine
-        Cover-Aktion gewählt ist oder das Zielgerät ohnehin vollständige
-        URLs liefert (z. B. Music Assistant selbst, siehe Beschreibung oben).
-      default: ""
-      selector:
-        text: {}
-
-mode: restart
 
 triggers:
   - trigger: conversation
@@ -161,7 +104,6 @@ conditions: []
 actions:
   - variables:
       standard_player: !input standard_player
-      basis_url: !input basis_url
       medientyp: "{{ trigger.id }}"
       assist_geraet_id: "{{ trigger.device_id }}"
       medium: "{{ trigger.slots.medium }}"
@@ -218,83 +160,3 @@ actions:
       entity_id: "{{ media_player_ziel }}"
     data: "{{ dict(spieldaten.items() | selectattr('1')) }}"
   - set_conversation_response: "{{ medium }} wird auf {{ media_player_name }} abgespielt"
-
-  # ---------------------------------------------- Cover auf Lumis Display
-  # Optional, siehe Beschreibung oben. Lumi spielt hier nichts selbst -
-  # media_player_ziel ist ein fremdes Geraet, dessen Wiedergabeende dem
-  # Geraet ohne diesen Block nie mitgeteilt wuerde (media_out bleibt die
-  # ganze Zeit im Leerlauf). Deshalb ruft dieser Block verstecke_musik
-  # selbst auf, statt sich wie beim Blueprint "Lumi: Musik-Cover anzeigen"
-  # auf die lokale on_idle-Erkennung des Geraets zu verlassen.
-  #
-  # mode: restart oben ist Voraussetzung dafuer: ein neuer Sprachbefehl
-  # waehrend eine fruehere Wiedergabe noch verfolgt wird, bricht die
-  # wartenden Schritte unten ab und uebernimmt sofort die Anzeige - ohne
-  # restart wuerde ein zweiter Befehl mangels freier Automations-Instanz
-  # schlicht verworfen (Standardmodus single).
-  #
-  # Nur der erste Eintrag von media_player_ziel traegt das Cover - Lumi hat
-  # nur ein Display, eine Gruppenwiedergabe auf mehreren Geraeten zeigt also
-  # nur das erste.
-  - if:
-      - condition: template
-        value_template: "{{ zeige_musik_aktion != [] }}"
-    then:
-      - variables:
-          cover_ziel: "{{ media_player_ziel[0] }}"
-      # Absichtlich delay/repeat statt wait_for_trigger: ein Trigger prueft
-      # sein entity_id-Feld beim Erzeugen der Automation aus dem Blueprint
-      # als woertlichen Wert (cv.entity_id), nicht als Vorlage - cover_ziel
-      # steht aber erst zur Laufzeit fest, nicht beim Uebersetzen des
-      # Blueprints. `entity_id: "{{ cover_ziel }}"` scheiterte deshalb schon
-      # beim Anlegen der Automation ("Entity {{ cover_ziel }} ist weder eine
-      # gueltige Entity-ID noch eine UUID") - nicht erst beim Ausfuehren,
-      # die Automation existierte in dem Zustand ueberhaupt nicht.
-      #
-      # Bis zu 20 s abwarten, bis das Zielgeraet wirklich zu spielen beginnt
-      # - Music Assistant braucht je nach Quelle/Netzwerk einen Moment zum
-      # Puffern. Startet es in der Zeit nicht, bleibt die Cover-Anzeige fuer
-      # diesen Aufruf einfach aus.
-      - repeat:
-          while:
-            - condition: template
-              value_template: >-
-                {{ repeat.index <= 20
-                   and not (is_state(cover_ziel, 'playing')
-                            or is_state(cover_ziel, 'paused')) }}
-          sequence:
-            - delay: "00:00:01"
-      - if:
-          - condition: template
-            value_template: >-
-              {{ is_state(cover_ziel, 'playing') or is_state(cover_ziel, 'paused') }}
-        then:
-          - repeat:
-              while:
-                - condition: template
-                  value_template: >-
-                    {{ is_state(cover_ziel, 'playing')
-                       or is_state(cover_ziel, 'paused') }}
-              sequence:
-                - variables:
-                    roh_cover: "{{ state_attr(cover_ziel, 'entity_picture') | default('', true) }}"
-                    cover_url: >-
-                      {{ roh_cover if roh_cover.startswith('http')
-                         else (basis_url ~ roh_cover if roh_cover else '') }}
-                    titel: "{{ state_attr(cover_ziel, 'media_title') | default('', true) }}"
-                    untertitel: >-
-                      {{ state_attr(cover_ziel, 'media_artist')
-                         or (state_attr(cover_ziel, 'media_content_type') | default('', true) | title) }}
-                - if: []
-                  then: !input zeige_musik_aktion
-                # Alle 5 s erneut pruefen (Titelwechsel, Pause, Stopp) -
-                # Polling statt eines Events, aus demselben Grund wie oben.
-                # Kein unnoetiger Download am Geraet: stage_music
-                # (packages/ui.yaml) ueberspringt das Neuladen der
-                # Cover-Bilder, wenn sich Titel/Untertitel/Cover-URL
-                # gegenueber dem letzten Aufruf nicht geaendert haben -
-                # sonst luede ein stundenlang laufendes Wortradio sein
-                # eigenes Cover alle 5 s neu herunter.
-                - delay: "00:00:05"
-          - if: []
-            then: !input verstecke_musik_aktion
