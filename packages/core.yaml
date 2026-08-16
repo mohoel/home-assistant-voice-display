@@ -25,6 +25,16 @@ esphome:
     # sonst erst in on_client_connected das erste Mal laeuft.
     - priority: -100
       then:
+        # Zeit-Fallback per PCF85063-RTC (siehe time:-Block unten): die
+        # Komponente liest beim Setup nur die rohen I2C-Register, gleicht sie
+        # aber erst hier explizit gegen die Systemuhr ab - sonst wuerde das
+        # bis zum ersten periodischen update_interval (Default 15 min) dauern.
+        # settimeofday() darunter ist eine echte OS-Uhr: jeder time:-Platform
+        # (auch ha_time) liest ueber dieselbe timestamp_now() daraus, ein
+        # zweiter, eigener "Zeitgeber" mit eigenem now() entsteht also nicht -
+        # id(ha_time).now() ist ab dieser Zeile gueltig, auch ganz ohne
+        # API-Verbindung.
+        - pcf85063.read_time: rtc_time
         # Erst ab hier steht LVGL. boot_done gibt apply_rotation frei (der
         # restaurierte Wert von sel_rotation hat sein on_value schon lange
         # vorher gefeuert, siehe packages/settings.yaml) und wird dann einmal
@@ -212,6 +222,28 @@ time:
                 lvgl.page.is_showing: page_dial
               then:
                 - script.execute: update_dial
+    # Bei jeder erfolgreichen Synchronisation mit Home Assistant die dann
+    # praezise Zeit in die RTC zurueckschreiben - sonst bliebe der PCF85063 auf
+    # dem Stand seines letzten Boots stehen und der Fallback wuerde mit jedem
+    # Neustart ungenauer. Kein Wettlauf mit dem Lesen oben: write_time liest
+    # die gerade gesetzte Systemzeit, nicht die RTC.
+    on_time_sync:
+      - pcf85063.write_time:
+          id: rtc_time
+
+  # Zeit-Fallback, falls das Geraet (noch) keine API-Verbindung hat - siehe
+  # on_boot oben. Haengt am selben I2C-Bus wie Touch und die Audio-Codecs
+  # (packages/hardware.yaml), keine zusaetzliche Verdrahtung. Das Modul auf
+  # dem Board hat keinen Adress-Pin, 0x51 ist der Schema-Default.
+  #
+  # update_interval bleibt beim 15-min-Default: ein zweites periodisches
+  # Nachlesen aus der RTC ist unkritisch, auch nachdem Home Assistant laengst
+  # synchronisiert hat - synchronize_epoch_() springt nur, wenn die Differenz
+  # mehr als eine Sekunde betraegt, sonst feuert es nur den on_time_sync-
+  # Trigger erneut (time/real_time_clock.cpp).
+  - platform: pcf85063
+    id: rtc_time
+    i2c_id: bus_i2c
 
 # Diagnose-Entities: helfen beim Einschaetzen des Speicherdrucks
 # (LVGL + Voice Assistant sind zusammen speicherhungrig).
