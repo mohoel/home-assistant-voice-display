@@ -139,7 +139,7 @@ actions:
     data: >-
       {{ dict({"config_entry_id": mass_config_entry_id, "name": medium,
                "artist": kuenstler, "media_type": [medientyp],
-               "search_options": {"limit": 25}}.items() | selectattr('1')) }}
+               "limit": 25}.items() | selectattr('1')) }}
   - variables:
       mass_treffer_liste: >-
         {{ mass_suche[mass_ergebnisfeld]
