@@ -25,6 +25,7 @@ Gesicht.
   - [Ansage bei Ereignis](#ansage-bei-ereignis)
   - [Wetter auf Nachfrage (lokal)](#wetter-auf-nachfrage-lokal)
   - [Musik abspielen (lokal)](#musik-abspielen-lokal)
+  - [Musik-Cover anzeigen (optional)](#musik-cover-anzeigen-optional)
   - [Freie Wetterfragen (nicht lokal)](#freie-wetterfragen-nicht-lokal)
   - [Verzögerte Aktionen (nicht lokal)](#verzögerte-aktionen-nicht-lokal)
 - [Hintergrund](#hintergrund)
@@ -85,6 +86,15 @@ Drei Ansichten, umschaltbar über eine Select-Entity, wirkt sofort:
 Ist das Gesicht gewählt, übernimmt es auch Zuhören, Verarbeiten und
 Antworten (Augen richten sich auf, Mund bewegt sich, Farbwechsel je Phase);
 bei Uhr und Zifferblatt bleibt es bei Mikrofon, Punkten und Balken.
+
+Läuft Musik — über Lumis eigenen Lautsprecher oder, per Sprachbefehl an
+Lumi gestartet, auf einem anderen Gerät —, ersetzt ein viertes Cover-Bild
+(verschwommenes Cover vollflächig im Hintergrund, scharfes Cover mit Titel
+und Interpret/Podcast darüber) automatisch die gewählte Standby-Seite —
+siehe Blueprints [„Musik abspielen"](#musik-abspielen-lokal) und
+[„Musik-Cover anzeigen"](#musik-cover-anzeigen-optional). Nicht über die
+Select-Entity wählbar, weil es kein Dauerzustand ist, sondern nur erscheint,
+solange tatsächlich etwas läuft.
 
 ### Timer
 - Ring am Bildschirmrand, sichtbar auf jeder Seite — im Standby tritt der Countdown an die Stelle der Uhr
@@ -325,6 +335,51 @@ Fernseher), wird's mehrdeutig; dann hilft ein Name oder Raum im Satz
 ("Pause auf dem Sonos", "Lauter im Wohnzimmer"). Das gilt unabhängig vom
 gewählten Konversationsagenten und ist kein Teil dieses Blueprints — es
 läuft schon, ganz ohne Import.
+
+**Cover auf Lumis Display, obwohl der Ton woanders rauskommt:** Lumi spielt
+bei diesem Blueprint selbst nichts — trotzdem lässt sich das Cover des
+tatsächlichen Zielgeräts auf Lumis Display zeigen, solange dort etwas läuft.
+Dafür beim Importieren zusätzlich als **Cover-Aktion** die eigene
+`zeige_musik`-Aktion des Geräts eintragen (drei Vorlagen wie unten bei
+"Musik-Cover anzeigen") sowie als **Cover-Ausblenden-Aktion** die eigene
+`verstecke_musik`-Aktion (keine Vorlagen nötig) — das Blueprint ruft sie von
+selbst auf, sobald das Zielgerät nicht mehr spielt. Beide Felder leer lassen,
+wenn nur der Sprachbefehl selbst gebraucht wird.
+
+### Musik-Cover anzeigen (optional)
+
+Zeigt Cover, Titel und Interpret/Podcast auf Lumis Display, solange Musik
+über Lumis **eigenen** Lautsprecher läuft. Ersetzt dabei die normale
+Standby-Seite (Uhr/Zifferblatt/Gesicht); sobald die Wiedergabe endet, kehrt
+Lumi von selbst dorthin zurück — dafür ist keine eigene Automation nötig,
+das erledigt das Gerät selbst.
+
+**Nur relevant, wenn Music Assistant tatsächlich Lumis eigene
+Media-Player-Entity als Wiedergabeziel nutzt** — beim häufigeren Muster
+"Lumi hört den Befehl, der Ton kommt aber aus einem anderen Gerät" (Blueprint
+"Musik abspielen" oben mit einem fremden Music-Assistant-Player als Ziel)
+bringt "Musik abspielen" die Cover-Anzeige bereits selbst mit, siehe dort.
+
+[![Blueprint importieren](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmohoel%2Fhome-assistant-voice-lumi%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Flumi%2Fmusik_cover_anzeigen.yaml)
+
+Importieren, daraus eine Automation anlegen und darin Lumis eigene
+`media_player.*`-Entity auswählen (Einstellungen → Geräte → Lumi zeigt sie
+an — nicht die Entity eines anderen Music-Assistant-Players im Haus) sowie,
+falls die Cover-Bilder relative Pfade liefern statt einer vollständigen
+Adresse, die eigene Home-Assistant-Adresse eintragen. Als **Cover-Aktion**
+optional die eigene `zeige_musik`-Aktion des Geräts suchen und darin
+folgende drei Vorlagen eintragen:
+
+```
+titel: {{ titel }}
+untertitel: {{ untertitel }}
+cover_url: {{ cover_url }}
+```
+
+Die Bedienzeile unter dem Cover (Zurück/Play-Pause/Vor) ist reine Anzeige,
+keine Fernbedienung — sie spiegelt nur den aktuellen Wiedergabezustand.
+Gesteuert wird die Wiedergabe wie oben beschrieben per Sprache ("Pause",
+"Nächster Titel", …) oder über die Media-Player-Entity in Home Assistant.
 
 ### Freie Wetterfragen (nicht lokal)
 

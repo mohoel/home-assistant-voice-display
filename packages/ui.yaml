@@ -183,6 +183,69 @@ font:
       - "\U000F0083" # battery-alert
       - "\U000F01EE" # email
 
+  # Bedienicons der Musik-Cover-Seite (page_music, "Round Audio Display"):
+  # Play/Pause und die beiden Sprungpfeile. Eigener, kleiner Font statt einer
+  # Zweitverwendung von font_hint_icon - der ist fest auf 216 px fuer den
+  # optionalen Hinweis ausgelegt (LVGL-Fonts haben ihre Groesse zur
+  # Compile-Zeit, derselbe Font kann nicht zwei Groessen gleichzeitig haben),
+  # hier sollen die Icons dagegen klein neben Cover und Text stehen. Quelle
+  # ist derselbe echte MDI-Webfont wie bei font_hint_icon, nur ein anderer
+  # Ausschnitt seiner Glyphen. Codepoints aus
+  # materialdesignicons.css (Templarian/MaterialDesign-Webfont), nicht
+  # geraten - "skip-previous"/"skip-next" sehen im Namen vertauschbar aus,
+  # sind es aber nicht.
+  - file: "https://github.com/Templarian/MaterialDesign-Webfont/raw/master/fonts/materialdesignicons-webfont.ttf"
+    id: font_music_icon
+    size: ${music_control_icon_size}
+    glyphs:
+      - "\U000F040A" # play
+      - "\U000F03E4" # pause
+      - "\U000F04AE" # skip-previous
+      - "\U000F04AD" # skip-next
+
+# Cover-Bilder der Musik-Seite (page_music). Zwei online_image-Instanzen fuer
+# dasselbe Bild in zwei Aufloesungen statt einer, die LVGL dann in zwei
+# Groessen zeigt: img_cover ist die scharfe Anzeige in der Mitte, img_cover_blur
+# ist absichtlich winzig heruntergerechnet - der Downscale selbst *ist* der
+# Weichzeichner-Ersatz, siehe music_bg_resize/music_bg_scale in
+# common-substitutions.yaml fuer die Herleitung der Zahlen. Beide werden nie
+# von selbst geladen (update_interval: never, der Schema-Default) - stage_music
+# (weiter unten) ruft online_image.set_url mit update: true, sobald Home
+# Assistant ueber die API-Aktion zeige_musik ein Cover meldet. Die
+# Platzhalter-URL wird deshalb nie wirklich abgerufen; .invalid ist die dafuer
+# reservierte, garantiert nicht aufloesbare Testdomain (RFC 2606).
+#
+# format: JPEG ist eine echte Einschraenkung, kein Versehen: der
+# Laufzeit-Decoder braucht ein festes Format (kein "AUTO" in diesem
+# ESPHome-Schema, cv.one_of laesst nur BMP/JPEG/PNG/JPG zu), und Music
+# Assistants imageproxy liefert Cover-Bilder normalisiert als JPEG aus - genau
+# wie bei font_hint_icons fester Glyphenauswahl ist das eine zur Compile-Zeit
+# getroffene, bewusste Grenze, kein Zufall. type: RGB565 passt zum Farbformat
+# des Displays (siehe data_rate-Kommentar in packages/hardware.yaml, 466x466x2).
+image:
+  - platform: online_image
+    id: img_cover
+    url: "https://example.invalid/no-cover.jpg"
+    format: JPEG
+    type: RGB565
+    resize: ${music_cover_size}x${music_cover_size}
+    on_error:
+      - logger.log:
+          level: WARN
+          tag: musik
+          format: "Cover konnte nicht geladen werden (kein JPEG? URL falsch?)"
+  - platform: online_image
+    id: img_cover_blur
+    url: "https://example.invalid/no-cover.jpg"
+    format: JPEG
+    type: RGB565
+    resize: ${music_bg_resize}x${music_bg_resize}
+    on_error:
+      - logger.log:
+          level: WARN
+          tag: musik
+          format: "Hintergrundcover konnte nicht geladen werden (kein JPEG? URL falsch?)"
+
 lvgl:
   displays: [disp]
   touchscreens: [touch]
@@ -1012,6 +1075,171 @@ lvgl:
             shadow_opa: ${face_glow_opa}
             hidden: true
 
+    # ------------------------------------------------- Standby: Musik-Cover
+    # Vierte, aber anders als Uhr/Zifferblatt/Gesicht nicht ueber
+    # sel_standby_page waehlbare Standby-Seite: sie erscheint automatisch,
+    # solange Musik ueber die eigene Wiedergabe des Geraets laeuft, und geht
+    # danach automatisch wieder zurueck - siehe music_active, stage_music,
+    # hide_music und die Praezedenz in show_standby_page/update_timer_ui
+    # weiter unten. Design "Round Audio Display", Herleitung der Zahlen in
+    # common-substitutions.yaml.
+    #
+    # Vier Ebenen uebereinander:
+    #   1. img_music_bg   - dasselbe Cover, winzig geladen und riesig
+    #                       hochgezoomt (der Weichzeichner-Ersatz, siehe oben)
+    #   2. music_overlay  - flache dunkle Abdeckung darueber (Naeherung an
+    #                       den radialen Verlauf des Mockups)
+    #   3. box_music      - Cover scharf, Titel, Untertitel
+    #   4. music_controls - Sprung-zurueck/Play-Pause/Sprung-vor, rein
+    #                       dekorativ, siehe Begruendung unten
+    #
+    # Warum die Bedienzeile NICHT klickbar ist, obwohl das Mockup echte
+    # Tasten zeigt: jede Beruehrung des Displays geht zuerst durch
+    # on_screen_touch (packages/hardware.yaml -> packages/ui.yaml), direkt am
+    # rohen Touchscreen-Treiber und komplett unabhaengig von LVGLs eigener
+    # Klick-Erkennung einzelner Widgets. Auf jeder bereits sichtbaren
+    # Standby-Seite loest das *jede* Beruehrung als "Bildschirm ausschalten"
+    # aus (siehe on_screen_touch) - das gilt fuer page_standby/page_dial/
+    # page_face genauso wie fuer page_music und kennt keine Ausnahme fuer
+    # einzelne Widgets. Ein klickbarer Play/Pause-Knopf mitten auf dieser
+    # Seite wuerde also gleichzeitig zwei Dinge ausloesen: den echten
+    # Tastendruck *und* das Ausschalten des Bildschirms unter ihm - fuer die
+    # Nutzerin sichtbar als Bildschirm, der genau beim Antippen der
+    # Play-Taste erlischt. Die sauberste Loesung ist, page_music genau wie
+    # die anderen drei Standby-Seiten zu behandeln: nichts darauf ist
+    # klickbar, ein Tipp weckt bzw. schaltet aus wie ueberall sonst im
+    # Standby. Die Bedienzeile ist deshalb reine Information (das Play/Pause-
+    # Icon spiegelt ueber media_out.on_play/on_pause den echten
+    # Wiedergabezustand, siehe hardware.yaml), keine Fernbedienung -
+    # Lautstaerke und Play/Pause bleiben wie im Rest des Projekts HA-Entities
+    # (siehe Kopfkommentar dieser Datei, "Lautstaerke und Stummschaltung").
+    - id: page_music
+      bg_color: 0x000000
+      bg_opa: COVER
+      scrollable: false
+      widgets:
+        - image:
+            id: img_music_bg
+            align: CENTER
+            src: img_cover_blur
+            scale: ${music_bg_scale}
+            antialias: true
+        - obj:
+            id: music_overlay
+            align: CENTER
+            width: 466
+            height: 466
+            bg_color: ${color_music_overlay}
+            bg_opa: ${music_overlay_opa}
+            border_width: 0
+            radius: 0
+            pad_all: 0
+            clickable: false
+            scrollable: false
+        - obj:
+            id: box_music
+            align: CENTER
+            width: 320
+            height: SIZE_CONTENT
+            bg_opa: TRANSP
+            border_width: 0
+            pad_all: 0
+            clickable: false
+            scrollable: false
+            layout:
+              type: FLEX
+              flex_flow: COLUMN
+              flex_align_main: CENTER
+              flex_align_cross: CENTER
+              pad_row: ${music_gap}
+            widgets:
+              # Platzhalterfarbe color_music_overlay fuellt die Flaeche, bis
+              # img_music_cover fertig heruntergeladen und dekodiert ist -
+              # sonst waere die Box dort kurz durchsichtig/schwarz.
+              - obj:
+                  id: music_cover_box
+                  width: ${music_cover_size}
+                  height: ${music_cover_size}
+                  radius: ${music_cover_radius}
+                  clip_corner: true
+                  bg_color: ${color_music_overlay}
+                  bg_opa: COVER
+                  border_width: 0
+                  pad_all: 0
+                  clickable: false
+                  scrollable: false
+                  shadow_width: 24
+                  shadow_offset_y: 10
+                  shadow_opa: 60%
+                  shadow_color: 0x000000
+                  widgets:
+                    - image:
+                        id: img_music_cover
+                        align: CENTER
+                        src: img_cover
+              - label:
+                  id: lbl_music_title
+                  text: ""
+                  text_font: font_date
+                  text_color: ${color_text}
+                  text_align: CENTER
+                  width: 320
+                  long_mode: DOT
+              - label:
+                  id: lbl_music_subtitle
+                  text: ""
+                  text_font: font_small
+                  text_color: ${color_music_subtitle}
+                  text_align: CENTER
+                  width: 320
+                  long_mode: DOT
+              - obj:
+                  id: music_controls
+                  width: SIZE_CONTENT
+                  height: SIZE_CONTENT
+                  bg_opa: TRANSP
+                  border_width: 0
+                  pad_all: 0
+                  clickable: false
+                  scrollable: false
+                  layout:
+                    type: FLEX
+                    flex_flow: ROW
+                    flex_align_main: CENTER
+                    flex_align_cross: CENTER
+                    pad_column: ${music_control_gap}
+                  widgets:
+                    - label:
+                        id: lbl_music_prev
+                        text: "\U000F04AE"
+                        text_font: font_music_icon
+                        text_color: ${color_text}
+                    - obj:
+                        id: music_play_button
+                        width: ${music_button_size}
+                        height: ${music_button_size}
+                        radius: ${music_button_size}
+                        bg_color: ${color_music_accent}
+                        bg_opa: COVER
+                        border_width: 0
+                        clickable: false
+                        scrollable: false
+                        widgets:
+                          # Startglyph "pause": stage_music aktiviert die
+                          # Seite nur, wenn gerade etwas spielt (siehe dort),
+                          # media_out.on_play/on_pause haelt es danach aktuell.
+                          - label:
+                              id: lbl_music_playpause
+                              align: CENTER
+                              text: "\U000F03E4"
+                              text_font: font_music_icon
+                              text_color: ${color_music_overlay}
+                    - label:
+                        id: lbl_music_next
+                        text: "\U000F04AD"
+                        text_font: font_music_icon
+                        text_color: ${color_text}
+
     # ------------------------------------------------------ Bildschirm aus
     # Leere schwarze Seite - der Standby-Zustand des Geraets. Sie ist der
     # zweite Teil des Ausschaltens: die Helligkeit allein genuegt nicht, weil
@@ -1049,6 +1277,30 @@ globals:
     type: bool
     restore_value: false
     initial_value: "false"
+
+  # Musik-Cover steht an (API-Aktion zeige_musik in packages/core.yaml, siehe
+  # stage_music/hide_music weiter unten und die Praezedenz in
+  # show_standby_page/update_timer_ui). Bewusst NICHT direkt von
+  # media_out.on_play gesetzt: sonst zeigte jede Wiedergabe ueber das Geraet
+  # sofort ein leeres Cover, auch ohne die dazugehoerige HA-Automation - erst
+  # ein echter zeige_musik-Aufruf mit Titel/Cover aktiviert die Seite. Das
+  # Abschalten dagegen ist bewusst *nicht* an die Automation gebunden: media_out
+  # kennt seinen eigenen Wiedergabezustand selbst und braucht dafuer kein HA
+  # - siehe on_idle in packages/hardware.yaml.
+  - id: music_active
+    type: bool
+    restore_value: false
+    initial_value: "false"
+
+  # Letzte per zeige_musik gemeldete Cover-URL. stage_music vergleicht
+  # jeden Aufruf dagegen und ueberspringt den Bild-Download, wenn sie sich
+  # nicht geaendert hat - ohne das laedt ein per Polling alle 5 s
+  # aufgerufenes Blueprint (siehe "Lumi: Musik abspielen") bei einem
+  # stundenlang unveraenderten Wortradio sein eigenes Cover staendig neu
+  # herunter.
+  - id: last_music_cover_url
+    type: std::string
+    restore_value: false
 
   # Zwischenstand des ausblendenden Timer-Rings (ring_fade_out). Als Globals
   # und nicht als static im Lambda, weil das Skript ueber mehrere Durchlaeufe
@@ -1156,6 +1408,110 @@ script:
           return (sekunden > 0 ? sekunden : 10) * 1000;
       - lambda: id(hint_active) = false;
       - script.execute: update_ui
+
+  # -------------------------------------------------- Musik-Cover anzeigen
+  # Gegenstueck zur optionalen API-Aktion zeige_musik (packages/core.yaml).
+  # Anders als show_hint oben kommt das Aktivieren hier ohne feste Standzeit
+  # zurueck: solange media_out spielt, bleibt die Seite oben, bis hide_music
+  # (media_out.on_idle, packages/hardware.yaml) sie wieder abraeumt - siehe
+  # music_active in den Globals oben fuer die Begruendung, warum das
+  # Abschalten lokal passiert und das Anschalten nicht.
+  #
+  # set_url()/update() statt der YAML-Aktion online_image.set_url: beides
+  # sind oeffentliche Methoden von OnlineImage (online_image.h), ein Aufruf
+  # im ohnehin schon vorhandenen Lambda spart zwei zusaetzliche YAML-Aktionen
+  # und passt zum Stil von show_hint oben, das seine LVGL-Objekte genauso
+  # direkt ueber ihre C-API anfasst statt ueber lvgl.widget.*-Aktionen.
+  - id: stage_music
+    mode: restart
+    parameters:
+      titel: string
+      untertitel: string
+      cover_url: string
+    then:
+      - lambda: |-
+          lv_label_set_text(id(lbl_music_title), titel.c_str());
+          lv_label_set_text(id(lbl_music_subtitle), untertitel.c_str());
+
+          // Leere URL (z.B. eine Quelle ohne entity_picture) ueberspringt den
+          // Download bewusst - sonst liefe bei jedem Aufruf ein
+          // aussichtsloser HTTP-Request, der nur den on_error-Log der beiden
+          // image:-Eintraege oben fuellt. music_cover_box zeigt in dem Fall
+          // einfach seine Platzhalterfarbe weiter.
+          //
+          // Dieselbe URL wie beim letzten Aufruf ueberspringt den Download
+          // ebenfalls: "Lumi: Musik abspielen" ruft diese Aktion per Polling
+          // alle 5 s auf (siehe dort), nicht nur bei einer echten Aenderung.
+          // Ohne den Vergleich luede ein stundenlang unveraendertes
+          // Wortradio sein eigenes Cover bei jedem Poll neu herunter.
+          if (!cover_url.empty() && cover_url != id(last_music_cover_url)) {
+            id(img_cover).set_url(cover_url);
+            id(img_cover).update();
+            id(img_cover_blur).set_url(cover_url);
+            id(img_cover_blur).update();
+          }
+          id(last_music_cover_url) = cover_url;
+
+          // Wie die "ergebnis"/"wetter"/"hinweis"-Zeilen an den
+          // entsprechenden Stellen in packages/voice.yaml: ohne sie ist bei
+          // einem leeren Cover nicht zu unterscheiden, ob die Automation gar
+          // keine URL geliefert hat oder der Download scheitert (das meldet
+          // stattdessen on_error oben).
+          ESP_LOGI("musik", "titel='%s' untertitel='%s' cover=%s",
+                   titel.c_str(), untertitel.c_str(),
+                   cover_url.empty() ? "keine" : "ja");
+          id(music_active) = true;
+      - script.execute: music_page_sync
+
+  # ---------------------------------------------- Musik-Cover ausblenden
+  # media_out.on_idle (packages/hardware.yaml) ruft das, sobald die eigene
+  # Wiedergabe des Geraets endet - lokal und unabhaengig davon, ob die
+  # Automation hinter zeige_musik ueberhaupt eingerichtet ist (siehe
+  # music_active oben). release() gibt die beiden Bildpuffer wieder frei
+  # (zusammen rund 108 kB PSRAM, Herleitung in common-substitutions.yaml), bis
+  # der naechste Titel sie erneut braucht.
+  - id: hide_music
+    mode: restart
+    then:
+      - lambda: |-
+          id(music_active) = false;
+          lv_label_set_text(id(lbl_music_title), "");
+          lv_label_set_text(id(lbl_music_subtitle), "");
+          id(img_cover).release();
+          id(img_cover_blur).release();
+          // Sonst haelt stage_music beim naechsten Titel faelschlich fuer
+          // "unveraendert", obwohl die Bildpuffer gerade freigegeben wurden,
+          // und ueberspringt den eigentlich noetigen Neu-Download.
+          id(last_music_cover_url) = "";
+      - script.execute: music_page_sync
+
+  # ------------------------------------- Standby-Seite live nachfuehren
+  # stage_music/hide_music aendern music_active, aber nicht von sich aus, was
+  # gerade auf dem Bildschirm steht - genau wie bei einem startenden/endenden
+  # Timer (update_timer_ui weiter unten) muss ein bereits sichtbarer Standby
+  # dann sofort umschalten, statt erst beim naechsten Tipp oder
+  # Phasenwechsel. show_standby_page kennt die Praezedenz (Timer vor Musik vor
+  # der Auswahl in sel_standby_page) und wird hier nur aufgerufen, wenn
+  # gerade wirklich eine Standby-Seite vorne liegt - waehrend eines
+  # Sprachvorgangs oder im echten Standby (page_off, Bildschirm aus) bleibt
+  # media_out unbeachtet: Musik weckt den Bildschirm ebenso wenig von selbst
+  # wie ein startender Timer.
+  - id: music_page_sync
+    mode: restart
+    then:
+      - if:
+          condition:
+            and:
+              - lambda: |-
+                  return id(voice_assistant_phase) == ${phase_idle}
+                      || id(voice_assistant_phase) == ${phase_muted};
+              - or:
+                  - lvgl.page.is_showing: page_standby
+                  - lvgl.page.is_showing: page_dial
+                  - lvgl.page.is_showing: page_face
+                  - lvgl.page.is_showing: page_music
+          then:
+            - script.execute: show_standby_page
 
   # --------------------------------------------------- Statusanzeige updaten
   - id: update_ui
@@ -1597,42 +1953,62 @@ script:
 
   # Welche Standby-Seite gezeigt wird, entscheidet sel_standby_page aus
   # packages/settings.yaml, und zwar ueber den Index: 0 Uhr, 1 Zifferblatt,
-  # 2 Gesicht. Wer eine weitere hinzufuegt, muss drei Stellen anfassen: eine
-  # Option am *Ende* von sel_standby_page, einen Zweig hier und - sofern die
-  # Seite Zeit anzeigt - die is_showing-Bedingung des Minutentakts in
-  # packages/core.yaml.
+  # 2 Gesicht. Wer eine weitere waehlbare Seite hinzufuegt, muss drei Stellen
+  # anfassen: eine Option am *Ende* von sel_standby_page, einen Zweig hier und
+  # - sofern die Seite Zeit anzeigt - die is_showing-Bedingung des
+  # Minutentakts in packages/core.yaml.
   #
-  # Ein laufender Timer sticht die Auswahl aus: dann ist immer page_standby
-  # dran, weil nur sie den Countdown traegt. Das Zifferblatt kann ihn nicht
-  # zeigen (die Ziffern staenden mitten im Kranz, deshalb blieb dort bewusst
-  # nur der Ring am Rand), und das Gesicht schon gar nicht. Von beiden ist der
-  # Ring allein aber zu wenig: er sagt "noch ein Rest", nicht wie lang.
+  # Zwei Dinge stechen die Auswahl aus, in dieser Reihenfolge geprueft:
+  #
+  #   1. Ein laufender Timer: dann ist immer page_standby dran, weil nur sie
+  #      den Countdown traegt. Das Zifferblatt kann ihn nicht zeigen (die
+  #      Ziffern staenden mitten im Kranz), das Gesicht schon gar nicht, und
+  #      der Ring allein sagt nur "noch ein Rest", nicht wie lang.
+  #   2. Laufende Musik (music_active, gesetzt ueber die optionale API-Aktion
+  #      zeige_musik): dann ist page_music dran. Niedrigere Praezedenz als der
+  #      Timer - wer kocht und nebenbei Musik hoert, will trotzdem den
+  #      Countdown sehen, nicht das Cover.
+  #
+  # page_music ist bewusst NICHT ueber sel_standby_page waehlbar - anders als
+  # Uhr/Zifferblatt/Gesicht ist sie kein Dauerzustand, den man sich aussucht,
+  # sondern erscheint automatisch genau dann, wenn music_active gilt (siehe
+  # stage_music/hide_music/music_page_sync weiter unten).
   #
   # Der Inhalt wird jeweils *vor* dem Seitenwechsel aufgefrischt, damit keine
-  # veraltete Uhrzeit aufblitzt. Das Gesicht braucht das nicht: es zeigt keine
-  # Zeit, und sein Takt laeuft von selbst an, sobald die Seite vorne liegt.
+  # veraltete Uhrzeit aufblitzt. Zifferblatt/Gesicht/Musik brauchen das nicht:
+  # sie zeigen keine Uhrzeit bzw. fuellen sich selbst (page_music ueber
+  # stage_music, das vor jedem music_active-Wechsel schon gelaufen ist).
   - id: show_standby_page
     mode: restart
     then:
       - if:
           condition:
-            lambda: |-
-              return id(sel_standby_page).active_index().value_or(0) == 1
-                  && !id(timer_active);
+            lambda: return id(timer_active);
           then:
-            - script.execute: update_dial
-            - lvgl.page.show: page_dial
+            - script.execute: update_clock
+            - lvgl.page.show: page_standby
           else:
             - if:
                 condition:
-                  lambda: |-
-                    return id(sel_standby_page).active_index().value_or(0) == 2
-                        && !id(timer_active);
+                  lambda: return id(music_active);
                 then:
-                  - lvgl.page.show: page_face
+                  - lvgl.page.show: page_music
                 else:
-                  - script.execute: update_clock
-                  - lvgl.page.show: page_standby
+                  - if:
+                      condition:
+                        lambda: return id(sel_standby_page).active_index().value_or(0) == 1;
+                      then:
+                        - script.execute: update_dial
+                        - lvgl.page.show: page_dial
+                      else:
+                        - if:
+                            condition:
+                              lambda: return id(sel_standby_page).active_index().value_or(0) == 2;
+                            then:
+                              - lvgl.page.show: page_face
+                            else:
+                              - script.execute: update_clock
+                              - lvgl.page.show: page_standby
       # Erst nach dem Seitenwechsel: update_timer_ui schreibt den Countdown nur,
       # wenn die Standby-Seite auch wirklich vorne liegt. Der Aufruf raeumt
       # ausserdem auf, wenn der letzte Timer ablief, waehrend eine andere Seite
@@ -1657,8 +2033,8 @@ script:
     then:
       # Ein Timer aendert, welche Standby-Seite die richtige ist: nur
       # page_standby traegt den Countdown (siehe show_standby_page). Liegt
-      # gerade Zifferblatt oder Gesicht vorne, wird hier umgeschaltet - und
-      # beim letzten Timer wieder zurueck.
+      # gerade Zifferblatt, Gesicht oder das Musik-Cover vorne, wird hier
+      # umgeschaltet - und beim letzten Timer wieder zurueck.
       #
       # Beide Zweige machen den Seitenwechsel selbst, statt show_standby_page
       # zu rufen: das Skript endet mit einem Aufruf von update_timer_ui, und
@@ -1680,26 +2056,37 @@ script:
               - or:
                   - lvgl.page.is_showing: page_dial
                   - lvgl.page.is_showing: page_face
+                  - lvgl.page.is_showing: page_music
               - lambda: return id(timer_active);
           then:
             - script.execute: update_clock
             - lvgl.page.show: page_standby
+      # Rueckweg beim letzten Timer: dieselbe Praezedenz wie show_standby_page
+      # (Musik vor der Auswahl in sel_standby_page), nur ohne dessen Aufruf -
+      # aus demselben Grund wie oben.
       - if:
           condition:
             and:
-              - lambda: |-
-                  return !id(timer_active)
-                      && id(sel_standby_page).active_index().value_or(0) != 0;
+              - lambda: return !id(timer_active);
               - lvgl.page.is_showing: page_standby
+              - or:
+                  - lambda: return id(music_active);
+                  - lambda: return id(sel_standby_page).active_index().value_or(0) != 0;
           then:
             - if:
                 condition:
-                  lambda: return id(sel_standby_page).active_index().value_or(0) == 1;
+                  lambda: return id(music_active);
                 then:
-                  - script.execute: update_dial
-                  - lvgl.page.show: page_dial
+                  - lvgl.page.show: page_music
                 else:
-                  - lvgl.page.show: page_face
+                  - if:
+                      condition:
+                        lambda: return id(sel_standby_page).active_index().value_or(0) == 1;
+                      then:
+                        - script.execute: update_dial
+                        - lvgl.page.show: page_dial
+                      else:
+                        - lvgl.page.show: page_face
 
       - if:
           condition:

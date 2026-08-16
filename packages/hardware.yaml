@@ -293,6 +293,27 @@ media_player:
     # inzwischen jemand anders das Mikrofon hat.
     on_announcement:
       - script.execute: announcement_guard
+    # ------------------------------------------------- Musik-Cover (page_music)
+    # media_out ist die einzige Quelle, die den eigenen Wiedergabezustand des
+    # Geraets wirklich kennt - deshalb haengt das Abschalten der Musik-Cover-
+    # Seite hier und nicht an irgendeiner HA-Automation (siehe music_active
+    # und hide_music, packages/ui.yaml, fuer die volle Begruendung). on_idle
+    # deckt sowohl ein echtes Stop-Kommando als auch das natuerliche Ende
+    # eines Streams ab.
+    #
+    # on_play/on_pause fassen dagegen music_active gar nicht an - sie
+    # aktualisieren nur das Play/Pause-Icon der (rein dekorativen, siehe
+    # page_music in packages/ui.yaml) Bedienzeile, damit es den tatsaechlichen
+    # Zustand zeigt. Aktiviert wird die Seite ausschliesslich ueber
+    # stage_music (zeige_musik-Aufruf aus Home Assistant) - sonst zeigte jede
+    # beliebige Wiedergabe ueber das Geraet sofort ein leeres Cover, auch ohne
+    # die dazugehoerige, optionale Automation.
+    on_idle:
+      - script.execute: hide_music
+    on_play:
+      - lambda: lv_label_set_text(id(lbl_music_playpause), "\U000F03E4"); // pause
+    on_pause:
+      - lambda: lv_label_set_text(id(lbl_music_playpause), "\U000F040A"); // play
 
 switch:
   # Verstaerker-Enable. GPIO46 ist ein Strapping-Pin des ESP32-S3.
