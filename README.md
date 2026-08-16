@@ -166,8 +166,13 @@ vorbereiteten Blueprints an einem Ort, im Ordner
 [`blueprints/`](blueprints/): importieren, Eingaben ausfüllen, fertig,
 statt eigenes YAML zu schreiben. Servicenamen der Lumi-eigenen Aktionen
 hängen vom kompilierten Gerätenamen ab (`esphome.<gerätename>_<aktion>`,
-z. B. `esphome.lumi_a0d0a8_zeige_hinweis`) — zu finden unter
-*Entwicklerwerkzeuge → Aktionen* bzw. *→ Entitäten*.
+z. B. `esphome.lumi_a0d0a8_zeige_hinweis`). Ausgewählt wird die passende
+Aktion direkt im Aktions-Editor der Automation, beim Ausfüllen des
+jeweiligen Blueprint-Eingabefelds — dort landet sie auch dauerhaft.
+*Entwicklerwerkzeuge → Aktionen* bzw. *→ Entitäten* eignen sich nur zum
+vorherigen Nachschlagen des genauen Namens oder für einen einmaligen
+Testaufruf; was dort eingetragen wird, ist nach dem Ausführen nicht
+gespeichert und nicht Teil einer Automation.
 
 ### Hinweis bei Ereignis
 
@@ -251,11 +256,13 @@ Blueprint [„Lumi: Wetter auf Nachfrage"](blueprints/automation/lumi/wetter_auf
 
 Importieren, daraus eine Automation anlegen und darin die eigene
 `weather.*`-Entity auswählen (Domain `weather`). Als **Wetter-Aktion**
-optional die eigene `zeige_wetter`-Aktion des Geräts suchen — der
+optional im Aktions-Editor der Automation die eigene `zeige_wetter`-Aktion
+des Geräts suchen und darin folgende drei Vorlagen eintragen. Der
 Servicename hängt vom kompilierten Gerätenamen ab
-(`esphome.<gerätename>_zeige_wetter`, z. B. `esphome.lumi_a0d0a8_zeige_wetter`,
-zu finden unter *Entwicklerwerkzeuge → Aktionen*, Suche nach "zeige_wetter")
-— und darin folgende drei Vorlagen eintragen:
+(`esphome.<gerätename>_zeige_wetter`, z. B. `esphome.lumi_a0d0a8_zeige_wetter`)
+— unbekannt lässt er sich vorab unter *Entwicklerwerkzeuge → Aktionen*
+nachschlagen (Suche nach "zeige_wetter"), dort Eingegebenes wird aber
+nicht gespeichert:
 
 ```
 zustand: {{ zustand }}
