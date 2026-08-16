@@ -119,6 +119,10 @@ micro_wake_word:
   id: mww
   microphone:
     microphone: mic
+    # channels default ist "0" - explizit hier, weil mic seit dem Dual-Mic-
+    # Umbau (packages/hardware.yaml) stereo liefert und die Wake-Word-Inferenz
+    # bewusst nur auf einem Kanal laeuft.
+    channels: 0
     gain_factor: 4
   # Nach einer Erkennung die Inferenz anhalten. Mit false lief das Wake-Word-
   # Modell waehrend des gesamten Sprachvorgangs weiter, hat auf demselben
@@ -149,11 +153,47 @@ micro_wake_word:
 
 voice_assistant:
   id: va
-  microphone: mic
+  # Beide Kanaele des Dual-Mic-Arrays statt nur einem (siehe channel: stereo
+  # in packages/hardware.yaml) - genau das Muster aus dem offiziellen
+  # home-assistant-voice-pe. Home Assistant bekommt damit zwei Audiostreams
+  # statt einem; ob das beim Fernsehton-Problem tatsaechlich hilft (das Board
+  # bewirbt die Dual-Mic-Faehigkeit primaer fuer Echo-Cancellation gegen den
+  # eigenen Lautsprecher, nicht zwingend fuer Fremdgeraeusch-Beamforming), ist
+  # am Geraet zu pruefen.
+  microphone:
+    - microphone: mic
+      channels: 0
+    - microphone: mic
+      channels: 1
   media_player: media_out
   micro_wake_word: mww
   use_wake_word: false
-  noise_suppression_level: 2
+  # Laeuft nicht auf dem Geraet: der Wert geht nur als Zahl im API-Request an
+  # Home Assistant (VoiceAssistantAudioSettings, voice_assistant.cpp:341) - die
+  # eigentliche Unterdrueckung passiert serverseitig ueber HAs
+  # webrtc-audio-processing-Bibliothek. War kurzzeitig auf 3 (high), nachdem
+  # Fernsehton teilweise mit in Befehle transkribiert wurde - seit dem
+  # Dual-Mic-Umbau oben (channels: 0/1) auf 0.
+  #
+  # Bewusst NICHT am offiziellen home-assistant-voice-pe orientiert (das faehrt
+  # ebenfalls 0/0dBFS/1) - dessen aic3204-Codec ist ein anderer Chip als unser
+  # es7210/es8311, vermutlich mit eigener Onboard-Verarbeitung. Der
+  # esp32-s3-box-3 hat denselben Chipsatz wie wir und braucht 2/31dBFS/2.0 -
+  # der naeherliegende Vergleich, und der Rueckfallwert, falls die Erkennung
+  # wieder unsauber wird, nicht Voice PEs 0. Der ESPHome-es7210-Treiber macht
+  # ohnehin kein eigenes Onboard-DSP (nur Gain/Bits/Rate ueber I2C) - was der
+  # zweite Kanal auf HA-Seite tatsaechlich bewirkt, ist von hier aus nicht
+  # einsehbar.
+  #
+  # Die 0 ist deshalb kein Nachbau eines fremden Vorbilds, sondern ein am
+  # eigenen Geraet bestaetigtes Ergebnis (16.08.2026): TV-Stoerung blieb sauber
+  # weg, und ein Vergleich gegen das unveraenderte zweite Geraet (kein
+  # Dual-Mic, `level: 2`) zeigte dieselbe Verarbeitungsdauer - die
+  # Software-Stufe kostet hier also keine zusaetzliche Zeit, die man sich mit
+  # 0 erkaufen wuerde. Auf dem unveraenderten Geraet trat im selben Test wieder
+  # die TV-Fehltranskription auf, das urspruengliche Problem ist also real und
+  # kein Zufallstreffer.
+  noise_suppression_level: 0
   auto_gain: 31dBFS
   volume_multiplier: 2.0
 

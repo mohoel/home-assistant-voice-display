@@ -211,6 +211,13 @@ audio_dac:
     sample_rate: 48000
     bits_per_sample: 16bit
 
+# channel: stereo statt frueher left - das Board hat laut Waveshare ein
+# "Onboard Dual Microphone Array", der ES7210 liefert also zwei Mikrofone im
+# selben I2S-Frame. Mit "left" ging das zweite ungenutzt verloren. Genau wie
+# im offiziellen home-assistant-voice-pe (dort i2s_mics mit channel: stereo)
+# liest dieser eine Mic-Component beide Kanaele; wer welchen Kanal daraus
+# will, entscheidet sich erst bei den Konsumenten (packages/voice.yaml):
+# micro_wake_word bleibt bei Kanal 0, voice_assistant bekommt beide.
 microphone:
   - platform: i2s_audio
     id: mic
@@ -219,7 +226,7 @@ microphone:
     adc_type: external
     sample_rate: 16000
     bits_per_sample: 16bit
-    channel: left
+    channel: stereo
 
 speaker:
   - platform: i2s_audio
