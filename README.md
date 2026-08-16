@@ -273,7 +273,7 @@ selbst spielt dabei nichts, das Zielgerät steckt im Satz. Braucht eine
 eingerichtete Music-Assistant-Integration mit mindestens einem Player;
 funktioniert mit der eingebauten lokalen Intent-Erkennung genauso wie mit
 einem LLM als Konversationsagent, weil der Satzauslöser der Assist-Pipeline
-vorgeschaltet ist.
+vorgeschaltet ist. Die Automation muss für den Sprachassistenten freigegeben werden.
 
 [![Blueprint importieren](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmohoel%2Fhome-assistant-voice-lumi%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Flumi%2Fmusik_abspielen.yaml)
 
@@ -330,9 +330,7 @@ funktioniert das nicht.
 Importieren, daraus ein Skript anlegen und darin die eigene `weather.*`-Entity
 auswählen sowie — wie bei „Wetter auf Nachfrage" oben — optional die eigene
 `zeige_wetter`-Aktion mit denselben drei Vorlagen. Anschließend das Skript
-für Sprachassistenten freigeben (Entität-Einstellungen → „Für
-Sprachassistenten verfügbar machen") — kein Satzauslöser nötig, der
-Konversationsagent ruft das Skript selbst als Werkzeug auf.
+für Sprachassistenten freigeben.
 
 ### Verzögerte Aktionen (nicht lokal)
 
@@ -367,8 +365,7 @@ auswählen.
 
 [![Blueprint importieren](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmohoel%2Fhome-assistant-voice-lumi%2Fblob%2Fmain%2Fblueprints%2Fscript%2Flumi%2Ftimer_aktion_starten.yaml)
 
-Danach nur Skript 2 für Assist freigeben (Entität-Einstellungen → „Für
-Sprachassistenten verfügbar machen"); Skript 1 bleibt intern. Der Grund für
+Danach nur Skript 2 für Assist freigeben; Skript 1 bleibt intern. Der Grund für
 die Namensauflösung in Skript 1: Der Konversationsagent bekommt zu einem
 Gerät nur Name, Domain und Bereich mitgeteilt, nie die tatsächliche
 `entity_id` — eine geratene ID schlägt zuverlässig fehl (Home Assistant
