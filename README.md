@@ -304,6 +304,19 @@ Entspannen") reicht dieses Blueprint nicht — dafür fehlt bislang ein
 eigenes LLM-Werkzeug-Skript nach dem Muster von „Freie Wetterfragen"
 unten.
 
+**Pause, weiter, nächster Titel und Lautstärke laufen bereits ohne dieses
+Blueprint** — das sind eingebaute lokale Intents von Home Assistant
+(`HassMediaPause`, `HassMediaUnpause`, `HassMediaNext`, `HassMediaPrevious`,
+`HassSetVolume`/`HassSetVolumeRelative`), keine Lumi-eigene Logik. Sätze wie
+"Pause", "Weiter", "Nächster Titel" oder "Lauter"/"Leiser um 20 Prozent"
+zielen ohne Namen oder Raum automatisch auf den Bereich des ansprechenden
+Assist-Geräts — bei Lumi also den Raum, in dem es steht — genau wie bei
+Lampen. Stehen dort mehrere `media_player`-Entities (z. B. zusätzlich ein
+Fernseher), wird's mehrdeutig; dann hilft ein Name oder Raum im Satz
+("Pause auf dem Sonos", "Lauter im Wohnzimmer"). Das gilt unabhängig vom
+gewählten Konversationsagenten und ist kein Teil dieses Blueprints — es
+läuft schon, ganz ohne Import.
+
 ### Freie Wetterfragen (optional, nicht lokal)
 
 Beantwortet offene Fragen ohne festen Satz, z. B. "Wird es morgen regnen?"
