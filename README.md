@@ -102,65 +102,26 @@ WLAN bleibt dabei erhalten, weil es nie Teil des Firmware-Images war.
 Beantwortet gezielte Wetterfragen ("Wie wird das Wetter morgen um 14 Uhr?")
 mit Icon und Temperatur auf dem Display. Anders als der Rest der Firmware
 braucht das eine einmalige Automation in Home Assistant, weil die Firmware
-sonst nie mehr als den gesprochenen Antworttext erfährt.
+sonst nie mehr als den gesprochenen Antworttext erfährt — dafür gibt es das
+Blueprint [„Lumi: Wetter auf Nachfrage"](blueprints/automation/lumi/wetter_auf_nachfrage.yaml):
 
-In der Variable `wetter_entity` die eigene `weather.*`-Entity eintragen
-(Einstellungen → Geräte & Dienste → Entitäten, Domain `weather`) und als
-neue Automation einfügen (*Einstellungen → Automationen & Szenen →
-Automationen*, YAML-Modus):
-<details>
-  <summary>Automation (aufklappen)</summary>
+[![Blueprint importieren](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmohoel%2Fhome-assistant-voice-lumi%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Flumi%2Fwetter_auf_nachfrage.yaml)
 
-```yaml
-alias: "Wetter auf Nachfrage - Satzauslöser"
-triggers:
-  - trigger: conversation
-    command:
-      - "wie wird das wetter [am] {tag} um {stunde} uhr"
-      - "wie ist das wetter [am] {tag} um {stunde} uhr"
-      - "wetter {tag} um {stunde} uhr"
-variables:
-  wetter_entity: weather.home   # <-- hier die eigene weather.*-Entity eintragen
-actions:
-  - action: weather.get_forecasts
-    target:
-      entity_id: "{{ wetter_entity }}"
-    data:
-      type: hourly
-    response_variable: vorhersage
-  - variables:
-      eintraege: "{{ vorhersage[wetter_entity].forecast }}"
-      ziel_tag: >-
-        {{ (now() + timedelta(days=1)).strftime('%Y-%m-%d') if trigger.slots.tag == 'morgen'
-           else now().strftime('%Y-%m-%d') }}
-      stunde_zahl: "{{ trigger.slots.stunde | string | regex_replace('[^0-9].*', '') | int(0) }}"
-      treffer: >-
-        {{ (eintraege | selectattr('datetime', 'match',
-             '^' + ziel_tag + 'T' + '%02d' | format(stunde_zahl)) | list
-             | first) or eintraege[0] }}
-      zustand_text: >-
-        {{ {'clear-night': 'klar', 'cloudy': 'bewölkt', 'exceptional': 'außergewöhnlich',
-            'fog': 'neblig', 'hail': 'hagelig', 'lightning': 'gewittrig',
-            'lightning-rainy': 'gewittrig mit Regen', 'partlycloudy': 'teilweise bewölkt',
-            'pouring': 'stark regnerisch', 'rainy': 'regnerisch', 'snowy': 'schneeig',
-            'snowy-rainy': 'schneeregnerisch', 'sunny': 'sonnig', 'windy': 'windig',
-            'windy-variant': 'windig'}.get(treffer.condition, treffer.condition) }}
-      tag_text: "{{ 'Morgen' if trigger.slots.tag == 'morgen' else 'Heute' }}"
-  - action: esphome.lumi_zeige_wetter   # Servicename ggf. abweichend, siehe unten
-    data:
-      zustand: "{{ treffer.condition }}"
-      temperatur: "{{ treffer.temperature }}"
-      einheit: "{{ state_attr(wetter_entity, 'temperature_unit') or '°C' }}"
-  - set_conversation_response: >-
-      {{ tag_text }} um {{ stunde_zahl }} Uhr ist es {{ zustand_text }} mit
-      {{ treffer.temperature | round(0) | int }} Grad.
+Importieren, daraus eine Automation anlegen und darin die eigene
+`weather.*`-Entity auswählen (Domain `weather`). Als **Wetter-Aktion**
+optional die eigene `zeige_wetter`-Aktion des Geräts suchen — der
+Servicename hängt vom kompilierten Gerätenamen ab
+(`esphome.<gerätename>_zeige_wetter`, z. B. `esphome.lumi_a0d0a8_zeige_wetter`,
+zu finden unter *Entwicklerwerkzeuge → Aktionen*, Suche nach "zeige_wetter")
+— und darin folgende drei Vorlagen eintragen:
+
 ```
-</details>
+zustand: {{ zustand }}
+temperatur: {{ temperatur }}
+einheit: {{ einheit }}
+```
 
-Ergibt z. B. "Morgen um 14 Uhr ist es bewölkt mit 24 Grad." Der Servicename
-hängt vom kompilierten Gerätenamen ab (`esphome.<gerätename>_zeige_wetter`,
-z. B. `esphome.lumi_a0d0a8_zeige_wetter`) — zu finden unter
-*Entwicklerwerkzeuge → Dienste* (Suche nach "zeige_wetter"). Funktioniert
+Ergibt z. B. "Morgen um 14 Uhr ist es bewölkt mit 24 Grad." Funktioniert
 unabhängig vom gewählten Konversationsagenten, auch bei einem LLM wie Claude.
 
 ### Freie Wetterfragen (optional, nicht lokal)
@@ -170,55 +131,17 @@ oder "Wie wird das Wetter übermorgen?". Braucht eine KI/LLM-Pipeline als
 Konversationsagent — mit der eingebauten lokalen Intent-Erkennung
 funktioniert das nicht.
 
-Wetter-Entity und folgendes Skript für Sprachassistenten freigeben
-(Entität-Einstellungen bzw. *Einstellungen → Automationen & Szenen →
-Skripte*, YAML-Modus) — kein Satzauslöser nötig, der Konversationsagent
-ruft das Skript selbst als Werkzeug auf:
+Dafür gibt es das Skript-Blueprint
+[„Lumi: Freie Wetterfragen"](blueprints/script/lumi/freie_wetterfragen.yaml):
 
-<details>
-  <summary>Skript (aufklappen)</summary>
+[![Blueprint importieren](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmohoel%2Fhome-assistant-voice-lumi%2Fblob%2Fmain%2Fblueprints%2Fscript%2Flumi%2Ffreie_wetterfragen.yaml)
 
-```yaml
-alias: "Wettervorhersage abrufen (LLM-Tool)"
-description: >-
-  Zustand, Temperatur und Regenwahrscheinlichkeit für einen Tag - für Fragen
-  wie "wird es morgen regnen" oder "wie wird das Wetter übermorgen".
-fields:
-  tag:
-    description: "'heute', 'morgen', 'übermorgen' oder ein Datum (YYYY-MM-DD)"
-    example: "morgen"
-    required: true
-    selector:
-      text: {}
-variables:
-  wetter_entity: weather.home   # <-- hier die eigene weather.*-Entity eintragen
-sequence:
-  - action: weather.get_forecasts
-    target:
-      entity_id: "{{ wetter_entity }}"
-    data:
-      type: daily
-    response_variable: vorhersage
-  - variables:
-      eintraege: "{{ vorhersage[wetter_entity].forecast }}"
-      tage_versatz: >-
-        {% if tag in ['heute','today'] %}0{% elif tag in ['morgen','tomorrow'] %}1{% elif tag in ['übermorgen','uebermorgen'] %}2{% else %}{{ ((as_datetime(tag) | as_local).date() - now().date()).days }}{% endif %}
-      treffer: "{{ eintraege[([tage_versatz | int(0), 0] | max, (eintraege | length) - 1) | min] }}"
-      ergebnis:
-        zustand: "{{ treffer.condition }}"
-        temperatur_max: "{{ treffer.temperature }}"
-        temperatur_min: "{{ treffer.templow }}"
-        regenwahrscheinlichkeit_prozent: "{{ treffer.precipitation_probability }}"
-  - action: esphome.lumi_zeige_wetter   # Servicename ggf. abweichend, siehe oben
-    continue_on_error: true
-    data:
-      zustand: "{{ treffer.condition }}"
-      temperatur: "{{ treffer.temperature }}"
-      einheit: "{{ state_attr(wetter_entity, 'temperature_unit') or '°C' }}"
-  - stop: "Vorhersage geliefert"
-    response_variable: ergebnis
-```
-</details>
+Importieren, daraus ein Skript anlegen und darin die eigene `weather.*`-Entity
+auswählen sowie — wie bei „Wetter auf Nachfrage" oben — optional die eigene
+`zeige_wetter`-Aktion mit denselben drei Vorlagen. Anschließend das Skript
+für Sprachassistenten freigeben (Entität-Einstellungen → „Für
+Sprachassistenten verfügbar machen") — kein Satzauslöser nötig, der
+Konversationsagent ruft das Skript selbst als Werkzeug auf.
 
 ### Verzögerte Aktionen (optional, nicht lokal)
 
@@ -234,231 +157,32 @@ Eingabeweg (Lumi, App, andere Satellites, …) und mit beliebigen eigenen
 Entities — der Name eines Geräts genügt, keine `entity_id` muss von Hand
 eingetragen werden.
 
-Zwei Skripte anlegen (*Einstellungen → Automationen & Szenen → Skripte*,
-YAML-Modus). `Timer Aktion starten` ist das Werkzeug, das für Assist
-freigegeben wird — es startet `Verzögerte Aktion` im Hintergrund und wartet
-nicht auf deren Ende, damit Assist sofort antworten kann:
+Zwei Skript-Blueprints anlegen, in dieser Reihenfolge:
 
-<details>
-  <summary>Skript 1: „Timer Aktion starten" (aufklappen)</summary>
+**1. [„Lumi: Verzögerte Aktion"](blueprints/script/lumi/verzoegerte_aktion.yaml)**
+— das Gegenstück, das nach der Wartezeit wirklich etwas tut. Löst
+Gerätenamen erst unmittelbar vor dem Warten zu echten `entity_id`s auf und
+meldet nicht eindeutig zuordenbare Geräte sofort per
+`persistent_notification`, statt erst nach Ablauf der Wartezeit stumm zu
+scheitern. Bleibt intern, wird nicht für Assist freigegeben.
 
-```yaml
-alias: Timer Aktion starten
-description: >-
-  Startet eine verzögerte Aktion im Hintergrund, ohne auf das Ende zu warten.
-  Für Assist z.B.: 'Schließe das Rollo in 10 Minuten' oder 'Schalte das Licht
-  in 5 Minuten aus'.
-fields:
-  aktion:
-    name: Aktion
-    description: Welche Aktion nach der Wartezeit ausgeführt wird
-    required: true
-    selector:
-      select:
-        options:
-          - label: An
-            value: an
-          - label: Aus
-            value: aus
-          - label: Öffnen
-            value: oeffnen
-          - label: Schließen
-            value: schliessen
-          - label: Auf Position fahren
-            value: position
-  dauer_minuten:
-    name: Dauer in Minuten
-    description: >-
-      Wartezeit bevor die Aktion ausgeführt wird. Bei Angaben unter einer
-      Minute (z.B. Sekunden) auf 1 aufrunden.
-    required: true
-    selector:
-      number:
-        min: 1
-        max: 720
-        unit_of_measurement: Minuten
-  geraete_namen:
-    name: Geräte
-    description: >-
-      Ein oder mehrere Gerätenamen wie im Satz genannt, durch Komma getrennt.
-      Bei mehrdeutigen Namen (z.B. einzelne Segmente eines Geräts wie 'Regal
-      links') zusätzlich den Raum angeben, z.B. 'Regal Wohnzimmer' statt nur
-      'Regal'. Niemals eine entity_id raten — nur den gesprochenen Namen
-      übergeben.
-    required: true
-    selector:
-      text: {}
-  position_prozent:
-    name: Position in Prozent
-    description: Nur bei Aktion 'Auf Position fahren' nötig, 0 = zu, 100 = offen
-    required: false
-    selector:
-      number:
-        min: 0
-        max: 100
-        unit_of_measurement: "%"
-max: 20
-mode: parallel
-sequence:
-  - action: script.turn_on
-    data:
-      variables:
-        aktion: "{{ aktion }}"
-        dauer_minuten: "{{ dauer_minuten }}"
-        geraete_namen: "{{ geraete_namen }}"
-        position_prozent: "{{ position_prozent | default(0) }}"
-    target:
-      entity_id: script.verzoegerte_aktion
-```
-</details>
+[![Blueprint importieren](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmohoel%2Fhome-assistant-voice-lumi%2Fblob%2Fmain%2Fblueprints%2Fscript%2Flumi%2Fverzoegerte_aktion.yaml)
 
-<details>
-  <summary>Skript 2: „Verzögerte Aktion" (aufklappen)</summary>
+**2. [„Lumi: Timer Aktion starten"](blueprints/script/lumi/timer_aktion_starten.yaml)**
+— das Werkzeug, das für Assist freigegeben wird. Startet Skript 1 im
+Hintergrund und wartet nicht auf dessen Ende, damit Assist sofort antworten
+kann. Beim Anlegen die aus Skript 1 erstellte Skript-Instanz als Eingabe
+auswählen.
 
-```yaml
-alias: Verzögerte Aktion
-description: >-
-  Führt nach einer Wartezeit eine Aktion (an, aus, öffnen, schließen,
-  Position) auf einem oder mehreren Geräten aus. Löst Gerätenamen erst
-  unmittelbar vor dem Warten zu echten entity_ids auf und meldet nicht
-  eindeutig zuordenbare Geräte sofort per persistent_notification, statt
-  erst nach Ablauf der Wartezeit stumm zu scheitern.
-fields:
-  aktion:
-    name: Aktion
-    description: Welche Aktion nach der Wartezeit ausgeführt wird
-    required: true
-    selector:
-      select:
-        options:
-          - label: An
-            value: an
-          - label: Aus
-            value: aus
-          - label: Öffnen
-            value: oeffnen
-          - label: Schließen
-            value: schliessen
-          - label: Auf Position fahren
-            value: position
-  dauer_minuten:
-    name: Dauer in Minuten
-    description: Wartezeit bevor die Aktion ausgeführt wird
-    required: true
-    selector:
-      number:
-        min: 1
-        max: 720
-        unit_of_measurement: Minuten
-  geraete_namen:
-    name: Geräte
-    description: >-
-      Ein oder mehrere Gerätenamen wie im Satz genannt, durch Komma
-      getrennt. Bei mehrdeutigen Namen zusätzlich den Raum angeben, z.B.
-      'Regal Wohnzimmer' statt nur 'Regal'.
-    required: true
-    selector:
-      text: {}
-  position_prozent:
-    name: Position in Prozent
-    description: Nur bei Aktion 'Auf Position fahren' nötig, 0 = zu, 100 = offen
-    required: false
-    selector:
-      number:
-        min: 0
-        max: 100
-        unit_of_measurement: "%"
-max: 20
-mode: parallel
-sequence:
-  # Domains, auf denen die jeweilige Aktion sinnvoll ist — bei Bedarf
-  # erweitern (z.B. um alarm_control_panel, scene, ...).
-  - variables:
-      aktion_domains:
-        an: [light, switch, cover, fan, media_player, climate, input_boolean, humidifier, vacuum, lock]
-        aus: [light, switch, cover, fan, media_player, climate, input_boolean, humidifier, vacuum, lock]
-        oeffnen: [cover]
-        schliessen: [cover]
-        position: [cover]
-  # Löst jeden übergebenen Namen gegen die echten friendly_names auf:
-  # alle Wörter des Namens müssen im friendly_name vorkommen. Genau ein
-  # Treffer -> aufgelöst, kein Treffer oder mehrdeutig -> Fehlerliste.
-  - variables:
-      aufgeloesung: |-
-        {% set domains = aktion_domains[aktion] %}
-        {% set ns = namespace(ids=[], fehler=[]) %}
-        {% for roh in geraete_namen.split(',') %}
-          {% set woerter = roh.strip().lower().split() %}
-          {% set kandidaten = namespace(ids=[]) %}
-          {% for s in states | selectattr('domain','in', domains) %}
-            {% set n = s.name | lower %}
-            {% if woerter | select('in', n) | list | length == woerter | length %}
-              {% set kandidaten.ids = kandidaten.ids + [s.entity_id] %}
-            {% endif %}
-          {% endfor %}
-          {% if kandidaten.ids | length == 1 %}
-            {% set ns.ids = ns.ids + kandidaten.ids %}
-          {% elif kandidaten.ids | length == 0 %}
-            {% set ns.fehler = ns.fehler + ['„' ~ roh.strip() ~ '“ nicht gefunden'] %}
-          {% else %}
-            {% set ns.fehler = ns.fehler + ['„' ~ roh.strip() ~ '“ mehrdeutig: ' ~ (kandidaten.ids | join(', '))] %}
-          {% endif %}
-        {% endfor %}
-        {{ {'ids': ns.ids, 'fehler': ns.fehler} }}
-  # Fail fast: nicht erst nach der Wartezeit lautlos ins Leere laufen.
-  - if:
-      - condition: template
-        value_template: "{{ aufgeloesung.fehler | length > 0 }}"
-    then:
-      - action: persistent_notification.create
-        data:
-          title: Verzögerte Aktion fehlgeschlagen
-          message: >-
-            {{ aufgeloesung.fehler | join('; ') }}. Angefragt:
-            "{{ geraete_namen }}" ({{ aktion }}, in {{ dauer_minuten }}
-            Minuten). Ausgeführt wurde nichts.
-      - stop: Geräte nicht eindeutig aufgelöst
-        error: true
-  - delay:
-      minutes: "{{ dauer_minuten }}"
-  - choose:
-      - conditions: "{{ aktion == 'an' }}"
-        sequence:
-          - action: homeassistant.turn_on
-            target:
-              entity_id: "{{ aufgeloesung.ids }}"
-      - conditions: "{{ aktion == 'aus' }}"
-        sequence:
-          - action: homeassistant.turn_off
-            target:
-              entity_id: "{{ aufgeloesung.ids }}"
-      - conditions: "{{ aktion == 'oeffnen' }}"
-        sequence:
-          - action: cover.open_cover
-            target:
-              entity_id: "{{ aufgeloesung.ids }}"
-      - conditions: "{{ aktion == 'schliessen' }}"
-        sequence:
-          - action: cover.close_cover
-            target:
-              entity_id: "{{ aufgeloesung.ids }}"
-      - conditions: "{{ aktion == 'position' }}"
-        sequence:
-          - action: cover.set_cover_position
-            data:
-              position: "{{ position_prozent | int(0) }}"
-            target:
-              entity_id: "{{ aufgeloesung.ids }}"
-```
-</details>
+[![Blueprint importieren](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmohoel%2Fhome-assistant-voice-lumi%2Fblob%2Fmain%2Fblueprints%2Fscript%2Flumi%2Ftimer_aktion_starten.yaml)
 
-Der Grund für die Namensauflösung: Der Konversationsagent bekommt zu einem
+Danach nur Skript 2 für Assist freigeben (Entität-Einstellungen → „Für
+Sprachassistenten verfügbar machen"); Skript 1 bleibt intern. Der Grund für
+die Namensauflösung in Skript 1: Der Konversationsagent bekommt zu einem
 Gerät nur Name, Domain und Bereich mitgeteilt, nie die tatsächliche
 `entity_id` — eine geratene ID schlägt zuverlässig fehl (Home Assistant
 protokolliert das nur als stille `WARNING`, der Aufruf selbst meldet
-trotzdem Erfolg). Nur das erste Skript muss für Assist freigegeben werden
-(Entität-Einstellungen von `script.timer_aktion_starten` → „Für
-Sprachassistenten verfügbar machen"); das zweite bleibt intern.
+trotzdem Erfolg).
 
 ## Einrichtung
 
@@ -522,34 +246,30 @@ Alle Einstellungen überstehen einen Neustart.
 
 Lumi braucht für den normalen Betrieb keine einzige Automation — wer aber
 gezielt etwas auf dem Display oder über den Lautsprecher auslösen will, hat
-mehrere Wege. Servicenamen hängen vom kompilierten Gerätenamen ab
-(`esphome.<gerätename>_<aktion>`, z. B. `esphome.lumi_a0d0a8_zeige_hinweis`)
-— zu finden unter *Entwicklerwerkzeuge → Dienste* bzw. *→ Entitäten*.
+mehrere Wege. Für alle unten beschriebenen liegen fertige Blueprints im
+Ordner [`blueprints/`](blueprints/) — importieren, Eingaben ausfüllen,
+fertig, statt eigenes YAML zu schreiben. Servicenamen hängen vom
+kompilierten Gerätenamen ab (`esphome.<gerätename>_<aktion>`, z. B.
+`esphome.lumi_a0d0a8_zeige_hinweis`) — zu finden unter
+*Entwicklerwerkzeuge → Aktionen* bzw. *→ Entitäten*.
 
 ### Hinweis anzeigen (`zeige_hinweis`)
 
 Zeigt für eine wählbare Dauer ein Icon mit Text in der Bildschirmmitte,
 unabhängig davon, was das Gerät gerade tut — praktisch für alles, wovon die
 Firmware selbst nichts wissen kann: eine Türklingel, ein Paket, ein
-Leck-Sensor.
-<details>
-  <summary>Automation (aufklappen)</summary>
+Leck-Sensor. Dafür gibt es das Blueprint
+[„Lumi: Hinweis bei Ereignis"](blueprints/automation/lumi/hinweis_bei_ereignis.yaml):
 
-  ```yaml
-alias: "Hinweis bei offener Haustür"
-triggers:
-  - trigger: state
-    entity_id: binary_sensor.haustuer
-    to: "on"
-actions:
-  - action: esphome.lumi_zeige_hinweis   # Servicename ggf. abweichend, siehe oben
-    data:
-      icon: "mdi:door-open"
-      nachricht: "Haustür offen"
-      sekunden: 15
-```
-</details>
+[![Blueprint importieren](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmohoel%2Fhome-assistant-voice-lumi%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Flumi%2Fhinweis_bei_ereignis.yaml)
 
+Importieren, daraus eine Automation anlegen und darin auslösende Entity
+und Zielzustand wählen (z. B. `binary_sensor.haustuer` → `on`). Als
+**Hinweis-Aktion** die eigene `zeige_hinweis`-Aktion suchen (Servicename
+hängt vom kompilierten Gerätenamen ab, z. B.
+`esphome.lumi_a0d0a8_zeige_hinweis`) und darin Icon, Text und Anzeigedauer
+eintragen, z. B. `icon: mdi:door-open`, `nachricht: Haustür offen`,
+`sekunden: 15`.
 
 `icon` versteht echte `mdi:`-Namen wie im Home-Assistant-Icon-Picker, aber
 nur eine feste, eingebettete Auswahl. Ein nicht gelisteter Name zeigt nur
@@ -582,31 +302,21 @@ aber einen Neubau der Firmware.
 Keine eigene Funktion von Lumi, sondern die eingebaute Home-Assistant-Aktion
 `assist_satellite.announce` — funktioniert auf jedem `assist_satellite`-Gerät
 (auch Nabu Casas Voice PE) und spielt Text als Ansage ab, ohne Wake Word,
-auch während das Gerät gerade lauscht:
+auch während das Gerät gerade lauscht. Dafür gibt es das Blueprint
+[„Lumi: Ansage bei Ereignis"](blueprints/automation/lumi/ansage_bei_ereignis.yaml):
 
-<details>
-  <summary>Automation (aufklappen)</summary>
+[![Blueprint importieren](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmohoel%2Fhome-assistant-voice-lumi%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Flumi%2Fansage_bei_ereignis.yaml)
 
-  ```yaml
-alias: "Ansage: Waschmaschine fertig"
-triggers:
-  - trigger: state
-    entity_id: sensor.waschmaschine_status
-    to: "fertig"
-actions:
-  - action: assist_satellite.announce
-    target:
-      entity_id: assist_satellite.lumi   # Entity-ID ggf. abweichend, siehe oben
-    data:
-      message: "Die Waschmaschine ist fertig."
-```
-</details>
+Importieren, daraus eine Automation anlegen und darin auslösende Entity,
+Zielzustand, das Assist-Satellite-Gerät (z. B. Lumi) und den Text wählen —
+etwa `sensor.waschmaschine_status` → `fertig`, „Die Waschmaschine ist
+fertig."
 
-
-`assist_satellite.ask_question` funktioniert genauso, erwartet danach aber
-eine gesprochene Antwort — das Gerät zeigt dabei automatisch das
-Fragezeichen-Icon. Beide Aktionen lassen sich mit `zeige_hinweis` in
-derselben Automation kombinieren, etwa bei einer Video-Türklingel.
+Das Blueprint kennt zusätzlich eine Option „Als Rückfrage stellen": nutzt
+`ask_question` statt `announce`, erwartet danach eine gesprochene Antwort
+und zeigt dabei automatisch das Fragezeichen-Icon. Die optionale
+Zusatzaktion lässt sich z. B. mit `zeige_hinweis` kombinieren, etwa bei
+einer Video-Türklingel.
 
 Umgekehrt melden sich Tipp und Doppeltipp auf den Bildschirm als Event
 (`single_press`/`double_press`) bei Home Assistant, auswertbar in einer

@@ -1,0 +1,79 @@
+blueprint:
+  name: "Lumi: Freie Wetterfragen (LLM-Tool)"
+  description: >-
+    Skript für einen LLM-Konversationsagenten als Werkzeug: beantwortet
+    offene Wetterfragen ohne festen Satz, z. B. "Wird es morgen regnen?"
+    oder "Wie wird das Wetter übermorgen?". Braucht eine KI/LLM-Pipeline als
+    Konversationsagent — mit der eingebauten lokalen Intent-Erkennung
+    funktioniert das nicht. Für feste Sätze mit Uhrzeit stattdessen das
+    Automations-Blueprint „Lumi: Wetter auf Nachfrage" verwenden.
+
+    Nach dem Erstellen muss die Skript-Entity noch für Sprachassistenten
+    freigegeben werden (Entität-Einstellungen → „Für Sprachassistenten
+    verfügbar machen") — kein Satzauslöser nötig, der Konversationsagent
+    ruft das Skript selbst als Werkzeug auf.
+
+    Die Wetter-Aktion ist optional und absichtlich frei wählbar, weil ihr
+    Servicename vom kompilierten Gerätenamen abhängt: als Aktion die eigene
+    `zeige_wetter`-Aktion des Geräts suchen und darin folgende drei Vorlagen
+    eintragen —
+
+    ```
+    zustand: {{ zustand }}
+    temperatur: {{ temperatur }}
+    einheit: {{ einheit }}
+    ```
+  domain: script
+  source_url: https://github.com/mohoel/home-assistant-voice-lumi/blob/main/blueprints/script/lumi/freie_wetterfragen.yaml
+  homeassistant:
+    min_version: "2024.10.0"
+  input:
+    wetter_entity:
+      name: Wetter-Entity
+      description: Die eigene `weather.*`-Entity, die die Vorhersage liefert.
+      selector:
+        entity:
+          domain: weather
+    zeige_wetter_aktion:
+      name: Wetter-Aktion (optional)
+      description: Die Lumi-Aktion `zeige_wetter` — siehe Beschreibung oben.
+      default: []
+      selector:
+        action: {}
+
+fields:
+  tag:
+    name: Tag
+    description: "'heute', 'morgen', 'übermorgen' oder ein Datum (YYYY-MM-DD)"
+    example: "morgen"
+    required: true
+    selector:
+      text: {}
+
+variables:
+  wetter_entity: !input wetter_entity
+
+sequence:
+  - action: weather.get_forecasts
+    target:
+      entity_id: !input wetter_entity
+    data:
+      type: daily
+    response_variable: vorhersage
+  - variables:
+      eintraege: "{{ vorhersage[wetter_entity].forecast }}"
+      tage_versatz: >-
+        {% if tag in ['heute','today'] %}0{% elif tag in ['morgen','tomorrow'] %}1{% elif tag in ['übermorgen','uebermorgen'] %}2{% else %}{{ ((as_datetime(tag) | as_local).date() - now().date()).days }}{% endif %}
+      treffer: "{{ eintraege[([tage_versatz | int(0), 0] | max, (eintraege | length) - 1) | min] }}"
+      zustand: "{{ treffer.condition }}"
+      temperatur: "{{ treffer.temperature }}"
+      einheit: "{{ state_attr(wetter_entity, 'temperature_unit') or '°C' }}"
+      ergebnis:
+        zustand: "{{ treffer.condition }}"
+        temperatur_max: "{{ treffer.temperature }}"
+        temperatur_min: "{{ treffer.templow }}"
+        regenwahrscheinlichkeit_prozent: "{{ treffer.precipitation_probability }}"
+  - if: []
+    then: !input zeige_wetter_aktion
+  - stop: "Vorhersage geliefert"
+    response_variable: ergebnis
