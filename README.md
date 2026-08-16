@@ -23,9 +23,10 @@ Gesicht.
 - [Blueprints](#blueprints)
   - [Hinweis bei Ereignis](#hinweis-bei-ereignis)
   - [Ansage bei Ereignis](#ansage-bei-ereignis)
-  - [Wetter auf Nachfrage (optional)](#wetter-auf-nachfrage-optional)
-  - [Freie Wetterfragen (optional, nicht lokal)](#freie-wetterfragen-optional-nicht-lokal)
-  - [Verzögerte Aktionen (optional, nicht lokal)](#verzögerte-aktionen-optional-nicht-lokal)
+  - [Wetter auf Nachfrage (lokal)](#wetter-auf-nachfrage-lokal)
+  - [Musik abspielen (lokal)](#musik-abspielen-lokal)
+  - [Freie Wetterfragen (nicht lokal)](#freie-wetterfragen-nicht-lokal)
+  - [Verzögerte Aktionen (nicht lokal)](#verzögerte-aktionen-nicht-lokal)
 - [Hintergrund](#hintergrund)
 - [Lizenz](#lizenz)
 
@@ -239,7 +240,7 @@ Umgekehrt melden sich Tipp und Doppeltipp auf den Bildschirm als Event
 eigenen Automation — siehe Entity **Displayberührung** unter
 [Bedienung](#bedienung).
 
-### Wetter auf Nachfrage (optional)
+### Wetter auf Nachfrage (lokal)
 
 Beantwortet gezielte Wetterfragen ("Wie wird das Wetter morgen um 14 Uhr?")
 mit Icon und Temperatur auf dem Display. Anders als der Rest der Firmware
@@ -264,7 +265,7 @@ einheit: {{ einheit }}
 Ergibt z. B. "Morgen um 14 Uhr ist es bewölkt mit 24 Grad." Funktioniert
 unabhängig vom gewählten Konversationsagenten, auch bei einem LLM wie Claude.
 
-### Musik abspielen (optional)
+### Musik abspielen (lokal)
 
 Leitet einen Musikwunsch per Sprache direkt an einen
 [Music-Assistant](https://www.music-assistant.io/)-Player weiter — Lumi
@@ -317,7 +318,7 @@ Fernseher), wird's mehrdeutig; dann hilft ein Name oder Raum im Satz
 gewählten Konversationsagenten und ist kein Teil dieses Blueprints — es
 läuft schon, ganz ohne Import.
 
-### Freie Wetterfragen (optional, nicht lokal)
+### Freie Wetterfragen (nicht lokal)
 
 Beantwortet offene Fragen ohne festen Satz, z. B. "Wird es morgen regnen?"
 oder "Wie wird das Wetter übermorgen?". Braucht eine KI/LLM-Pipeline als
@@ -333,7 +334,7 @@ für Sprachassistenten freigeben (Entität-Einstellungen → „Für
 Sprachassistenten verfügbar machen") — kein Satzauslöser nötig, der
 Konversationsagent ruft das Skript selbst als Werkzeug auf.
 
-### Verzögerte Aktionen (optional, nicht lokal)
+### Verzögerte Aktionen (nicht lokal)
 
 Führt eine Aktion nach einer Wartezeit aus, z. B. "Schalte das Licht in 5
 Minuten aus", "Schließe das Rollo in 10 Minuten" oder "Fahr das Rollo in 20
