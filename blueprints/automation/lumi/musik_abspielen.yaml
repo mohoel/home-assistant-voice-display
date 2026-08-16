@@ -1,0 +1,125 @@
+blueprint:
+  name: "Lumi: Musik abspielen (Music Assistant)"
+  description: >-
+    Leitet einen Musikwunsch direkt an einen Music-Assistant-Player weiter,
+    ganz ohne Firmware-Änderung — das Zielgerät steckt im Sprachbefehl
+    selbst, nicht in Lumis eigener Audio-Pipeline. Braucht die eingebaute
+    lokale Intent-Erkennung als Konversationsagent, funktioniert aber genauso
+    mit einem LLM wie Claude, weil der Satzauslöser der Assist-Pipeline
+    vorgeschaltet ist. Für frei formulierte Musikwünsche ("Spiel mal was
+    Entspanntes") reicht das nicht — dafür bräuchte es ein eigenes
+    LLM-Werkzeug-Skript nach demselben Muster wie „Freie Wetterfragen".
+
+    Angelehnt an das offizielle Music-Assistant-Blueprint
+    ["Lokale Sprachsteuerung"](https://github.com/music-assistant/voice-support),
+    aber auf sechs feste Medientypen verkürzt (deren `media_type`-Werte direkt
+    aus `music_assistant.play_media`) und um Podcasts ergänzt.
+
+    Alle Sätze beginnen mit „Spiele"/„Höre"/„Spiel", gefolgt vom Medientyp
+    (Künstler/Band/Gruppe, Lied/Titel/Song, Album/Platte, Playlist/
+    Wiedergabeliste, Podcast, Radiosender/Radio/Sender) und dem Namen.
+    Optional folgt bei Lied und Album zusätzlich "vom Künstler …" (wörtlich
+    mit dem Wort „Künstler"/„Band"/„Gruppe" — ohne dieses Wort landet der
+    Künstlername als Teil des Titels/Albumnamens, was Music Assistant meist
+    trotzdem findet, nur weniger präzise), und immer optional ein Zielraum
+    oder -gerät ("in der Küche", "auf dem Wohnzimmer-Lautsprecher") — fehlt
+    er, spielt der unten gewählte Standard-Player.
+
+    Beispiele:
+
+    ```
+
+    Spiele den Künstler Herbert Grönemeyer im Wohnzimmer
+
+    Höre das Album Mensch vom Künstler Herbert Grönemeyer in der Küche
+
+    Spiele den Titel Bochum im Schlafzimmer
+
+    Höre die Playlist Fokus Musik auf dem Sonos
+
+    Spiele den Podcast Fest und Flauschig
+
+    Höre das Radio Deutschlandfunk in der Küche
+
+    ```
+
+    Die Zielsuche prüft in dieser Reihenfolge: ein Player- oder
+    Bereichsname im Satz, dann der Bereich des ansprechenden Assist-Geräts,
+    zuletzt der Standard-Player unten.
+  domain: automation
+  source_url: https://github.com/mohoel/home-assistant-voice-lumi/blob/main/blueprints/automation/lumi/musik_abspielen.yaml
+  homeassistant:
+    min_version: "2024.10.0"
+  input:
+    standard_player:
+      name: Standard-Media-Player
+      description: >-
+        Der Music-Assistant-Player, der spielt, wenn der Satz weder einen
+        passenden Bereich noch ein passendes Gerät nennt.
+      selector:
+        entity:
+          filter:
+            integration: music_assistant
+            domain: media_player
+
+triggers:
+  - trigger: conversation
+    command:
+      - "(spiele|höre|spiel) [(den|die) ](künstler|band|gruppe) {medium} [(im|in|auf|über) [(dem|der) ]{ziel}]"
+    id: artist
+  - trigger: conversation
+    command:
+      - "(spiele|höre|spiel) [(das|den) ](lied|titel|song) {medium} [(von [(dem|der) ]|vom )(künstler|band|gruppe) {kuenstler}] [(im|in|auf|über) [(dem|der) ]{ziel}]"
+    id: track
+  - trigger: conversation
+    command:
+      - "(spiele|höre|spiel) [(das|die) ](album|platte) {medium} [(von [(dem|der) ]|vom )(künstler|band|gruppe) {kuenstler}] [(im|in|auf|über) [(dem|der) ]{ziel}]"
+    id: album
+  - trigger: conversation
+    command:
+      - "(spiele|höre|spiel) [die ](playlist|wiedergabeliste) {medium} [(im|in|auf|über) [(dem|der) ]{ziel}]"
+    id: playlist
+  - trigger: conversation
+    command:
+      - "(spiele|höre|spiel) [den ]podcast {medium} [(im|in|auf|über) [(dem|der) ]{ziel}]"
+    id: podcast
+  - trigger: conversation
+    command:
+      - "(spiele|höre|spiel) [(den|das) ](radiosender|radio|sender) {medium} [(im|in|auf|über) [(dem|der) ]{ziel}]"
+    id: radio
+
+conditions: []
+
+actions:
+  - variables:
+      standard_player: !input standard_player
+      medientyp: "{{ trigger.id }}"
+      assist_geraet_id: "{{ trigger.device_id }}"
+      medium: "{{ trigger.slots.medium }}"
+      ziel_name: "{{ trigger.slots.ziel | default }}"
+      spieldaten:
+        media_id: "{{ trigger.slots.medium }}"
+        media_type: "{{ medientyp }}"
+        artist: "{{ trigger.slots.kuenstler | default }}"
+      spieler_nach_playername: >-
+        {{ integration_entities('music_assistant') | expand
+           | selectattr('name', 'match', ziel_name ~ '$', ignorecase=true)
+           | map(attribute='entity_id') | list }}
+      spieler_nach_bereichsname: >-
+        {{ areas() | map('area_name')
+           | select('match', ziel_name ~ '$', ignorecase=true)
+           | map('area_entities') | sum(start=[])
+           | select('in', integration_entities('music_assistant')) | list }}
+      spieler_nach_geraetebereich: >-
+        {{ area_entities(area_id(assist_geraet_id))
+           | select('in', integration_entities('music_assistant')) | list }}
+      media_player_ziel: |
+        {{ spieler_nach_playername or spieler_nach_bereichsname
+           or spieler_nach_geraetebereich or [standard_player] }}
+      media_player_name: "{{ media_player_ziel | map('state_attr', 'friendly_name') | join(', ') }}"
+  - alias: Medium an den ermittelten Music-Assistant-Player schicken
+    action: music_assistant.play_media
+    target:
+      entity_id: "{{ media_player_ziel }}"
+    data: "{{ dict(spieldaten.items() | selectattr('1')) }}"
+  - set_conversation_response: "{{ medium }} wird auf {{ media_player_name }} abgespielt"
