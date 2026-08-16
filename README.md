@@ -264,6 +264,46 @@ einheit: {{ einheit }}
 Ergibt z. B. "Morgen um 14 Uhr ist es bewölkt mit 24 Grad." Funktioniert
 unabhängig vom gewählten Konversationsagenten, auch bei einem LLM wie Claude.
 
+### Musik abspielen (optional)
+
+Leitet einen Musikwunsch per Sprache direkt an einen
+[Music-Assistant](https://www.music-assistant.io/)-Player weiter — Lumi
+selbst spielt dabei nichts, das Zielgerät steckt im Satz. Braucht eine
+eingerichtete Music-Assistant-Integration mit mindestens einem Player;
+funktioniert mit der eingebauten lokalen Intent-Erkennung genauso wie mit
+einem LLM als Konversationsagent, weil der Satzauslöser der Assist-Pipeline
+vorgeschaltet ist.
+
+[![Blueprint importieren](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmohoel%2Fhome-assistant-voice-lumi%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Flumi%2Fmusik_abspielen.yaml)
+
+Importieren, daraus eine Automation anlegen und darin einen
+**Standard-Media-Player** wählen (die Music-Assistant-Entity, die spielt,
+wenn der Satz keinen Raum oder kein Gerät nennt). Erkannt werden sechs
+Medientypen, jeweils eingeleitet mit "Spiele"/"Höre"/"Spiel":
+
+| Medientyp | Beispielsatz |
+|---|---|
+| Künstler/Band/Gruppe | "Spiele den Künstler Herbert Grönemeyer im Wohnzimmer" |
+| Lied/Titel/Song | "Spiele den Titel Bochum im Schlafzimmer" |
+| Album/Platte | "Höre das Album Mensch vom Künstler Herbert Grönemeyer in der Küche" |
+| Playlist/Wiedergabeliste | "Höre die Playlist Fokus Musik auf dem Sonos" |
+| Podcast | "Spiele den Podcast Fest und Flauschig" |
+| Radiosender/Radio/Sender | "Höre das Radio Deutschlandfunk in der Küche" |
+
+Bei Lied und Album lässt sich zusätzlich ein Künstler nennen — wörtlich mit
+dem Wort "Künstler"/"Band"/"Gruppe" ("… vom Künstler …" / "… von der Band
+…"), sonst landet der Name als Teil des Titels/Albumnamens, was Music
+Assistant meist trotzdem findet, nur weniger präzise. Der optionale Zielraum bzw.
+das Zielgerät am Satzende wird zuerst gegen die Namen aller
+Music-Assistant-Player geprüft, dann gegen Bereichsnamen; ohne Treffer
+zählt der Bereich des ansprechenden Assist-Geräts, erst danach der oben
+gewählte Standard-Player.
+
+Für frei formulierte Musikwünsche ohne festen Satz ("Spiel mal was zum
+Entspannen") reicht dieses Blueprint nicht — dafür fehlt bislang ein
+eigenes LLM-Werkzeug-Skript nach dem Muster von „Freie Wetterfragen"
+unten.
+
 ### Freie Wetterfragen (optional, nicht lokal)
 
 Beantwortet offene Fragen ohne festen Satz, z. B. "Wird es morgen regnen?"
