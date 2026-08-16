@@ -141,15 +141,17 @@ actions:
                "artist": kuenstler, "media_type": [medientyp],
                "limit": 25}.items() | selectattr('1')) }}
   - variables:
-      mass_treffer_liste: >-
-        {{ mass_suche[mass_ergebnisfeld]
-           if mass_suche is defined and mass_suche is mapping else [] }}
-      mass_treffer: >-
-        {{ (mass_treffer_liste
-            | selectattr('name', 'match', '^' ~ medium ~ '$', ignorecase=true)
-            | list or mass_treffer_liste) | first | default(none) }}
+      mass_alle_uris: >-
+        {{ (mass_suche[mass_ergebnisfeld]
+            if mass_suche is defined and mass_suche is mapping else [])
+           | map(attribute='uri') | list }}
+      mass_exakte_uris: >-
+        {{ (mass_suche[mass_ergebnisfeld]
+            if mass_suche is defined and mass_suche is mapping else [])
+           | selectattr('name', 'match', '^' ~ medium ~ '$', ignorecase=true)
+           | map(attribute='uri') | list }}
       spieldaten:
-        media_id: "{{ mass_treffer.uri if mass_treffer else medium }}"
+        media_id: "{{ (mass_exakte_uris or mass_alle_uris) | first | default(medium) }}"
         media_type: "{{ medientyp }}"
         artist: "{{ kuenstler }}"
   - alias: Medium an den ermittelten Music-Assistant-Player schicken
