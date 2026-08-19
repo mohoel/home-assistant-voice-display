@@ -1,12 +1,12 @@
 blueprint:
-  name: "Lumi: Free-Form Weather Questions (LLM Tool)"
+  name: "🇬🇧 Lumi: Free-Form Weather Questions (LLM Tool)"
   description: >-
     A script for an LLM conversation agent to use as a tool: answers
     open-ended weather questions without a fixed sentence pattern, e.g.
     "Will it rain tomorrow?" or "What will the weather be like the day
     after tomorrow?". Needs an AI/LLM pipeline as the conversation agent —
     this doesn't work with the built-in local intent recognition. For
-    fixed sentences with a time, use the automation blueprint "Lumi:
+    fixed sentences with a time, use the automation blueprint "🇬🇧 Lumi:
     Weather on Request" instead.
 
     After creating it, the script entity still needs to be exposed to

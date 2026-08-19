@@ -1,5 +1,5 @@
 blueprint:
-  name: "Lumi: Weather on Request"
+  name: "🇬🇧 Lumi: Weather on Request"
   description: >-
     Answers specific weather questions with a time ("What will the weather
     be like tomorrow at 2 pm?") with an icon and temperature on Lumi's
@@ -7,7 +7,7 @@ blueprint:
     with an LLM like Claude as the conversation agent, because the
     sentence trigger runs ahead of the Assist pipeline. Open-ended
     questions without a fixed sentence pattern ("Will it rain tomorrow?")
-    are instead answered by the script blueprint "Lumi: Free-Form Weather
+    are instead answered by the script blueprint "🇬🇧 Lumi: Free-Form Weather
     Questions".
 
     The weather action is optional and deliberately left free to choose,

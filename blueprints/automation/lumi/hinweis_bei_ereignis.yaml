@@ -1,5 +1,5 @@
 blueprint:
-  name: "Lumi: Hinweis bei Ereignis"
+  name: "🇩🇪 Lumi: Hinweis bei Ereignis"
   description: >-
     Zeigt für eine wählbare Dauer ein Icon mit Text auf Lumis Display, sobald
     eine Entity einen bestimmten Zustand erreicht — praktisch für alles,

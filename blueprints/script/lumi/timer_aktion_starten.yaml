@@ -1,12 +1,12 @@
 blueprint:
-  name: "Lumi: Timer Aktion starten"
+  name: "🇩🇪 Lumi: Timer Aktion starten"
   description: >-
     Werkzeug für den Konversationsagenten: startet eine verzögerte Aktion
     im Hintergrund, ohne auf das Ende zu warten, damit Assist sofort
     antworten kann. Für Assist z.B.: 'Schließe das Rollo in 10 Minuten'
     oder 'Schalte das Licht in 5 Minuten aus'.
 
-    Braucht das Skript-Blueprint „Lumi: Verzögerte Aktion" als Gegenstück —
+    Braucht das Skript-Blueprint „🇩🇪 Lumi: Verzögerte Aktion" als Gegenstück —
     erst dort eine Instanz anlegen und hier auswählen. Kein
     Lumi-spezifisches Feature: funktioniert mit jedem Assist-fähigen
     Eingabeweg (Lumi, App, andere Satellites, …) und beliebigen eigenen
@@ -23,7 +23,7 @@ blueprint:
     verzoegerte_aktion_script:
       name: Skript „Verzögerte Aktion“
       description: >-
-        Die aus dem Blueprint „Lumi: Verzögerte Aktion" erstellte
+        Die aus dem Blueprint „🇩🇪 Lumi: Verzögerte Aktion" erstellte
         Skript-Instanz.
       selector:
         entity:

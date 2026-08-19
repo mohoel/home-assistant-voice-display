@@ -1,5 +1,5 @@
 blueprint:
-  name: "Lumi: Announcement on Event"
+  name: "🇬🇧 Lumi: Announcement on Event"
   description: >-
     Plays an announcement as soon as an entity reaches a certain state —
     without a wake word, even while the device is currently listening.
