@@ -9,6 +9,8 @@ ESPHome firmware for the **Waveshare ESP32-S3-Touch-AMOLED-1.75**: a round
 Lumi shows what's happening right on the display — listening, thinking,
 replying — optionally with a small animated face.
 
+<img width="4032" height="3024" alt="IMG_6913" src="https://github.com/user-attachments/assets/01953505-16d6-4f89-a1f1-64327d13944e" />
+
 ## Table of Contents
 
 - [Getting to Know Lumi](#getting-to-know-lumi)
