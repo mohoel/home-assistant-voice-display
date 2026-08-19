@@ -12,7 +12,7 @@ blueprint:
     optional extra action is handy, for example, to also call
     `zeige_hinweis` — for a video doorbell.
   domain: automation
-  source_url: https://github.com/mohoel/home-assistant-voice-lumi/blob/main/blueprints/automation/lumi/en/ansage_bei_ereignis.yaml
+  source_url: https://github.com/mohoel/home-assistant-voice-display/blob/main/blueprints/automation/lumi/en/ansage_bei_ereignis.yaml
   homeassistant:
     min_version: "2024.10.0"
   input:

@@ -25,7 +25,7 @@ blueprint:
     einheit: {{ unit }}
     ```
   domain: script
-  source_url: https://github.com/mohoel/home-assistant-voice-lumi/blob/main/blueprints/script/lumi/en/freie_wetterfragen.yaml
+  source_url: https://github.com/mohoel/home-assistant-voice-display/blob/main/blueprints/script/lumi/en/freie_wetterfragen.yaml
   homeassistant:
     min_version: "2024.10.0"
   input:

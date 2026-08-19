@@ -7,7 +7,7 @@
       "ota": {
         "path": "firmware.ota.bin",
         "md5": "159f8a455ce04e31cee2634ff6aa37a3",
-        "release_url": "https://github.com/mohoel/home-assistant-voice-lumi/releases/tag/v0.5.9"
+        "release_url": "https://github.com/mohoel/home-assistant-voice-display/releases/tag/v0.5.9"
       }
     }
   ]

@@ -10,9 +10,9 @@ blueprint:
     (Aktions-Editor öffnen, nach dem kompilierten Gerätenamen suchen, z. B.
     „lumi_a0d0a8") und dort Icon, Text und Anzeigedauer eintragen. Welche
     `mdi:`-Icons eingebettet sind, steht in der
-    [Lumi-Doku](https://github.com/mohoel/home-assistant-voice-lumi#hinweis-anzeigen-zeige_hinweis).
+    [Lumi-Doku](https://github.com/mohoel/home-assistant-voice-display#hinweis-anzeigen-zeige_hinweis).
   domain: automation
-  source_url: https://github.com/mohoel/home-assistant-voice-lumi/blob/main/blueprints/automation/lumi/hinweis_bei_ereignis.yaml
+  source_url: https://github.com/mohoel/home-assistant-voice-display/blob/main/blueprints/automation/lumi/hinweis_bei_ereignis.yaml
   homeassistant:
     min_version: "2024.10.0"
   input:

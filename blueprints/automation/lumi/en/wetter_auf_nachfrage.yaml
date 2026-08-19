@@ -24,7 +24,7 @@ blueprint:
     Without a chosen action, Lumi still replies out loud, it just shows
     nothing extra on the display.
   domain: automation
-  source_url: https://github.com/mohoel/home-assistant-voice-lumi/blob/main/blueprints/automation/lumi/en/wetter_auf_nachfrage.yaml
+  source_url: https://github.com/mohoel/home-assistant-voice-display/blob/main/blueprints/automation/lumi/en/wetter_auf_nachfrage.yaml
   homeassistant:
     min_version: "2024.10.0"
   input:

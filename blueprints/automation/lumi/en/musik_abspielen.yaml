@@ -59,7 +59,7 @@ blueprint:
     nothing gets any less reliable because of this step, just a little
     slower.
   domain: automation
-  source_url: https://github.com/mohoel/home-assistant-voice-lumi/blob/main/blueprints/automation/lumi/en/musik_abspielen.yaml
+  source_url: https://github.com/mohoel/home-assistant-voice-display/blob/main/blueprints/automation/lumi/en/musik_abspielen.yaml
   homeassistant:
     min_version: "2024.10.0"
   input:
