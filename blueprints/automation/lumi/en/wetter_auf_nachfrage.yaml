@@ -1,0 +1,95 @@
+blueprint:
+  name: "Lumi: Weather on Request"
+  description: >-
+    Answers specific weather questions with a time ("What will the weather
+    be like tomorrow at 2 pm?") with an icon and temperature on Lumi's
+    display. Needs the built-in local intent recognition — but also works
+    with an LLM like Claude as the conversation agent, because the
+    sentence trigger runs ahead of the Assist pipeline. Open-ended
+    questions without a fixed sentence pattern ("Will it rain tomorrow?")
+    are instead answered by the script blueprint "Lumi: Free-Form Weather
+    Questions".
+
+    The weather action is optional and deliberately left free to choose,
+    because its service name depends on the compiled device name: as the
+    action, look up the device's own `zeige_wetter` action and fill in
+    these three templates —
+
+    ```
+    zustand: {{ condition }}
+    temperatur: {{ temperature }}
+    einheit: {{ unit }}
+    ```
+
+    Without a chosen action, Lumi still replies out loud, it just shows
+    nothing extra on the display.
+  domain: automation
+  source_url: https://github.com/mohoel/home-assistant-voice-display/blob/main/blueprints/automation/lumi/en/wetter_auf_nachfrage.yaml
+  homeassistant:
+    min_version: "2024.10.0"
+  input:
+    weather_entity:
+      name: Weather Entity
+      description: Your own `weather.*` entity that provides the forecast.
+      selector:
+        entity:
+          domain: weather
+    sentences:
+      name: Trigger Sentences
+      description: >-
+        Sentences to react to. `{day}` and `{hour}` are placeholders, `[the]`
+        an optional word.
+      default:
+        - "what will the weather be [like] [on] {day} at {hour}"
+        - "how (is|will) the weather [going to be] [on] {day} at {hour}"
+        - "weather {day} at {hour}"
+      selector:
+        text:
+          multiple: true
+    zeige_wetter_aktion:
+      name: Weather Action (optional)
+      description: The Lumi action `zeige_wetter` — see the description above.
+      default: []
+      selector:
+        action: {}
+
+triggers:
+  - trigger: conversation
+    command: !input sentences
+
+variables:
+  weather_entity: !input weather_entity
+
+actions:
+  - action: weather.get_forecasts
+    target:
+      entity_id: !input weather_entity
+    data:
+      type: hourly
+    response_variable: forecast
+  - variables:
+      entries: "{{ forecast[weather_entity].forecast }}"
+      target_day: >-
+        {{ (now() + timedelta(days=1)).strftime('%Y-%m-%d') if trigger.slots.day in ['tomorrow', 'morgen']
+           else now().strftime('%Y-%m-%d') }}
+      hour_number: "{{ trigger.slots.hour | string | regex_replace('[^0-9].*', '') | int(0) }}"
+      match: >-
+        {{ (entries | selectattr('datetime', 'match',
+             '^' + target_day + 'T' + '%02d' | format(hour_number)) | list
+             | first) or entries[0] }}
+      condition: "{{ match.condition }}"
+      temperature: "{{ match.temperature }}"
+      unit: "{{ state_attr(weather_entity, 'temperature_unit') or '°C' }}"
+      condition_text: >-
+        {{ {'clear-night': 'clear', 'cloudy': 'cloudy', 'exceptional': 'unusual',
+            'fog': 'foggy', 'hail': 'hailing', 'lightning': 'stormy',
+            'lightning-rainy': 'stormy with rain', 'partlycloudy': 'partly cloudy',
+            'pouring': 'pouring rain', 'rainy': 'rainy', 'snowy': 'snowy',
+            'snowy-rainy': 'sleeting', 'sunny': 'sunny', 'windy': 'windy',
+            'windy-variant': 'windy'}.get(match.condition, match.condition) }}
+      day_text: "{{ 'Tomorrow' if trigger.slots.day in ['tomorrow', 'morgen'] else 'Today' }}"
+  - if: []
+    then: !input zeige_wetter_aktion
+  - set_conversation_response: >-
+      {{ day_text }} at {{ hour_number }} it will be {{ condition_text }} with
+      {{ temperature | round(0) | int }} degrees.

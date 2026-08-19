@@ -62,7 +62,7 @@ blueprint:
     rohe, gesprochene Name wie zuvor — nichts wird dadurch unzuverlässiger
     als ohne diesen Schritt, nur ein klein wenig langsamer.
   domain: automation
-  source_url: https://github.com/mohoel/home-assistant-voice-lumi/blob/main/blueprints/automation/lumi/musik_abspielen.yaml
+  source_url: https://github.com/mohoel/home-assistant-voice-display/blob/main/blueprints/automation/lumi/musik_abspielen.yaml
   homeassistant:
     min_version: "2024.10.0"
 

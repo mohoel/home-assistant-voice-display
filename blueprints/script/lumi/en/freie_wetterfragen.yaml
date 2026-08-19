@@ -1,0 +1,80 @@
+blueprint:
+  name: "Lumi: Free-Form Weather Questions (LLM Tool)"
+  description: >-
+    A script for an LLM conversation agent to use as a tool: answers
+    open-ended weather questions without a fixed sentence pattern, e.g.
+    "Will it rain tomorrow?" or "What will the weather be like the day
+    after tomorrow?". Needs an AI/LLM pipeline as the conversation agent —
+    this doesn't work with the built-in local intent recognition. For
+    fixed sentences with a time, use the automation blueprint "Lumi:
+    Weather on Request" instead.
+
+    After creating it, the script entity still needs to be exposed to
+    voice assistants (entity settings → "Expose to voice assistants") — no
+    sentence trigger needed, the conversation agent calls the script
+    itself as a tool.
+
+    The weather action is optional and deliberately left free to choose,
+    because its service name depends on the compiled device name: as the
+    action, look up the device's own `zeige_wetter` action and fill in
+    these three templates —
+
+    ```
+    zustand: {{ condition }}
+    temperatur: {{ temperature }}
+    einheit: {{ unit }}
+    ```
+  domain: script
+  source_url: https://github.com/mohoel/home-assistant-voice-display/blob/main/blueprints/script/lumi/en/freie_wetterfragen.yaml
+  homeassistant:
+    min_version: "2024.10.0"
+  input:
+    weather_entity:
+      name: Weather Entity
+      description: Your own `weather.*` entity that provides the forecast.
+      selector:
+        entity:
+          domain: weather
+    zeige_wetter_aktion:
+      name: Weather Action (optional)
+      description: The Lumi action `zeige_wetter` — see the description above.
+      default: []
+      selector:
+        action: {}
+
+fields:
+  day:
+    name: Day
+    description: "'today', 'tomorrow', 'day after tomorrow', or a date (YYYY-MM-DD)"
+    example: "tomorrow"
+    required: true
+    selector:
+      text: {}
+
+variables:
+  weather_entity: !input weather_entity
+
+sequence:
+  - action: weather.get_forecasts
+    target:
+      entity_id: !input weather_entity
+    data:
+      type: daily
+    response_variable: forecast
+  - variables:
+      entries: "{{ forecast[weather_entity].forecast }}"
+      day_offset: >-
+        {% if day in ['today','heute'] %}0{% elif day in ['tomorrow','morgen'] %}1{% elif day in ['day after tomorrow','übermorgen','uebermorgen'] %}2{% else %}{{ ((as_datetime(day) | as_local).date() - now().date()).days }}{% endif %}
+      match: "{{ entries[([day_offset | int(0), 0] | max, (entries | length) - 1) | min] }}"
+      condition: "{{ match.condition }}"
+      temperature: "{{ match.temperature }}"
+      unit: "{{ state_attr(weather_entity, 'temperature_unit') or '°C' }}"
+      result:
+        condition: "{{ match.condition }}"
+        temperature_max: "{{ match.temperature }}"
+        temperature_min: "{{ match.templow }}"
+        precipitation_probability_percent: "{{ match.precipitation_probability }}"
+  - if: []
+    then: !input zeige_wetter_aktion
+  - stop: "Forecast delivered"
+    response_variable: result

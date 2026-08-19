@@ -13,7 +13,7 @@ blueprint:
     aus und funktioniert mit beliebigen eigenen Entities, nicht nur über
     Lumi als Eingabeweg.
   domain: script
-  source_url: https://github.com/mohoel/home-assistant-voice-lumi/blob/main/blueprints/script/lumi/verzoegerte_aktion.yaml
+  source_url: https://github.com/mohoel/home-assistant-voice-display/blob/main/blueprints/script/lumi/verzoegerte_aktion.yaml
   homeassistant:
     min_version: "2024.10.0"
   input:

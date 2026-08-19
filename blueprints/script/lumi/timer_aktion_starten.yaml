@@ -16,7 +16,7 @@ blueprint:
     freigegeben werden (Entität-Einstellungen → „Für Sprachassistenten
     verfügbar machen"); das Gegenstück-Skript bleibt intern.
   domain: script
-  source_url: https://github.com/mohoel/home-assistant-voice-lumi/blob/main/blueprints/script/lumi/timer_aktion_starten.yaml
+  source_url: https://github.com/mohoel/home-assistant-voice-display/blob/main/blueprints/script/lumi/timer_aktion_starten.yaml
   homeassistant:
     min_version: "2024.10.0"
   input:

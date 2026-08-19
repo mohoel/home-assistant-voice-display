@@ -12,7 +12,7 @@ blueprint:
     Antwort. Die optionale Zusatzaktion eignet sich z. B., um zugleich
     `zeige_hinweis` aufzurufen, etwa bei einer Video-Türklingel.
   domain: automation
-  source_url: https://github.com/mohoel/home-assistant-voice-lumi/blob/main/blueprints/automation/lumi/ansage_bei_ereignis.yaml
+  source_url: https://github.com/mohoel/home-assistant-voice-display/blob/main/blueprints/automation/lumi/ansage_bei_ereignis.yaml
   homeassistant:
     min_version: "2024.10.0"
   input:

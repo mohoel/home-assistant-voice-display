@@ -182,7 +182,7 @@ touchscreen:
 event:
   - platform: template
     id: evt_display_touch
-    name: "Displayberührung"
+    name: "Display Touch"
     device_class: button
     event_types:
       - "single_press"
@@ -298,7 +298,7 @@ switch:
   # Verstaerker-Enable. GPIO46 ist ein Strapping-Pin des ESP32-S3.
   - platform: gpio
     id: amp_enable
-    name: "Lautsprecherverstaerker"
+    name: "Speaker Amplifier"
     pin:
       number: GPIO46
       ignore_strapping_warning: true

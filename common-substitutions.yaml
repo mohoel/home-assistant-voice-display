@@ -346,7 +346,7 @@ double_tap_window: 350ms
 # Bedienelement am Geraet - Anzeige und
 # "Installieren"-Knopf laufen ausschliesslich ueber HAs eigenes
 # Update-Dashboard. Keine CNAME im Repo -> die Standard-GitHub-Pages-Adresse.
-update_manifest_url: "https://mohoel.github.io/home-assistant-voice-lumi/ota-manifest.json"
+update_manifest_url: "https://mohoel.github.io/home-assistant-voice-display/ota-manifest.json"
 # Default von update: http_request waere ohnehin 6h - hier trotzdem explizit
 # als Erweiterungspunkt, falls das mal haeufiger geprueft werden soll.
 update_check_interval: 6h

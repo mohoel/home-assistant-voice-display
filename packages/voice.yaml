@@ -659,17 +659,17 @@ voice_assistant:
 text_sensor:
   - platform: template
     id: text_request
-    name: "Erkannter Text"
+    name: "Recognized Text"
     icon: mdi:account-voice
   - platform: template
     id: text_response
-    name: "Antwort"
+    name: "Response"
     icon: mdi:message-text
 
 switch:
   - platform: template
     id: mute
-    name: "Mikrofon stumm"
+    name: "Microphone Muted"
     icon: mdi:microphone-off
     optimistic: true
     restore_mode: RESTORE_DEFAULT_OFF
@@ -687,14 +687,14 @@ select:
   # Wake Word in Home Assistant (openWakeWord).
   - platform: template
     id: wake_word_engine_location
-    name: "Wake-Word-Engine"
+    name: "Wake Word Engine"
     icon: mdi:account-voice
     optimistic: true
     restore_value: true
     entity_category: config
-    initial_option: "Auf dem Geraet"
+    initial_option: "On Device"
     options:
-      - "Auf dem Geraet"
+      - "On Device"
       - "In Home Assistant"
     on_value:
       - if:
@@ -715,25 +715,25 @@ select:
 
   - platform: template
     id: wake_word_sensitivity
-    name: "Wake-Word-Empfindlichkeit"
+    name: "Wake Word Sensitivity"
     icon: mdi:tune
     optimistic: true
     restore_value: true
     entity_category: config
-    initial_option: "Mittel"
+    initial_option: "Medium"
     options:
-      - "Niedrig"
-      - "Mittel"
-      - "Hoch"
+      - "Low"
+      - "Medium"
+      - "High"
     on_value:
       # Kalibrierte Schwellwerte aus home-assistant-voice-pe.
       # Werte sind quantisierte uint8 (0-255) der Wahrscheinlichkeit.
       - lambda: |-
-          if (x == "Niedrig") {
+          if (x == "Low") {
             id(mww_okay_nabu).set_probability_cutoff(217);
             id(mww_hey_jarvis).set_probability_cutoff(247);
             id(mww_hey_mycroft).set_probability_cutoff(253);
-          } else if (x == "Mittel") {
+          } else if (x == "Medium") {
             id(mww_okay_nabu).set_probability_cutoff(176);
             id(mww_hey_jarvis).set_probability_cutoff(235);
             id(mww_hey_mycroft).set_probability_cutoff(242);
@@ -894,7 +894,7 @@ script:
       # (voice_assistant.h:383) und das Warten liefe jedes Mal ins Leere.
       - if:
           condition:
-            lambda: return id(wake_word_engine_location).current_option() == "Auf dem Geraet";
+            lambda: return id(wake_word_engine_location).current_option() == "On Device";
           then:
             - wait_until:
                 condition:
@@ -1229,7 +1229,7 @@ interval:
               - lambda: return !id(init_in_progress);
               - lambda: return id(voice_assistant_phase) == ${phase_idle};
               - switch.is_off: mute
-              - lambda: return id(wake_word_engine_location).current_option() == "Auf dem Geraet";
+              - lambda: return id(wake_word_engine_location).current_option() == "On Device";
               - not:
                   micro_wake_word.is_running:
               - not:
@@ -1267,7 +1267,7 @@ interval:
               - lambda: return !id(init_in_progress);
               - lambda: return id(voice_assistant_phase) == ${phase_idle};
               - switch.is_off: mute
-              - lambda: return id(wake_word_engine_location).current_option() == "Auf dem Geraet";
+              - lambda: return id(wake_word_engine_location).current_option() == "On Device";
               - micro_wake_word.is_running:
               - voice_assistant.is_running:
               - not:

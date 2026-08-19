@@ -1,0 +1,155 @@
+blueprint:
+  name: "Lumi: Delayed Action"
+  description: >-
+    Runs an action (on, off, open, close, position) on one or more devices
+    after a delay. Resolves device names to real entity_ids only right
+    before waiting, and reports devices that can't be uniquely matched
+    immediately via persistent_notification, instead of silently failing
+    only once the wait is over.
+
+    This is the counterpart to the script blueprint "Lumi: Start Timed
+    Action" — pick the script instance created from this blueprint there.
+    Not a Lumi-specific feature: it doesn't trigger any display action and
+    works with any of your own entities, not just through Lumi as the
+    input path.
+  domain: script
+  source_url: https://github.com/mohoel/home-assistant-voice-display/blob/main/blueprints/script/lumi/en/verzoegerte_aktion.yaml
+  homeassistant:
+    min_version: "2024.10.0"
+  input:
+    max_concurrent:
+      name: Maximum Concurrent Runs
+      description: How many delayed actions may wait in parallel.
+      default: 20
+      selector:
+        number:
+          min: 1
+          max: 100
+
+fields:
+  action:
+    name: Action
+    description: Which action is executed after the delay
+    required: true
+    selector:
+      select:
+        options:
+          - label: On
+            value: "on"
+          - label: Off
+            value: "off"
+          - label: Open
+            value: open
+          - label: Close
+            value: close
+          - label: Set position
+            value: position
+  duration_minutes:
+    name: Duration in Minutes
+    description: Delay before the action is executed
+    required: true
+    selector:
+      number:
+        min: 1
+        max: 720
+        unit_of_measurement: minutes
+  device_names:
+    name: Devices
+    description: >-
+      One or more device names as named in the sentence, separated by
+      commas. For ambiguous names, also give the room, e.g. 'shelf living
+      room' instead of just 'shelf'.
+    required: true
+    selector:
+      text: {}
+  position_percent:
+    name: Position in Percent
+    description: Only needed for the 'Set position' action, 0 = closed, 100 = open
+    required: false
+    selector:
+      number:
+        min: 0
+        max: 100
+        unit_of_measurement: "%"
+
+max: !input max_concurrent
+mode: parallel
+sequence:
+  # Domains on which the respective action makes sense — extend as needed
+  # (e.g. with alarm_control_panel, scene, ...).
+  - variables:
+      action_domains:
+        "on": [light, switch, cover, fan, media_player, climate, input_boolean, humidifier, vacuum, lock]
+        "off": [light, switch, cover, fan, media_player, climate, input_boolean, humidifier, vacuum, lock]
+        open: [cover]
+        close: [cover]
+        position: [cover]
+  # Resolves every given name against the real friendly_names: every word
+  # of the name must occur in the friendly_name. Exactly one match ->
+  # resolved, no match or ambiguous -> error list.
+  - variables:
+      resolution: |-
+        {% set domains = action_domains[action] %}
+        {% set ns = namespace(ids=[], errors=[]) %}
+        {% for raw in device_names.split(',') %}
+          {% set words = raw.strip().lower().split() %}
+          {% set candidates = namespace(ids=[]) %}
+          {% for s in states | selectattr('domain','in', domains) %}
+            {% set n = s.name | lower %}
+            {% if words | select('in', n) | list | length == words | length %}
+              {% set candidates.ids = candidates.ids + [s.entity_id] %}
+            {% endif %}
+          {% endfor %}
+          {% if candidates.ids | length == 1 %}
+            {% set ns.ids = ns.ids + candidates.ids %}
+          {% elif candidates.ids | length == 0 %}
+            {% set ns.errors = ns.errors + ['"' ~ raw.strip() ~ '" not found'] %}
+          {% else %}
+            {% set ns.errors = ns.errors + ['"' ~ raw.strip() ~ '" ambiguous: ' ~ (candidates.ids | join(', '))] %}
+          {% endif %}
+        {% endfor %}
+        {{ {'ids': ns.ids, 'errors': ns.errors} }}
+  # Fail fast: don't run silently into nothing only once the delay is over.
+  - if:
+      - condition: template
+        value_template: "{{ resolution.errors | length > 0 }}"
+    then:
+      - action: persistent_notification.create
+        data:
+          title: Delayed action failed
+          message: >-
+            {{ resolution.errors | join('; ') }}. Requested:
+            "{{ device_names }}" ({{ action }}, in {{ duration_minutes }}
+            minutes). Nothing was executed.
+      - stop: Devices could not be resolved unambiguously
+        error: true
+  - delay:
+      minutes: "{{ duration_minutes }}"
+  - choose:
+      - conditions: "{{ action == 'on' }}"
+        sequence:
+          - action: homeassistant.turn_on
+            target:
+              entity_id: "{{ resolution.ids }}"
+      - conditions: "{{ action == 'off' }}"
+        sequence:
+          - action: homeassistant.turn_off
+            target:
+              entity_id: "{{ resolution.ids }}"
+      - conditions: "{{ action == 'open' }}"
+        sequence:
+          - action: cover.open_cover
+            target:
+              entity_id: "{{ resolution.ids }}"
+      - conditions: "{{ action == 'close' }}"
+        sequence:
+          - action: cover.close_cover
+            target:
+              entity_id: "{{ resolution.ids }}"
+      - conditions: "{{ action == 'position' }}"
+        sequence:
+          - action: cover.set_cover_position
+            data:
+              position: "{{ position_percent | int(0) }}"
+            target:
+              entity_id: "{{ resolution.ids }}"

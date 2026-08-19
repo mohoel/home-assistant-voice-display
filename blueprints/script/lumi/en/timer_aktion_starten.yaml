@@ -1,0 +1,100 @@
+blueprint:
+  name: "Lumi: Start Timed Action"
+  description: >-
+    A tool for the conversation agent: starts a delayed action in the
+    background without waiting for it to finish, so Assist can reply
+    right away. For Assist, e.g.: 'Close the blinds in 10 minutes' or
+    'Turn off the light in 5 minutes'.
+
+    Needs the script blueprint "Lumi: Delayed Action" as its counterpart —
+    create an instance there first, then select it here. Not a
+    Lumi-specific feature: works with any Assist-capable input path (Lumi,
+    the app, other satellites, …) and any of your own entities.
+
+    After creating it, only this script entity needs to be exposed to
+    voice assistants (entity settings → "Expose to voice assistants"); the
+    counterpart script stays internal.
+  domain: script
+  source_url: https://github.com/mohoel/home-assistant-voice-display/blob/main/blueprints/script/lumi/en/timer_aktion_starten.yaml
+  homeassistant:
+    min_version: "2024.10.0"
+  input:
+    delayed_action_script:
+      name: "\"Delayed Action\" Script"
+      description: >-
+        The script instance created from the "Lumi: Delayed Action"
+        blueprint.
+      selector:
+        entity:
+          domain: script
+    max_concurrent:
+      name: Maximum Concurrent Runs
+      description: How many actions may be started at the same time.
+      default: 20
+      selector:
+        number:
+          min: 1
+          max: 100
+
+fields:
+  action:
+    name: Action
+    description: Which action is executed after the delay
+    required: true
+    selector:
+      select:
+        options:
+          - label: On
+            value: "on"
+          - label: Off
+            value: "off"
+          - label: Open
+            value: open
+          - label: Close
+            value: close
+          - label: Set position
+            value: position
+  duration_minutes:
+    name: Duration in Minutes
+    description: >-
+      Delay before the action is executed. For values under a minute
+      (e.g. seconds), round up to 1.
+    required: true
+    selector:
+      number:
+        min: 1
+        max: 720
+        unit_of_measurement: minutes
+  device_names:
+    name: Devices
+    description: >-
+      One or more device names as named in the sentence, separated by
+      commas. For ambiguous names (e.g. individual segments of a device
+      like 'left shelf') also give the room, e.g. 'shelf living room'
+      instead of just 'shelf'. Never guess an entity_id — only pass the
+      spoken name.
+    required: true
+    selector:
+      text: {}
+  position_percent:
+    name: Position in Percent
+    description: Only needed for the 'Set position' action, 0 = closed, 100 = open
+    required: false
+    selector:
+      number:
+        min: 0
+        max: 100
+        unit_of_measurement: "%"
+
+max: !input max_concurrent
+mode: parallel
+sequence:
+  - action: script.turn_on
+    data:
+      variables:
+        action: "{{ action }}"
+        duration_minutes: "{{ duration_minutes }}"
+        device_names: "{{ device_names }}"
+        position_percent: "{{ position_percent | default(0) }}"
+    target:
+      entity_id: !input delayed_action_script
