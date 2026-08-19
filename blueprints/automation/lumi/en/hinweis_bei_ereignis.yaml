@@ -1,0 +1,44 @@
+blueprint:
+  name: "Lumi: Hint on Event"
+  description: >-
+    Shows an icon with text on Lumi's display for a chosen duration, as soon
+    as an entity reaches a certain state — useful for anything the firmware
+    itself can't know about: a doorbell, a package, a leak sensor.
+
+    As the action, pick the device's own `zeige_hinweis` action (open the
+    action editor, search for the compiled device name, e.g. "lumi_a0d0a8")
+    and fill in icon, text, and display duration there. Which `mdi:` icons
+    are embedded is documented in the
+    [Lumi docs](https://github.com/mohoel/home-assistant-voice-lumi#hint-on-event).
+  domain: automation
+  source_url: https://github.com/mohoel/home-assistant-voice-lumi/blob/main/blueprints/automation/lumi/en/hinweis_bei_ereignis.yaml
+  homeassistant:
+    min_version: "2024.10.0"
+  input:
+    trigger_entity:
+      name: Triggering Entity
+      description: The entity whose state change triggers the hint.
+      selector:
+        entity: {}
+    trigger_to:
+      name: Target State
+      description: >-
+        The state at which the hint appears, e.g. `on`, `open`, or
+        `detected` — exactly as shown for the entity above.
+      default: "on"
+      selector:
+        text: {}
+    hint_action:
+      name: Hint Action
+      description: >-
+        The Lumi action `zeige_hinweis` with icon, text, and display
+        duration as data — search for the device name in the action editor.
+      selector:
+        action: {}
+
+triggers:
+  - trigger: state
+    entity_id: !input trigger_entity
+    to: !input trigger_to
+
+actions: !input hint_action

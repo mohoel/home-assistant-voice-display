@@ -261,22 +261,22 @@ debug:
 sensor:
   - platform: debug
     free:
-      name: "Freier Heap"
+      name: "Free Heap"
       entity_category: diagnostic
     psram:
-      name: "Freier PSRAM"
+      name: "Free PSRAM"
       entity_category: diagnostic
   - platform: wifi_signal
-    name: "WLAN-Signal"
+    name: "WiFi Signal"
     update_interval: 60s
     entity_category: diagnostic
 
 text_sensor:
   - platform: version
-    name: "ESPHome-Version"
+    name: "ESPHome Version"
     entity_category: diagnostic
 
 button:
   - platform: restart
-    name: "Neustart"
+    name: "Restart"
     entity_category: config

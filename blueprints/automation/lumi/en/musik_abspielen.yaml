@@ -1,0 +1,163 @@
+blueprint:
+  name: "Lumi: Play Music (Music Assistant)"
+  description: >-
+    Forwards a music request straight to a Music Assistant player, with no
+    firmware change involved — the target device is named in the voice
+    command itself, not in Lumi's own audio pipeline. Needs the built-in
+    local intent recognition as the conversation agent, but works just the
+    same with an LLM like Claude, because the sentence trigger runs ahead
+    of the Assist pipeline. For freely phrased music requests ("Play
+    something relaxing") this isn't enough — that would need its own LLM
+    tool script along the same lines as "Free-Form Weather Questions".
+
+    Modeled after the official Music Assistant blueprint
+    ["Local voice control"](https://github.com/music-assistant/voice-support),
+    but narrowed down to six fixed media types (their `media_type` values
+    taken directly from `music_assistant.play_media`) and extended with
+    podcasts.
+
+    All sentences start with "Play"/"Listen to"/"Put on", followed by the
+    media type (artist/band/group, song/track, album/record, playlist,
+    podcast, radio station), and the name. For song and album, "by the
+    artist …" can optionally follow (literally with the word
+    "artist"/"band"/"group" — without that word, the artist name ends up
+    as part of the title/album name, which Music Assistant usually still
+    finds, just less precisely), and there's always an optional target
+    room or device ("in the kitchen", "on the living room speaker") — if
+    missing, the default player chosen below plays instead.
+
+    Examples:
+
+    ```
+
+    Play the artist Herbert Grönemeyer in the living room
+
+    Play the album Mensch by the artist Herbert Grönemeyer in the kitchen
+
+    Play the song Bochum in the bedroom
+
+    Play the playlist Focus Music on the Sonos
+
+    Play the podcast Fest und Flauschig
+
+    Play the radio station Deutschlandfunk in the kitchen
+
+    ```
+
+    The target search checks in this order: a player or area name in the
+    sentence, then the area of the addressed Assist device, and finally
+    the default player below.
+
+    Before playing anything, the blueprint itself searches with
+    `music_assistant.search` (25 candidates instead of the 8 that
+    `play_media` uses internally for its own name resolution) for a unique
+    URI and prefers an exact name match among them — this works around
+    Music Assistant's built-in name resolution, which doesn't reliably
+    return the right first hit for ambiguous or messily cataloged entries
+    (typical for radio stations via Radio Browser). If the search fails or
+    finds nothing, the raw spoken name is used as a fallback, as before —
+    nothing gets any less reliable because of this step, just a little
+    slower.
+  domain: automation
+  source_url: https://github.com/mohoel/home-assistant-voice-lumi/blob/main/blueprints/automation/lumi/en/musik_abspielen.yaml
+  homeassistant:
+    min_version: "2024.10.0"
+  input:
+    default_player:
+      name: Default Media Player
+      description: >-
+        The Music Assistant player that plays when the sentence names
+        neither a matching area nor a matching device.
+      selector:
+        entity:
+          filter:
+            integration: music_assistant
+            domain: media_player
+
+triggers:
+  - trigger: conversation
+    command:
+      - "(play|listen to|put on) [the ](artist|band|group) {medium} [(in|on) [the ]{target}]"
+    id: artist
+  - trigger: conversation
+    command:
+      - "(play|listen to|put on) [the ](song|track) {medium} [(by [the ])(artist|band|group) {artist}] [(in|on) [the ]{target}]"
+    id: track
+  - trigger: conversation
+    command:
+      - "(play|listen to|put on) [the ](album|record) {medium} [(by [the ])(artist|band|group) {artist}] [(in|on) [the ]{target}]"
+    id: album
+  - trigger: conversation
+    command:
+      - "(play|listen to|put on) [the ]playlist {medium} [(in|on) [the ]{target}]"
+    id: playlist
+  - trigger: conversation
+    command:
+      - "(play|listen to|put on) [the ]podcast {medium} [(in|on) [the ]{target}]"
+    id: podcast
+  - trigger: conversation
+    command:
+      - "(play|listen to|put on) [the ](radio station|radio|station) {medium} [(in|on) [the ]{target}]"
+    id: radio
+
+conditions: []
+
+actions:
+  - variables:
+      default_player: !input default_player
+      media_type_id: "{{ trigger.id }}"
+      assist_device_id: "{{ trigger.device_id }}"
+      medium: "{{ trigger.slots.medium }}"
+      artist: "{{ trigger.slots.artist | default }}"
+      target_name: "{{ trigger.slots.target | default }}"
+      mass_config_entry_id: "{{ config_entry_id(default_player) }}"
+      mass_result_field: >-
+        {{ {"artist": "artists", "track": "tracks", "album": "albums",
+            "playlist": "playlists", "podcast": "podcasts",
+            "radio": "radio"}[trigger.id] }}
+      player_by_name: >-
+        {{ integration_entities('music_assistant') | expand
+           | selectattr('name', 'match', target_name ~ '$', ignorecase=true)
+           | map(attribute='entity_id') | list }}
+      player_by_area_name: >-
+        {{ areas() | map('area_name')
+           | select('match', target_name ~ '$', ignorecase=true)
+           | map('area_entities') | sum(start=[])
+           | select('in', integration_entities('music_assistant')) | list }}
+      player_by_device_area: >-
+        {{ area_entities(area_id(assist_device_id))
+           | select('in', integration_entities('music_assistant')) | list }}
+      media_player_target: |
+        {{ player_by_name or player_by_area_name
+           or player_by_device_area or [default_player] }}
+      media_player_name: "{{ media_player_target | map('state_attr', 'friendly_name') | join(', ') }}"
+  - alias: >-
+      Look up a unique URI for the media request instead of letting
+      play_media guess
+    action: music_assistant.search
+    continue_on_error: true
+    response_variable: mass_search
+    data: >-
+      {{ dict({"config_entry_id": mass_config_entry_id, "name": medium,
+               "artist": artist, "media_type": [media_type_id],
+               "limit": 25}.items() | selectattr('1')) }}
+  - variables:
+      mass_all_uris: >-
+        {{ (mass_search[mass_result_field]
+            if mass_search is defined and mass_search is mapping else [])
+           | map(attribute='uri') | list }}
+      mass_exact_uris: >-
+        {{ (mass_search[mass_result_field]
+            if mass_search is defined and mass_search is mapping else [])
+           | selectattr('name', 'match', '^' ~ medium ~ '$', ignorecase=true)
+           | map(attribute='uri') | list }}
+      play_data:
+        media_id: "{{ (mass_exact_uris or mass_all_uris) | first | default(medium) }}"
+        media_type: "{{ media_type_id }}"
+        artist: "{{ artist }}"
+  - alias: Send the medium to the resolved Music Assistant player
+    action: music_assistant.play_media
+    target:
+      entity_id: "{{ media_player_target }}"
+    data: "{{ dict(play_data.items() | selectattr('1')) }}"
+  - set_conversation_response: "Playing {{ medium }} on {{ media_player_name }}"

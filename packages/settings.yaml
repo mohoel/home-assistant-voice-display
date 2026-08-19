@@ -35,7 +35,7 @@ select:
   # Die Touch-Koordinaten dreht LVGL selbst mit.
   - platform: template
     id: sel_rotation
-    name: "Ausrichtung"
+    name: "Orientation"
     icon: mdi:screen-rotation
     entity_category: config
     optimistic: true
@@ -76,16 +76,16 @@ select:
   # sie schoebe ein Umschalten mitten im Antworten die Uhr ins Bild.
   - platform: template
     id: sel_standby_page
-    name: "Standby-Seite"
+    name: "Standby Page"
     icon: mdi:monitor-dashboard
     entity_category: config
     optimistic: true
     restore_value: true
     options:
-      - "Uhr"
-      - "Zifferblatt"
-      - "Gesicht"
-    initial_option: "Uhr"
+      - "Clock"
+      - "Dial"
+      - "Face"
+    initial_option: "Clock"
     on_value:
       - if:
           condition:
@@ -116,7 +116,7 @@ number:
   # greift also ohne Neustart.
   - platform: template
     id: num_standby_timeout
-    name: "Standby-Zeit"
+    name: "Standby Timeout"
     icon: mdi:timer-outline
     entity_category: config
     optimistic: true
@@ -143,7 +143,7 @@ number:
   # Standby-Helligkeit zurueck, obwohl der Bildschirm die ganze Zeit wach war.
   - platform: template
     id: num_standby_brightness
-    name: "Standby-Helligkeit"
+    name: "Standby Brightness"
     icon: mdi:brightness-6
     entity_category: config
     optimistic: true
@@ -164,7 +164,7 @@ number:
   # es active_brightness vorher fest vorgab.
   - platform: template
     id: num_display_brightness
-    name: "Displayhelligkeit"
+    name: "Display Brightness"
     icon: mdi:brightness-7
     entity_category: config
     optimistic: true

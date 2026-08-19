@@ -1,0 +1,83 @@
+blueprint:
+  name: "Lumi: Announcement on Event"
+  description: >-
+    Plays an announcement as soon as an entity reaches a certain state —
+    without a wake word, even while the device is currently listening.
+    Uses the built-in Home Assistant action `assist_satellite.announce`
+    (or optionally `ask_question` for a follow-up question) and therefore
+    works on any `assist_satellite` device, not just Lumi.
+
+    Choose `ask_question` for a follow-up: the device automatically shows
+    the question-mark icon and then waits for a spoken answer. The
+    optional extra action is handy, for example, to also call
+    `zeige_hinweis` — for a video doorbell.
+  domain: automation
+  source_url: https://github.com/mohoel/home-assistant-voice-lumi/blob/main/blueprints/automation/lumi/en/ansage_bei_ereignis.yaml
+  homeassistant:
+    min_version: "2024.10.0"
+  input:
+    trigger_entity:
+      name: Triggering Entity
+      description: The entity whose state change triggers the announcement.
+      selector:
+        entity: {}
+    trigger_to:
+      name: Target State
+      description: >-
+        The state at which the announcement plays, e.g. `on` or `done` —
+        exactly as shown for the entity above.
+      default: "on"
+      selector:
+        text: {}
+    satellite:
+      name: Assist Satellite Device
+      description: The device that speaks the announcement (e.g. Lumi).
+      selector:
+        entity:
+          domain: assist_satellite
+    message:
+      name: Text
+      description: What should be said or asked.
+      selector:
+        text: {}
+    follow_up:
+      name: Ask as a Follow-Up Question
+      description: >-
+        Uses `ask_question` instead of `announce` and then waits for a
+        spoken answer.
+      default: false
+      selector:
+        boolean: {}
+    additional_action:
+      name: Additional Action (optional)
+      description: >-
+        Runs alongside the announcement, e.g. the Lumi action
+        `zeige_hinweis`.
+      default: []
+      selector:
+        action: {}
+
+triggers:
+  - trigger: state
+    entity_id: !input trigger_entity
+    to: !input trigger_to
+
+variables:
+  follow_up: !input follow_up
+
+actions:
+  - choose:
+      - conditions: "{{ follow_up }}"
+        sequence:
+          - action: assist_satellite.ask_question
+            data:
+              entity_id: !input satellite
+              question: !input message
+    default:
+      - action: assist_satellite.announce
+        target:
+          entity_id: !input satellite
+        data:
+          message: !input message
+  - if: []
+    then: !input additional_action

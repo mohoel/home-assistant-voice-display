@@ -1,10 +1,10 @@
 <!doctype html>
-<html lang="de">
+<html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Lumi – Firmware im Browser installieren</title>
+<title>Lumi – Install Firmware in Your Browser</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="Home-Assistant-Voice-Satellit-Firmware direkt aus dem Browser aufs Waveshare ESP32-S3-Touch-AMOLED-1.75 flashen.">
+<meta name="description" content="Flash Home Assistant Voice Satellite firmware onto the Waveshare ESP32-S3-Touch-AMOLED-1.75 straight from your browser.">
 <script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js"></script>
 <style>
 /* ============================================================
@@ -174,6 +174,26 @@ details > summary { cursor: pointer; list-style: none; }
 details > summary::-webkit-details-marker { display: none; }
 details .chev { transition: transform 0.15s ease; }
 details[open] .chev { transform: rotate(90deg); }
+
+/* ============================================================
+   Sprachumschalter — rein clientseitig, kein Server-Rendering
+   nötig wie beim README auf GitHub. Standard ist Englisch (auch
+   ganz ohne JavaScript), Deutsch nur nach explizitem Umschalten
+   bzw. deutscher Browsersprache.
+   ============================================================ */
+html[data-lang="de"] .lang-en { display: none; }
+html:not([data-lang="de"]) .lang-de { display: none; }
+
+.lang-switch { display: flex; gap: 2px; margin-left: 4px; }
+.lang-switch-btn {
+  font-size: 12px; padding: 6px 10px; border: 1px solid var(--color-divider);
+  color: var(--color-neutral-400);
+}
+.lang-switch-btn[aria-pressed="true"] {
+  color: var(--color-accent); border-color: var(--color-accent);
+}
+.lang-switch-btn:first-child { border-radius: var(--radius-md) 0 0 var(--radius-md); }
+.lang-switch-btn:last-child { border-radius: 0 var(--radius-md) var(--radius-md) 0; margin-left: -1px; }
 </style>
 </head>
 <body>
@@ -182,44 +202,70 @@ details[open] .chev { transform: rotate(90deg); }
 
   <div class="nav" style="padding: 0 0 28px;">
     <div class="nav-brand">Lumi</div>
+    <div class="lang-switch" role="group" aria-label="Sprache / Language">
+      <button type="button" id="lang-de-btn" class="btn lang-switch-btn" aria-pressed="false" onclick="window.__setLumiLang('de')">DE</button>
+      <button type="button" id="lang-en-btn" class="btn lang-switch-btn" aria-pressed="true" onclick="window.__setLumiLang('en')">EN</button>
+    </div>
     <a href="https://github.com/mohoel/home-assistant-voice-lumi" target="_blank" rel="noopener" class="btn btn-ghost btn-icon" aria-label="GitHub-Repository">
       <svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor"><path d="M208.31,75.68A59.78,59.78,0,0,0,202.93,28,8,8,0,0,0,196,24a59.75,59.75,0,0,0-48,24H124A59.75,59.75,0,0,0,76,24a8,8,0,0,0-6.93,4,59.78,59.78,0,0,0-5.38,47.68A58.14,58.14,0,0,0,56,104v8a56.06,56.06,0,0,0,48.44,55.47A39.8,39.8,0,0,0,96,192v8H72a24,24,0,0,1-24-24A40,40,0,0,0,8,136a8,8,0,0,0,0,16,24,24,0,0,1,24,24,40,40,0,0,0,40,40H96v16a8,8,0,0,0,16,0V192a24,24,0,0,1,48,0v40a8,8,0,0,0,16,0V192a39.8,39.8,0,0,0-8.44-24.53A56.06,56.06,0,0,0,216,112v-8A58.14,58.14,0,0,0,208.31,75.68Z"/></svg>
     </a>
   </div>
 
-  <span class="tag tag-outline" style="margin-bottom: 12px;">Online-Flashtool</span>
-  <h1 style="font-size: 28px; margin-top: 10px;">Lumi im Browser installieren</h1>
-  <p style="opacity: 0.7; font-size: 14px; margin-bottom: 28px;">
+  <span class="tag tag-outline lang-de" style="margin-bottom: 12px;">Online-Flashtool</span>
+  <span class="tag tag-outline lang-en" style="margin-bottom: 12px;">Online Flash Tool</span>
+  <h1 class="lang-de" style="font-size: 28px; margin-top: 10px;">Lumi im Browser installieren</h1>
+  <h1 class="lang-en" style="font-size: 28px; margin-top: 10px;">Install Lumi in Your Browser</h1>
+  <p class="lang-de" style="opacity: 0.7; font-size: 14px; margin-bottom: 28px;">
     Home-Assistant-Voice-Satellit-Firmware für das
     <a href="https://www.waveshare.com/esp32-s3-touch-amoled-1.75.htm" target="_blank" rel="noopener">Waveshare ESP32-S3-Touch-AMOLED-1.75</a>
     — Quelltext auf
     <a href="https://github.com/mohoel/home-assistant-voice-lumi" target="_blank" rel="noopener">github.com/mohoel/home-assistant-voice-lumi</a>.
     Läuft über <a href="https://esphome.github.io/esp-web-tools/" target="_blank" rel="noopener">ESP Web Tools</a> (Web Serial) in Chrome oder Edge am Desktop — ohne Installation, ohne Terminal.
   </p>
+  <p class="lang-en" style="opacity: 0.7; font-size: 14px; margin-bottom: 28px;">
+    Home Assistant Voice Satellite firmware for the
+    <a href="https://www.waveshare.com/esp32-s3-touch-amoled-1.75.htm" target="_blank" rel="noopener">Waveshare ESP32-S3-Touch-AMOLED-1.75</a>
+    — source code at
+    <a href="https://github.com/mohoel/home-assistant-voice-lumi" target="_blank" rel="noopener">github.com/mohoel/home-assistant-voice-lumi</a>.
+    Runs via <a href="https://esphome.github.io/esp-web-tools/" target="_blank" rel="noopener">ESP Web Tools</a> (Web Serial) in Chrome or Edge on desktop — no install, no terminal.
+  </p>
 
   <div class="card elev-md" style="gap: var(--space-4);">
     <div style="display: flex; align-items: center; justify-content: space-between;">
-      <div class="card-kicker" style="font-size: 11px;">Voraussetzungen</div>
+      <div class="card-kicker lang-de" style="font-size: 11px;">Voraussetzungen</div>
+      <div class="card-kicker lang-en" style="font-size: 11px;">Requirements</div>
     </div>
     <div class="row" style="display: flex; flex-wrap: wrap; gap: 6px;">
-      <span class="tag tag-neutral">Chrome oder Edge (Desktop)</span>
-      <span class="tag tag-neutral">USB-C-Kabel mit Datenleitung</span>
-      <span class="tag tag-neutral">Waveshare-Board per USB</span>
+      <span class="tag tag-neutral lang-de">Chrome oder Edge (Desktop)</span>
+      <span class="tag tag-neutral lang-en">Chrome or Edge (desktop)</span>
+      <span class="tag tag-neutral lang-de">USB-C-Kabel mit Datenleitung</span>
+      <span class="tag tag-neutral lang-en">USB-C cable with data lines</span>
+      <span class="tag tag-neutral lang-de">Waveshare-Board per USB</span>
+      <span class="tag tag-neutral lang-en">Waveshare board via USB</span>
     </div>
 
     <esp-web-install-button manifest="manifest.json?v=v0.5.9" style="display: block; margin-top: 4px;">
       <button slot="activate" class="btn btn-primary btn-block" style="font-size: 15px; padding: 12px 20px;">
-        Gerät verbinden &amp; flashen
+        <span class="lang-de">Gerät verbinden &amp; flashen</span>
+        <span class="lang-en">Connect Device &amp; Flash</span>
         <svg width="14" height="14" viewBox="0 0 256 256" fill="currentColor"><path d="M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z"/></svg>
       </button>
-      <span slot="unsupported">
+      <span slot="unsupported" class="lang-de">
         Dein Browser unterstützt Web Serial nicht. Bitte Chrome oder Edge am
         Desktop verwenden.
       </span>
-      <span slot="not-allowed">
+      <span slot="unsupported" class="lang-en">
+        Your browser doesn't support Web Serial. Please use Chrome or Edge
+        on desktop.
+      </span>
+      <span slot="not-allowed" class="lang-de">
         Web Serial ist auf dieser Seite nicht erlaubt. Diese Seite muss über
         <code>https://</code> aufgerufen werden (nicht als heruntergeladene
         Datei).
+      </span>
+      <span slot="not-allowed" class="lang-en">
+        Web Serial isn't allowed on this page. This page must be loaded via
+        <code>https://</code> (not as a downloaded file).
       </span>
     </esp-web-install-button>
   </div>
@@ -227,9 +273,10 @@ details[open] .chev { transform: rotate(90deg); }
   <details class="card" style="margin-top: 16px;">
     <summary style="display: flex; align-items: center; gap: 8px;">
       <svg class="chev" width="12" height="12" viewBox="0 0 256 256" fill="currentColor"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></svg>
-      <span class="card-title" style="font-size: 15px;">So läuft das Flashen ab</span>
+      <span class="card-title lang-de" style="font-size: 15px;">So läuft das Flashen ab</span>
+      <span class="card-title lang-en" style="font-size: 15px;">How flashing works</span>
     </summary>
-    <ol style="padding-left: 20px; margin: 10px 0 0; display: grid; gap: 8px; font-size: 14px; opacity: 0.85;">
+    <ol class="lang-de" style="padding-left: 20px; margin: 10px 0 0; display: grid; gap: 8px; font-size: 14px; opacity: 0.85;">
       <li>Board per USB anschließen.</li>
       <li>Oben auf <strong>„Gerät verbinden &amp; flashen"</strong> klicken.</li>
       <li>Im Auswahldialog des Browsers den seriellen Port des Boards wählen.</li>
@@ -251,28 +298,58 @@ details[open] .chev { transform: rotate(90deg); }
         Dialog, nur ein Klick mehr und mit anderer Beschriftung.
       </li>
     </ol>
+    <ol class="lang-en" style="padding-left: 20px; margin: 10px 0 0; display: grid; gap: 8px; font-size: 14px; opacity: 0.85;">
+      <li>Connect the board via USB.</li>
+      <li>Click <strong>"Connect Device &amp; Flash"</strong> above.</li>
+      <li>In the browser's selection dialog, choose the board's serial port.</li>
+      <li>
+        No port shows up: put the board into download mode — hold
+        <strong>BOOT</strong>, briefly press <strong>RESET</strong>, then
+        release <strong>BOOT</strong> — and open the dialog again.
+      </li>
+      <li>Wait for flashing to finish (one to two minutes). Don't unplug.</li>
+      <li>
+        Right afterward, the Wi-Fi selection window opens automatically —
+        no further click needed.
+      </li>
+      <li>
+        Exception: if the board already ran the exact same firmware version
+        (e.g. a second test run), ESP Web Tools detects that, doesn't flash
+        again, and shows "Change Wi-Fi" directly instead of the selection —
+        the same dialog, just one click further and with a different label.
+      </li>
+    </ol>
   </details>
 
   <details class="card" style="margin-top: 12px;">
     <summary style="display: flex; align-items: center; gap: 8px;">
       <svg class="chev" width="12" height="12" viewBox="0 0 256 256" fill="currentColor"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></svg>
-      <span class="card-title" style="font-size: 15px; color: var(--color-accent-300);">Wichtig, bevor du klickst</span>
+      <span class="card-title lang-de" style="font-size: 15px; color: var(--color-accent-300);">Wichtig, bevor du klickst</span>
+      <span class="card-title lang-en" style="font-size: 15px; color: var(--color-accent-300);">Important, before you click</span>
     </summary>
-    <p style="margin: 10px 0 0; font-size: 14px; opacity: 0.85;">
+    <p class="lang-de" style="margin: 10px 0 0; font-size: 14px; opacity: 0.85;">
       Diese Firmware bringt <strong>dein WLAN nicht mit</strong> — in eine
       öffentlich gehostete Datei kann es schließlich nicht hinein. Du trägst es
       direkt nach dem Flashen im Browser ein; wie das abläuft, steht unten
       unter „Nach dem Flashen". Danach ist das Gerät fertig eingerichtet,
       Updates kommen später über Home Assistant.
     </p>
+    <p class="lang-en" style="margin: 10px 0 0; font-size: 14px; opacity: 0.85;">
+      This firmware doesn't bring <strong>your Wi-Fi along</strong> — it
+      simply can't go into a publicly hosted file. You enter it right after
+      flashing, in the browser; how that works is described below under
+      "After Flashing". After that, the device is fully set up, and updates
+      come later through Home Assistant.
+    </p>
   </details>
 
   <details class="card" style="margin-top: 12px;" id="nach-dem-flashen">
     <summary style="display: flex; align-items: center; gap: 8px;">
       <svg class="chev" width="12" height="12" viewBox="0 0 256 256" fill="currentColor"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></svg>
-      <span class="card-title" style="font-size: 15px;">Nach dem Flashen</span>
+      <span class="card-title lang-de" style="font-size: 15px;">Nach dem Flashen</span>
+      <span class="card-title lang-en" style="font-size: 15px;">After Flashing</span>
     </summary>
-    <div style="margin-top: 10px; font-size: 14px; opacity: 0.85; display: grid; gap: 12px;">
+    <div class="lang-de" style="margin-top: 10px; font-size: 14px; opacity: 0.85; display: grid; gap: 12px;">
       <p style="margin: 0;">
         Direkt nach dem Flashen fragt ESP Web Tools über dieselbe
         USB-Verbindung nach deinem WLAN (<a href="https://www.improv-wifi.com/" target="_blank" rel="noopener">Improv Wi-Fi</a>) —
@@ -312,16 +389,65 @@ details[open] .chev { transform: rotate(90deg); }
         „Installieren“-Knopf — diese Seite braucht es dafür nicht mehr.
       </p>
     </div>
+    <div class="lang-en" style="margin-top: 10px; font-size: 14px; opacity: 0.85; display: grid; gap: 12px;">
+      <p style="margin: 0;">
+        Right after flashing, ESP Web Tools asks for your Wi-Fi over the
+        same USB connection (<a href="https://www.improv-wifi.com/" target="_blank" rel="noopener">Improv Wi-Fi</a>)
+        — just enter the SSID and password in the dialog, no hotspot, no
+        switching devices needed. The device connects directly and
+        announces itself on the network via mDNS.
+      </p>
+      <p style="margin: 0;">
+        If you skip this step or close the page before that, the device —
+        on purpose — finds no Wi-Fi on its next boot, because this firmware
+        doesn't know yours. It then opens its own hotspot instead, roughly
+        <code style="background: var(--color-surface); padding: 2px 6px; border-radius: 4px; font-size: 0.88em;">Lumi Fallback Hotspot</code>, with
+        a configuration page behind it (captive portal):
+      </p>
+      <ol style="padding-left: 20px; margin: 0; display: grid; gap: 8px;">
+        <li>Connect a phone or laptop to this hotspot.</li>
+        <li>
+          If no configuration page opens by itself, open
+          <code style="background: var(--color-surface); padding: 2px 6px; border-radius: 4px; font-size: 0.88em;">http://192.168.4.1</code> in the browser.
+        </li>
+        <li>Enter your own Wi-Fi and password there and save.</li>
+        <li>The device connects with it and announces itself on the network via mDNS.</li>
+      </ol>
+      <p style="margin: 0;">
+        It then shows up in Home Assistant under
+        <em>Settings → Devices &amp; Services</em> as an ESPHome device. When
+        adding it, Home Assistant asks for an encryption key — this is a
+        fixed, non-secret placeholder:
+      </p>
+      <pre style="background: var(--color-surface); border-radius: var(--radius-md); padding: 12px 16px; overflow-x: auto; font-size: 13px; color: var(--color-accent-300); margin: 0;">Bw1nT2P6zfBP++xn1gTvfloJweHwPrXXRj0I01RdKZk=</pre>
+      <p style="margin: 0;">
+        This key is right there in the source code (<code style="background: color-mix(in srgb, var(--color-text) 10%, transparent); padding: 2px 6px; border-radius: 4px; font-size: 0.92em;">secrets.public.yaml</code>)
+        and protects nothing — it's only needed so Home Assistant can
+        connect at all. Everything else runs through Home Assistant from
+        here on: settings are ordinary entities, and new firmware versions
+        appear under <em>Settings → Devices → Updates</em> with an
+        "Install" button — this page isn't needed for that anymore.
+      </p>
+    </div>
   </details>
 
   <hr class="hr">
 
   <footer style="font-size: 12px; opacity: 0.6; padding-top: 8px;">
-    Diese Seite ist Teil von
-    <a href="https://github.com/mohoel/home-assistant-voice-lumi" target="_blank" rel="noopener">home-assistant-voice-lumi</a>
-    und wird bei jedem Firmware-Release (Git-Tag) automatisch neu gebaut
-    (<code style="background: var(--color-surface); padding: 1px 5px; border-radius: 4px; font-size: 0.92em;">.github/workflows/release.yml</code>). Quelltext und die volle
-    Funktionsbeschreibung stehen im Haupt-README.
+    <span class="lang-de">
+      Diese Seite ist Teil von
+      <a href="https://github.com/mohoel/home-assistant-voice-lumi" target="_blank" rel="noopener">home-assistant-voice-lumi</a>
+      und wird bei jedem Firmware-Release (Git-Tag) automatisch neu gebaut
+      (<code style="background: var(--color-surface); padding: 1px 5px; border-radius: 4px; font-size: 0.92em;">.github/workflows/release.yml</code>). Quelltext und die volle
+      Funktionsbeschreibung stehen im Haupt-README.
+    </span>
+    <span class="lang-en">
+      This page is part of
+      <a href="https://github.com/mohoel/home-assistant-voice-lumi" target="_blank" rel="noopener">home-assistant-voice-lumi</a>
+      and gets rebuilt automatically on every firmware release (git tag)
+      (<code style="background: var(--color-surface); padding: 1px 5px; border-radius: 4px; font-size: 0.92em;">.github/workflows/release.yml</code>). Source code and the full
+      feature description are in the main README.
+    </span>
   </footer>
 
 </div>
@@ -340,6 +466,52 @@ details[open] .chev { transform: rotate(90deg); }
       details.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   });
+
+  // ------------------------------------------------------ Sprachumschalter
+  // Rein clientseitig: anders als beim README auf GitHub laeuft diese Seite
+  // im Browser der Besucherin und kann sich deshalb tatsaechlich selbst
+  // umschalten, statt nur auf eine zweite Datei zu verlinken. Ohne
+  // gespeicherte Wahl entscheidet einmalig navigator.language; Standard ist
+  // Deutsch (auch ganz ohne JavaScript, siehe [data-lang]-CSS oben).
+  (function () {
+    var TITLES = {
+      de: 'Lumi – Firmware im Browser installieren',
+      en: 'Lumi – Install Firmware in Your Browser'
+    };
+    var DESCRIPTIONS = {
+      de: 'Home-Assistant-Voice-Satellit-Firmware direkt aus dem Browser aufs Waveshare ESP32-S3-Touch-AMOLED-1.75 flashen.',
+      en: 'Flash Home Assistant Voice Satellite firmware onto the Waveshare ESP32-S3-Touch-AMOLED-1.75 straight from your browser.'
+    };
+
+    function setLang(lang) {
+      if (lang !== 'de') lang = 'en';
+      document.documentElement.lang = lang;
+      document.documentElement.dataset.lang = lang;
+      document.title = TITLES[lang];
+      var meta = document.querySelector('meta[name="description"]');
+      if (meta) meta.setAttribute('content', DESCRIPTIONS[lang]);
+      try { localStorage.setItem('lumi-lang', lang); } catch (e) {}
+      var btnDe = document.getElementById('lang-de-btn');
+      var btnEn = document.getElementById('lang-en-btn');
+      if (btnDe && btnEn) {
+        btnDe.setAttribute('aria-pressed', String(lang === 'de'));
+        btnEn.setAttribute('aria-pressed', String(lang === 'en'));
+      }
+    }
+
+    window.__setLumiLang = setLang;
+
+    var initial = 'en';
+    try {
+      var saved = localStorage.getItem('lumi-lang');
+      if (saved === 'de' || saved === 'en') {
+        initial = saved;
+      } else if (navigator.language && navigator.language.toLowerCase().indexOf('de') === 0) {
+        initial = 'de';
+      }
+    } catch (e) {}
+    setLang(initial);
+  })();
 </script>
 
 </body>
