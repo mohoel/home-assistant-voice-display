@@ -1,5 +1,5 @@
 blueprint:
-  name: "Lumi: Ansage bei Ereignis"
+  name: "🇩🇪 Lumi: Ansage bei Ereignis"
   description: >-
     Spielt eine Ansage ab, sobald eine Entity einen bestimmten Zustand
     erreicht — ohne Wake Word, auch während das Gerät gerade lauscht.

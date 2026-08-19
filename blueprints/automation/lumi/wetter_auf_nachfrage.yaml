@@ -1,5 +1,5 @@
 blueprint:
-  name: "Lumi: Wetter auf Nachfrage"
+  name: "🇩🇪 Lumi: Wetter auf Nachfrage"
   description: >-
     Beantwortet gezielte Wetterfragen mit Uhrzeit ("Wie wird das Wetter
     morgen um 14 Uhr?") mit Icon und Temperatur auf Lumis Display. Braucht
@@ -7,7 +7,7 @@ blueprint:
     einem LLM wie Claude als Konversationsagent, weil der Satzauslöser der
     Assist-Pipeline vorgeschaltet ist. Offene Fragen ohne festen Satz
     ("Wird es morgen regnen?") beantwortet stattdessen das Skript-Blueprint
-    „Lumi: Freie Wetterfragen".
+    „🇩🇪 Lumi: Freie Wetterfragen".
 
     Die Wetter-Aktion ist optional und absichtlich frei wählbar, weil ihr
     Servicename vom kompilierten Gerätenamen abhängt: als Aktion die eigene

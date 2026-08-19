@@ -1,5 +1,5 @@
 blueprint:
-  name: "Lumi: Delayed Action"
+  name: "🇬🇧 Lumi: Delayed Action"
   description: >-
     Runs an action (on, off, open, close, position) on one or more devices
     after a delay. Resolves device names to real entity_ids only right
@@ -7,7 +7,7 @@ blueprint:
     immediately via persistent_notification, instead of silently failing
     only once the wait is over.
 
-    This is the counterpart to the script blueprint "Lumi: Start Timed
+    This is the counterpart to the script blueprint "🇬🇧 Lumi: Start Timed
     Action" — pick the script instance created from this blueprint there.
     Not a Lumi-specific feature: it doesn't trigger any display action and
     works with any of your own entities, not just through Lumi as the

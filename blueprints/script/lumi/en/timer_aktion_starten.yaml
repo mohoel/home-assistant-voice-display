@@ -1,12 +1,12 @@
 blueprint:
-  name: "Lumi: Start Timed Action"
+  name: "🇬🇧 Lumi: Start Timed Action"
   description: >-
     A tool for the conversation agent: starts a delayed action in the
     background without waiting for it to finish, so Assist can reply
     right away. For Assist, e.g.: 'Close the blinds in 10 minutes' or
     'Turn off the light in 5 minutes'.
 
-    Needs the script blueprint "Lumi: Delayed Action" as its counterpart —
+    Needs the script blueprint "🇬🇧 Lumi: Delayed Action" as its counterpart —
     create an instance there first, then select it here. Not a
     Lumi-specific feature: works with any Assist-capable input path (Lumi,
     the app, other satellites, …) and any of your own entities.
@@ -22,7 +22,7 @@ blueprint:
     delayed_action_script:
       name: "\"Delayed Action\" Script"
       description: >-
-        The script instance created from the "Lumi: Delayed Action"
+        The script instance created from the "🇬🇧 Lumi: Delayed Action"
         blueprint.
       selector:
         entity:

@@ -1,5 +1,5 @@
 blueprint:
-  name: "Lumi: Play Music (Music Assistant)"
+  name: "🇬🇧 Lumi: Play Music (Music Assistant)"
   description: >-
     Forwards a music request straight to a Music Assistant player, with no
     firmware change involved — the target device is named in the voice

@@ -1,12 +1,12 @@
 blueprint:
-  name: "Lumi: Freie Wetterfragen (LLM-Tool)"
+  name: "🇩🇪 Lumi: Freie Wetterfragen (LLM-Tool)"
   description: >-
     Skript für einen LLM-Konversationsagenten als Werkzeug: beantwortet
     offene Wetterfragen ohne festen Satz, z. B. "Wird es morgen regnen?"
     oder "Wie wird das Wetter übermorgen?". Braucht eine KI/LLM-Pipeline als
     Konversationsagent — mit der eingebauten lokalen Intent-Erkennung
     funktioniert das nicht. Für feste Sätze mit Uhrzeit stattdessen das
-    Automations-Blueprint „Lumi: Wetter auf Nachfrage" verwenden.
+    Automations-Blueprint „🇩🇪 Lumi: Wetter auf Nachfrage" verwenden.
 
     Nach dem Erstellen muss die Skript-Entity noch für Sprachassistenten
     freigegeben werden (Entität-Einstellungen → „Für Sprachassistenten

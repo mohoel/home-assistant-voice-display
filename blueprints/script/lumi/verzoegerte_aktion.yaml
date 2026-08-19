@@ -1,5 +1,5 @@
 blueprint:
-  name: "Lumi: Verzögerte Aktion"
+  name: "🇩🇪 Lumi: Verzögerte Aktion"
   description: >-
     Führt nach einer Wartezeit eine Aktion (an, aus, öffnen, schließen,
     Position) auf einem oder mehreren Geräten aus. Löst Gerätenamen erst
@@ -7,7 +7,7 @@ blueprint:
     eindeutig zuordenbare Geräte sofort per persistent_notification, statt
     erst nach Ablauf der Wartezeit stumm zu scheitern.
 
-    Ist das eine Gegenstück zum Skript-Blueprint „Lumi: Timer Aktion
+    Ist das eine Gegenstück zum Skript-Blueprint „🇩🇪 Lumi: Timer Aktion
     starten" — dort die aus diesem Blueprint erstellte Skript-Instanz
     auswählen. Kein Lumi-spezifisches Feature: löst keine Display-Aktion
     aus und funktioniert mit beliebigen eigenen Entities, nicht nur über

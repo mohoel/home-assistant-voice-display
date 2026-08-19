@@ -1,5 +1,5 @@
 blueprint:
-  name: "Lumi: Hint on Event"
+  name: "🇬🇧 Lumi: Hint on Event"
   description: >-
     Shows an icon with text on Lumi's display for a chosen duration, as soon
     as an entity reaches a certain state — useful for anything the firmware
