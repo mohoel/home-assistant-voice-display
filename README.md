@@ -294,10 +294,13 @@ runs ahead of it. The automation must be exposed to the voice assistant.
 [![🇩🇪 Blueprint importieren](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmohoel%2Fhome-assistant-voice-display%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Flumi%2Fmusik_abspielen.yaml)
 [![🇬🇧 Import Blueprint](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmohoel%2Fhome-assistant-voice-display%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Flumi%2Fen%2Fmusik_abspielen.yaml)
 
-Import it, create an automation from it, and choose a **default media
-player** (the Music Assistant entity that plays when the sentence names no
-room or device). Six media types are recognized, each introduced with
-"Spiele"/"Höre"/"Spiel" in German or "Play"/"Listen to" in English:
+Import it, create an automation from it — no further inputs needed. If the
+sentence names no room or device, the Music Assistant player in the area
+of the addressed Assist device plays automatically, i.e. the same room
+the voice command was spoken in. If there's no Music Assistant player
+there, the command fails with a spoken error message instead — a
+different room is only reached if it's named in the sentence. Six media
+types are recognized, each introduced with "Play"/"Listen to"/"Put on":
 
 | Media type | Example sentence (German) | Example sentence (English, with the [English blueprint](#blueprints)) |
 |---|---|---|
@@ -309,13 +312,14 @@ room or device). Six media types are recognized, each introduced with
 | Radio station | "Höre das Radio Deutschlandfunk in der Küche" | "Play the radio station Deutschlandfunk in the kitchen" |
 
 For song and album, an artist can additionally be named — literally with
-the word "Künstler"/"Band"/"Gruppe" in German or "by the artist"/"by the
-band" in English, otherwise the name ends up as part of the title/album
-name, which Music Assistant usually still finds, just less precisely. The
-optional target room or device at the end of the sentence is first
-checked against the names of all Music Assistant players, then against
-area names; without a match, the area of the addressed Assist device
-counts, and only after that the default player chosen above.
+the word "artist"/"band"/"group", otherwise the name ends up as part of
+the title/album name, which Music Assistant usually still finds, just
+less precisely. The optional target room or device at the end of the
+sentence is first checked against the names of all Music Assistant
+players, then against area names; without a match, the area of the
+addressed Assist device counts — if there's no Music Assistant player
+there, the command fails with a spoken error message, there's no further
+fallback player.
 
 Before playing anything, the blueprint itself searches with
 `music_assistant.search` for a unique matching URI (25 candidates,

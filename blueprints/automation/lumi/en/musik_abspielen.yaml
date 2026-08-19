@@ -24,7 +24,11 @@ blueprint:
     as part of the title/album name, which Music Assistant usually still
     finds, just less precisely), and there's always an optional target
     room or device ("in the kitchen", "on the living room speaker") — if
-    missing, the default player chosen below plays instead.
+    missing, the Music Assistant player in the area of the addressed
+    Assist device plays instead (the same room the voice command was
+    spoken in). If there's no Music Assistant player there either, the
+    command fails with a spoken error message rather than playing
+    somewhere else.
 
     Examples:
 
@@ -45,8 +49,9 @@ blueprint:
     ```
 
     The target search checks in this order: a player or area name in the
-    sentence, then the area of the addressed Assist device, and finally
-    the default player below.
+    sentence, then the area of the addressed Assist device. If there's no
+    Music Assistant player there, the command fails — there's no further
+    fallback player.
 
     Before playing anything, the blueprint itself searches with
     `music_assistant.search` (25 candidates instead of the 8 that
@@ -62,17 +67,6 @@ blueprint:
   source_url: https://github.com/mohoel/home-assistant-voice-display/blob/main/blueprints/automation/lumi/en/musik_abspielen.yaml
   homeassistant:
     min_version: "2024.10.0"
-  input:
-    default_player:
-      name: Default Media Player
-      description: >-
-        The Music Assistant player that plays when the sentence names
-        neither a matching area nor a matching device.
-      selector:
-        entity:
-          filter:
-            integration: music_assistant
-            domain: media_player
 
 triggers:
   - trigger: conversation
@@ -104,13 +98,11 @@ conditions: []
 
 actions:
   - variables:
-      default_player: !input default_player
       media_type_id: "{{ trigger.id }}"
       assist_device_id: "{{ trigger.device_id }}"
       medium: "{{ trigger.slots.medium }}"
       artist: "{{ trigger.slots.artist | default }}"
       target_name: "{{ trigger.slots.target | default }}"
-      mass_config_entry_id: "{{ config_entry_id(default_player) }}"
       mass_result_field: >-
         {{ {"artist": "artists", "track": "tracks", "album": "albums",
             "playlist": "playlists", "podcast": "podcasts",
@@ -129,8 +121,24 @@ actions:
            | select('in', integration_entities('music_assistant')) | list }}
       media_player_target: |
         {{ player_by_name or player_by_area_name
-           or player_by_device_area or [default_player] }}
+           or player_by_device_area }}
       media_player_name: "{{ media_player_target | map('state_attr', 'friendly_name') | join(', ') }}"
+  # No fallback player anymore: without a match in the sentence, only the
+  # area of the addressed Assist device counts (= "same room"). If there's
+  # no Music Assistant player there, the command fails here -
+  # config_entry_id(media_player_target[0]) below would otherwise fail on
+  # an empty list with an unclear error.
+  - if:
+      - condition: template
+        value_template: "{{ media_player_target == [] }}"
+    then:
+      - set_conversation_response: >-
+          I couldn't find a speaker. Please name a room or a device.
+      - stop: >-
+          No Music Assistant player found in the sentence, the named area,
+          or the Assist device's area.
+  - variables:
+      mass_config_entry_id: "{{ config_entry_id(media_player_target[0]) }}"
   - alias: >-
       Look up a unique URI for the media request instead of letting
       play_media guess
