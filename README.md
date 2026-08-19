@@ -237,6 +237,7 @@ Not a feature of Lumi's own, but the built-in Home Assistant action
 without a wake word, even while the device is currently listening.
 
 🇩🇪 [![Blueprint importieren](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmohoel%2Fhome-assistant-voice-display%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Flumi%2Fansage_bei_ereignis.yaml)
+
 🇬🇧 [![Import Blueprint](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmohoel%2Fhome-assistant-voice-display%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Flumi%2Fen%2Fansage_bei_ereignis.yaml)
 
 Import it, create an automation from it, and pick the triggering entity,
