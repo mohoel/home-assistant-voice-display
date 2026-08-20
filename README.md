@@ -49,6 +49,8 @@ who prefers it plain gets a large standby clock or a hand-less dial. While
 a timer runs, a ring around the screen edge counts down the remaining
 time, visible on every page.
 
+Demo: https://youtu.be/bsEPsiw8B5k
+
 Lumi is controlled entirely through Home Assistant — no web UI of its own,
 no cloud, no app. The touchscreen knows exactly one gesture: tapping wakes
 the display or cancels an ongoing voice interaction; a single tap and a
