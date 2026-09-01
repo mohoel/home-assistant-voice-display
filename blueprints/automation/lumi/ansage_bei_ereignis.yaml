@@ -10,7 +10,7 @@ blueprint:
     Für eine Rückfrage `ask_question` wählen: das Gerät zeigt dabei
     automatisch das Fragezeichen-Icon und wartet danach auf eine gesprochene
     Antwort. Die optionale Zusatzaktion eignet sich z. B., um zugleich
-    `zeige_hinweis` aufzurufen, etwa bei einer Video-Türklingel.
+    `show_hint` aufzurufen, etwa bei einer Video-Türklingel.
   domain: automation
   source_url: https://github.com/mohoel/home-assistant-voice-display/blob/main/blueprints/automation/lumi/ansage_bei_ereignis.yaml
   homeassistant:
@@ -51,7 +51,7 @@ blueprint:
     zusatzaktion:
       name: Zusätzliche Aktion (optional)
       description: >-
-        Läuft parallel zur Ansage, z. B. die Lumi-Aktion `zeige_hinweis`.
+        Läuft parallel zur Ansage, z. B. die Lumi-Aktion `show_hint`.
       default: []
       selector:
         action: {}

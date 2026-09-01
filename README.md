@@ -181,7 +181,7 @@ blueprint for that in one place, in the
 [`blueprints/`](blueprints/) folder: import, fill in the inputs, done,
 instead of writing your own YAML. Service names of Lumi's own actions
 depend on the compiled device name (`esphome.<device-name>_<action>`, e.g.
-`esphome.lumi_a0d0a8_zeige_hinweis`).
+`esphome.lumi_a0d0a8_show_hint`).
 
 Each blueprint below comes in **two language versions**: a German one
 (with German trigger sentences, for a German-language Assist pipeline) and
@@ -201,10 +201,10 @@ firmware itself can't know about: a doorbell, a package, a leak sensor.
 
 Import it, create an automation from it, and pick the triggering entity
 and target state (e.g. `binary_sensor.front_door` → `on`). As the **Hint
-Action**, look up your own `zeige_hinweis` action (service name depends on
-the compiled device name, e.g. `esphome.lumi_a0d0a8_zeige_hinweis`) and
-fill in icon, text, and duration, e.g. `icon: mdi:door-open`, `nachricht:
-Front door open`, `sekunden: 15`.
+Action**, look up your own `show_hint` action (service name depends on
+the compiled device name, e.g. `esphome.lumi_a0d0a8_show_hint`) and
+fill in icon, text, and duration, e.g. `icon: mdi:door-open`, `message:
+Front door open`, `seconds: 15`.
 
 `icon` understands real `mdi:` names just like Home Assistant's icon
 picker, but only a fixed, embedded selection. A name that isn't listed
@@ -251,7 +251,7 @@ done."
 The blueprint also has an "Ask as a follow-up question" option: uses
 `ask_question` instead of `announce`, then expects a spoken reply and
 automatically shows the question-mark icon while waiting. The optional
-extra action can, for example, be combined with `zeige_hinweis` — for a
+extra action can, for example, be combined with `show_hint` — for a
 video doorbell.
 
 Conversely, a single tap and a double tap on the screen report themselves
@@ -273,15 +273,15 @@ firmware never learns more than the spoken reply text.
 
 Import it, create an automation from it, and pick your own `weather.*`
 entity (domain `weather`). As the optional **Weather Action**, look up
-your own `zeige_wetter` action of the device in the automation's action
+your own `show_weather` action of the device in the automation's action
 editor and fill in these three templates. The service name depends on the
-compiled device name (`esphome.<device-name>_zeige_wetter`, e.g.
-`esphome.lumi_a0d0a8_zeige_wetter`).
+compiled device name (`esphome.<device-name>_show_weather`, e.g.
+`esphome.lumi_a0d0a8_show_weather`).
 
 ```
-zustand: {{ zustand }}
-temperatur: {{ temperatur }}
-einheit: {{ einheit }}
+condition: {{ zustand }}
+temperature: {{ temperatur }}
+unit: {{ einheit }}
 ```
 
 Produces e.g. "Morgen um 14 Uhr ist es bewölkt mit 24 Grad." ("Tomorrow at
@@ -370,7 +370,7 @@ with the built-in local intent recognition.
 
 Import it, create a script from it, and pick your own `weather.*` entity
 — as with "Weather on Request" above, optionally also your own
-`zeige_wetter` action with the same three templates. Afterward, expose the
+`show_weather` action with the same three templates. Afterward, expose the
 script to voice assistants.
 
 ### Delayed Actions (not local)

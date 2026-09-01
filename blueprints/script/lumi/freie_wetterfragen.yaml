@@ -15,13 +15,13 @@ blueprint:
 
     Die Wetter-Aktion ist optional und absichtlich frei wählbar, weil ihr
     Servicename vom kompilierten Gerätenamen abhängt: als Aktion die eigene
-    `zeige_wetter`-Aktion des Geräts suchen und darin folgende drei Vorlagen
+    `show_weather`-Aktion des Geräts suchen und darin folgende drei Vorlagen
     eintragen —
 
     ```
-    zustand: {{ zustand }}
-    temperatur: {{ temperatur }}
-    einheit: {{ einheit }}
+    condition: {{ zustand }}
+    temperature: {{ temperatur }}
+    unit: {{ einheit }}
     ```
   domain: script
   source_url: https://github.com/mohoel/home-assistant-voice-display/blob/main/blueprints/script/lumi/freie_wetterfragen.yaml
@@ -34,9 +34,9 @@ blueprint:
       selector:
         entity:
           domain: weather
-    zeige_wetter_aktion:
+    show_weather_action:
       name: Wetter-Aktion (optional)
-      description: Die Lumi-Aktion `zeige_wetter` — siehe Beschreibung oben.
+      description: Die Lumi-Aktion `show_weather` — siehe Beschreibung oben.
       default: []
       selector:
         action: {}
@@ -74,6 +74,6 @@ sequence:
         temperatur_min: "{{ treffer.templow }}"
         regenwahrscheinlichkeit_prozent: "{{ treffer.precipitation_probability }}"
   - if: []
-    then: !input zeige_wetter_aktion
+    then: !input show_weather_action
   - stop: "Vorhersage geliefert"
     response_variable: ergebnis

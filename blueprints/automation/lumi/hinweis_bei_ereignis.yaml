@@ -6,11 +6,11 @@ blueprint:
     wovon die Firmware selbst nichts wissen kann: eine Türklingel, ein
     Paket, ein Leck-Sensor.
 
-    Als Aktion die eigene `zeige_hinweis`-Aktion des Geräts wählen
+    Als Aktion die eigene `show_hint`-Aktion des Geräts wählen
     (Aktions-Editor öffnen, nach dem kompilierten Gerätenamen suchen, z. B.
     „lumi_a0d0a8") und dort Icon, Text und Anzeigedauer eintragen. Welche
     `mdi:`-Icons eingebettet sind, steht in der
-    [Lumi-Doku](https://github.com/mohoel/home-assistant-voice-display#hinweis-anzeigen-zeige_hinweis).
+    [Lumi-Doku](https://github.com/mohoel/home-assistant-voice-display#hinweis-bei-ereignis).
   domain: automation
   source_url: https://github.com/mohoel/home-assistant-voice-display/blob/main/blueprints/automation/lumi/hinweis_bei_ereignis.yaml
   homeassistant:
@@ -29,10 +29,10 @@ blueprint:
       default: "on"
       selector:
         text: {}
-    hinweis_aktion:
+    show_hint_action:
       name: Hinweis-Aktion
       description: >-
-        Die Lumi-Aktion `zeige_hinweis` mit Icon, Text und Anzeigedauer als
+        Die Lumi-Aktion `show_hint` mit Icon, Text und Anzeigedauer als
         Daten — im Aktions-Editor nach dem Gerätenamen suchen.
       selector:
         action: {}
@@ -42,4 +42,4 @@ triggers:
     entity_id: !input trigger_entity
     to: !input trigger_to
 
-actions: !input hinweis_aktion
+actions: !input show_hint_action

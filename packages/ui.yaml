@@ -129,7 +129,7 @@ font:
       - "\U0000E668" # check                 - Befehl ausgefuehrt
       - "\U0000E7F7" # notifications_active   - Timer klingelt
 
-  # Wetter-Icons fuer die optionale API-Aktion zeige_wetter (core.yaml) ->
+  # Wetter-Icons fuer die optionale API-Aktion show_weather (core.yaml) ->
   # stage_weather (voice.yaml) -> result_kind == 3. Eigener, kleinerer Font
   # statt Zweitverwendung von font_icon: der ist mit 216 px fest auf die
   # Statusicons in der Bildschirmmitte ausgelegt (dot_gap/bar_gap haengen an
@@ -147,16 +147,16 @@ font:
       - "\U0000E2CD" # weather_snowy  - schneeig
       - "\U0000EFD8" # air            - windig
 
-  # Eigener Font nur fuer den optionalen Hinweis (api: actions: zeige_hinweis,
+  # Eigener Font nur fuer den optionalen Hinweis (api: actions: show_hint,
   # Widget lbl_hint_icon). Bewusst getrennt von font_icon oben: der traegt die
   # sieben fest verdrahteten Phasenicons und soll von einer Erweiterung hier
   # unberuehrt bleiben. Quelle ist diesmal nicht Material Symbols, sondern der
   # echte MDI-Webfont (Templarian/MaterialDesign-Webfont) - dessen Codepoints
   # sind identisch mit denen, die Home Assistants Icon-Picker als "mdi:name"
-  # kennt. zeige_hinweis kann deshalb echte mdi:-Namen entgegennehmen, siehe
-  # show_hint weiter unten; render- und damit einbettbar ist trotzdem nur die
-  # hier gelistete, zur Compile-Zeit feste Auswahl - ein "mdi:xyz" ausserhalb
-  # dieser Liste zeigt weiterhin nur Text, siehe show_hint.
+  # kennt. Die Aktion kann deshalb echte mdi:-Namen entgegennehmen, siehe
+  # das show_hint-Skript weiter unten; render- und damit einbettbar ist
+  # trotzdem nur die hier gelistete, zur Compile-Zeit feste Auswahl - ein
+  # "mdi:xyz" ausserhalb dieser Liste zeigt weiterhin nur Text, siehe dort.
   # Codepoints nachgeschlagen auf https://pictogrammers.com/library/mdi/icon/<name>/.
   - file: "https://github.com/Templarian/MaterialDesign-Webfont/raw/master/fonts/materialdesignicons-webfont.ttf"
     id: font_hint_icon
@@ -521,7 +521,7 @@ lvgl:
                   width: 440
 
         # --- Hinweis von aussen ---
-        # Nur fuer die optionale API-Aktion zeige_hinweis (packages/core.yaml).
+        # Nur fuer die optionale API-Aktion show_hint (packages/core.yaml).
         # Eigene Widgets statt einer Zweitverwendung von lbl_icon, damit der
         # Hinweis nichts mit der Phasenanzeige zu tun hat: das Icon sitzt
         # hoeher, weil darunter eine Textzeile steht.
@@ -549,7 +549,7 @@ lvgl:
             hidden: true
 
         # --- Wetter auf Nachfrage: Icon, Temperatur, Trennlinie, Einheit ---
-        # Fuer die optionale API-Aktion zeige_wetter (core.yaml) ueber
+        # Fuer die optionale API-Aktion show_weather (core.yaml) ueber
         # stage_weather (voice.yaml), result_kind == 3. Eigene Widget-Gruppe
         # statt Zweitverwendung von box_result, aus demselben Grund wie bei
         # lbl_hint_icon/lbl_hint_text oben: box_result hat kein Icon-Kind,
@@ -1035,7 +1035,7 @@ globals:
     restore_value: false
     initial_value: "0"
 
-  # Ein Hinweis von aussen steht an (API-Aktion zeige_hinweis in
+  # Ein Hinweis von aussen steht an (API-Aktion show_hint in
   # packages/core.yaml). Nur update_ui und show_hint fassen ihn an.
   - id: hint_active
     type: bool
@@ -1064,7 +1064,7 @@ globals:
 
 script:
   # ---------------------------------------------------------- Hinweis zeigen
-  # Gegenstueck zur optionalen API-Aktion zeige_hinweis. Fuer den normalen
+  # Gegenstueck zur optionalen API-Aktion show_hint. Fuer den normalen
   # Betrieb spielt das Skript keine Rolle - ohne einen Aufruf aus Home
   # Assistant laeuft es nie.
   #
@@ -1184,7 +1184,7 @@ script:
           for (lv_obj_t *w : alle)
             lv_obj_add_flag(w, LV_OBJ_FLAG_HIDDEN);
 
-          // Ein Hinweis von aussen (API-Aktion zeige_hinweis) belegt die
+          // Ein Hinweis von aussen (API-Aktion show_hint) belegt die
           // Anzeige nur, solange nichts Wichtigeres los ist. Faengt ein
           // Sprachvorgang an, tritt er zurueck und kommt danach von selbst
           // wieder - sein Skript laeuft im Hintergrund weiter und raeumt am
@@ -1232,7 +1232,7 @@ script:
                 lv_label_set_text(id(lbl_unit), id(result_unit).c_str());
                 lv_obj_remove_flag(id(box_result), LV_OBJ_FLAG_HIDDEN);
               } else if (id(result_kind) == 3) {
-                // Wetter auf Nachfrage (zeige_wetter -> stage_weather). Icon,
+                // Wetter auf Nachfrage (show_weather -> stage_weather). Icon,
                 // Zahl und Einheit kommen fertig aus stage_weather in
                 // packages/voice.yaml - hier wird nur noch gesetzt und
                 // gezeigt, wie beim Messwert oben.
