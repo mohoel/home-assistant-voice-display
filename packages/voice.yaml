@@ -47,7 +47,7 @@ globals:
   # 4 = Gute-Nacht-Bestaetigung (Schlafmuetze statt Haken, nur auf page_face -
   # siehe wake_display/update_ui in ui.yaml).
   # Gesetzt in on_tts_start aus dem Antworttext (1/2/4) bzw. in stage_weather
-  # aus der API-Aktion zeige_wetter (3), ausgewertet in update_ui.
+  # aus der API-Aktion show_weather (3), ausgewertet in update_ui.
   - id: result_kind
     type: int
     restore_value: false
@@ -232,7 +232,7 @@ voice_assistant:
         // Ein vorgemerkter Ton aus einem abgebrochenen Durchgang gehoert nicht
         // in den neuen hinein.
         id(confirm_pending) = false;
-        // Sicherheitsnetz: falls zeige_wetter ausgeloest wurde, aber aus
+        // Sicherheitsnetz: falls show_weather ausgeloest wurde, aber aus
         // irgendeinem Grund kein on_tts_start folgte (z. B. das HA-Skript
         // bricht vorher ab), darf der naechste echte Sprachvorgang die
         // Bestaetigungs-/Messwert-Heuristik dort nicht faelschlich
@@ -270,7 +270,7 @@ voice_assistant:
     - lambda: |-
         id(had_tts) = true;
 
-        // zeige_wetter (core.yaml) -> stage_weather (weiter unten in dieser
+        // show_weather (core.yaml) -> stage_weather (weiter unten in dieser
         // Datei) hat result_kind/result_value/result_unit/weather_icon_glyph
         // bereits gesetzt, bevor die Sprachausgabe beginnt. Die Heuristik
         // unten wuerde das mit ihrem eigenen result_kind = 0 als erste Zeile
@@ -1137,7 +1137,7 @@ script:
       - script.execute: update_ui
 
   # ------------------------------------------------- Wetter auf Nachfrage
-  # Gegenstueck zur optionalen API-Aktion zeige_wetter (packages/core.yaml).
+  # Gegenstueck zur optionalen API-Aktion show_weather (packages/core.yaml).
   # Setzt nur State, fasst kein Widget an - das uebernimmt update_ui weiter
   # oben ueber on_tts_start, sobald die gesprochene Antwort einsetzt (siehe
   # dort, weather_shown). Ohne einen Aufruf aus Home Assistant (README,

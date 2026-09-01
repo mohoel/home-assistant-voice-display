@@ -137,7 +137,7 @@ result_unit_letter_space: "5"
 result_value_font_size: "150"
 
 # Icon-Groesse der optionalen Wetteranzeige (result_kind == 3, box_weather in
-# ui.yaml, gefuellt ueber die API-Aktion zeige_wetter -> stage_weather in
+# ui.yaml, gefuellt ueber die API-Aktion show_weather -> stage_weather in
 # packages/voice.yaml). Kleiner als font_icon (216 px, dort fest auf die
 # Statusicons in der Bildschirmmitte ausgelegt) und kleiner als der Messwert
 # selbst, weil hier zusaetzlich Zahl, Trennlinie und Einheit darunter Platz

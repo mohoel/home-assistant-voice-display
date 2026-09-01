@@ -10,7 +10,7 @@ blueprint:
     Choose `ask_question` for a follow-up: the device automatically shows
     the question-mark icon and then waits for a spoken answer. The
     optional extra action is handy, for example, to also call
-    `zeige_hinweis` — for a video doorbell.
+    `show_hint` — for a video doorbell.
   domain: automation
   source_url: https://github.com/mohoel/home-assistant-voice-display/blob/main/blueprints/automation/lumi/en/ansage_bei_ereignis.yaml
   homeassistant:
@@ -52,7 +52,7 @@ blueprint:
       name: Additional Action (optional)
       description: >-
         Runs alongside the announcement, e.g. the Lumi action
-        `zeige_hinweis`.
+        `show_hint`.
       default: []
       selector:
         action: {}

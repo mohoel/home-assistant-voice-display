@@ -5,7 +5,7 @@ blueprint:
     as an entity reaches a certain state — useful for anything the firmware
     itself can't know about: a doorbell, a package, a leak sensor.
 
-    As the action, pick the device's own `zeige_hinweis` action (open the
+    As the action, pick the device's own `show_hint` action (open the
     action editor, search for the compiled device name, e.g. "lumi_a0d0a8")
     and fill in icon, text, and display duration there. Which `mdi:` icons
     are embedded is documented in the
@@ -31,7 +31,7 @@ blueprint:
     hint_action:
       name: Hint Action
       description: >-
-        The Lumi action `zeige_hinweis` with icon, text, and display
+        The Lumi action `show_hint` with icon, text, and display
         duration as data — search for the device name in the action editor.
       selector:
         action: {}

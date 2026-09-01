@@ -174,7 +174,7 @@ vorbereiteten Blueprints an einem Ort, im Ordner
 [`blueprints/`](blueprints/): importieren, Eingaben ausfüllen, fertig,
 statt eigenes YAML zu schreiben. Servicenamen der Lumi-eigenen Aktionen
 hängen vom kompilierten Gerätenamen ab (`esphome.<gerätename>_<aktion>`,
-z. B. `esphome.lumi_a0d0a8_zeige_hinweis`).
+z. B. `esphome.lumi_a0d0a8_show_hint`).
 
 ### Hinweis bei Ereignis
 
@@ -188,11 +188,11 @@ Leck-Sensor.
 
 Importieren, daraus eine Automation anlegen und darin auslösende Entity
 und Zielzustand wählen (z. B. `binary_sensor.haustuer` → `on`). Als
-**Hinweis-Aktion** die eigene `zeige_hinweis`-Aktion suchen (Servicename
+**Hinweis-Aktion** die eigene `show_hint`-Aktion suchen (Servicename
 hängt vom kompilierten Gerätenamen ab, z. B.
-`esphome.lumi_a0d0a8_zeige_hinweis`) und darin Icon, Text und Anzeigedauer
-eintragen, z. B. `icon: mdi:door-open`, `nachricht: Haustür offen`,
-`sekunden: 15`.
+`esphome.lumi_a0d0a8_show_hint`) und darin Icon, Text und Anzeigedauer
+eintragen, z. B. `icon: mdi:door-open`, `message: Haustür offen`,
+`seconds: 15`.
 
 `icon` versteht echte `mdi:`-Namen wie im Home-Assistant-Icon-Picker, aber
 nur eine feste, eingebettete Auswahl. Ein nicht gelisteter Name zeigt nur
@@ -238,7 +238,7 @@ fertig."
 Das Blueprint kennt zusätzlich eine Option „Als Rückfrage stellen": nutzt
 `ask_question` statt `announce`, erwartet danach eine gesprochene Antwort
 und zeigt dabei automatisch das Fragezeichen-Icon. Die optionale
-Zusatzaktion lässt sich z. B. mit `zeige_hinweis` kombinieren, etwa bei
+Zusatzaktion lässt sich z. B. mit `show_hint` kombinieren, etwa bei
 einer Video-Türklingel.
 
 Umgekehrt melden sich Tipp und Doppeltipp auf den Bildschirm als Event
@@ -259,15 +259,15 @@ sonst nie mehr als den gesprochenen Antworttext erfährt.
 
 Importieren, daraus eine Automation anlegen und darin die eigene
 `weather.*`-Entity auswählen (Domain `weather`). Als **Wetter-Aktion**
-optional im Aktions-Editor der Automation die eigene `zeige_wetter`-Aktion
+optional im Aktions-Editor der Automation die eigene `show_weather`-Aktion
 des Geräts suchen und darin folgende drei Vorlagen eintragen. Der
 Servicename hängt vom kompilierten Gerätenamen ab
-(`esphome.<gerätename>_zeige_wetter`, z. B. `esphome.lumi_a0d0a8_zeige_wetter`).
+(`esphome.<gerätename>_show_weather`, z. B. `esphome.lumi_a0d0a8_show_weather`).
 
 ```
-zustand: {{ zustand }}
-temperatur: {{ temperatur }}
-einheit: {{ einheit }}
+condition: {{ zustand }}
+temperature: {{ temperatur }}
+unit: {{ einheit }}
 ```
 
 Ergibt z. B. "Morgen um 14 Uhr ist es bewölkt mit 24 Grad." (engl. "Tomorrow
@@ -354,7 +354,7 @@ Intent-Erkennung funktioniert das nicht.
 
 Importieren, daraus ein Skript anlegen und darin die eigene `weather.*`-Entity
 auswählen sowie — wie bei „Wetter auf Nachfrage" oben — optional die eigene
-`zeige_wetter`-Aktion mit denselben drei Vorlagen. Anschließend das Skript
+`show_weather`-Aktion mit denselben drei Vorlagen. Anschließend das Skript
 für Sprachassistenten freigeben.
 
 ### Verzögerte Aktionen (nicht lokal)

@@ -123,8 +123,8 @@ api:
   # noch Entitaet noch Wert. Wer das trotzdem will - ein Gluehbirnen-Symbol
   # beim Schalten, ein Hinweis bei der Tuerklingel - kann von HA aus
   #
-  #   action: esphome.assist_satellit_zeige_hinweis
-  #   data: {icon: "mdi:door-open", nachricht: "Haustuer offen", sekunden: 10}
+  #   action: esphome.assist_satellit_show_hint
+  #   data: {icon: "mdi:door-open", message: "Front door open", seconds: 10}
   #
   # icon ist entweder einer von sieben alten deutschen Namen (mikrofon, stumm,
   # warnung, offline, frage, haken, glocke) oder ein echter mdi:name wie ihn
@@ -140,45 +140,50 @@ api:
   # (packages/ui.yaml) plus Compile und OTA. Ein roher Codepoint
   # ("\U000F009A") geht weiterhin unveraendert durch.
   #
-  # Der Parameter heisst nachricht und nicht text, weil cv.validate_id_name die
-  # Namen der ESPHome-Plattformen sperrt - "text" ist eine davon.
+  # Action- und Variablennamen sind bewusst Englisch, waehrend die Kommentare
+  # hier Deutsch bleiben (siehe CLAUDE.md, "Antworten auf Deutsch" gilt fuer
+  # die Doku, nicht fuer HA-seitige Bezeichner) - action/message/seconds
+  # sollen fuer jede Home-Assistant-Installation lesbar sein, unabhaengig von
+  # deren Sprache. Der Parameter heisst message und nicht text, weil
+  # cv.validate_id_name die Namen der ESPHome-Plattformen sperrt - "text" ist
+  # eine davon, "message" nicht.
   actions:
-    - action: zeige_hinweis
+    - action: show_hint
       variables:
         icon: string
-        nachricht: string
-        sekunden: int
+        message: string
+        seconds: int
       then:
         - script.execute:
             id: show_hint
             icon: !lambda return icon;
-            nachricht: !lambda return nachricht;
-            sekunden: !lambda return sekunden;
+            nachricht: !lambda return message;
+            sekunden: !lambda return seconds;
 
     # Zweiter Haken, diesmal keine Zusatz-, sondern eine Kernfunktion: anders
-    # als zeige_hinweis kommt die Wetteranzeige ohne eine HA-Automation gar
-    # nicht zustande, weil auch hier gilt, was oben steht - das Geraet
-    # erfaehrt nie, was ein Befehl bewirkt hat, und eine Vorhersage fuer einen
-    # bestimmten Tag/eine bestimmte Stunde gibt es nur ueber
-    # weather.get_forecasts, das ausschliesslich in Home Assistant aufrufbar
-    # ist. Einrichtung (Skript + Satzausloeser zum Kopieren) steht in
-    # README.md, Abschnitt "Wetter auf Nachfrage".
+    # als show_hint kommt die Wetteranzeige ohne eine HA-Automation gar nicht
+    # zustande, weil auch hier gilt, was oben steht - das Geraet erfaehrt nie,
+    # was ein Befehl bewirkt hat, und eine Vorhersage fuer einen bestimmten
+    # Tag/eine bestimmte Stunde gibt es nur ueber weather.get_forecasts, das
+    # ausschliesslich in Home Assistant aufrufbar ist. Einrichtung (Skript +
+    # Satzausloeser zum Kopieren) steht in README.md, Abschnitt "Wetter auf
+    # Nachfrage".
     #
-    # zustand ist der rohe Home-Assistant-Wetterzustand (z.B. "partlycloudy"),
-    # wird in stage_weather (packages/voice.yaml) auf einen von sieben
-    # vereinfachten Icon-Buckets abgebildet. einheit ist meist "°C" - die
-    # HA-Automation entscheidet, das Geraet nimmt sie unveraendert.
-    - action: zeige_wetter
+    # condition ist der rohe Home-Assistant-Wetterzustand (z.B.
+    # "partlycloudy"), wird in stage_weather (packages/voice.yaml) auf einen
+    # von sieben vereinfachten Icon-Buckets abgebildet. unit ist meist "°C" -
+    # die HA-Automation entscheidet, das Geraet nimmt sie unveraendert.
+    - action: show_weather
       variables:
-        zustand: string
-        temperatur: float
-        einheit: string
+        condition: string
+        temperature: float
+        unit: string
       then:
         - script.execute:
             id: stage_weather
-            zustand: !lambda return zustand;
-            temperatur: !lambda return temperatur;
-            einheit: !lambda return einheit;
+            zustand: !lambda return condition;
+            temperatur: !lambda return temperature;
+            einheit: !lambda return unit;
 
 ota:
   - platform: esphome

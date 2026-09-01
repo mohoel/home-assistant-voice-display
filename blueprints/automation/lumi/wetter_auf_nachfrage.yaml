@@ -11,13 +11,13 @@ blueprint:
 
     Die Wetter-Aktion ist optional und absichtlich frei wählbar, weil ihr
     Servicename vom kompilierten Gerätenamen abhängt: als Aktion die eigene
-    `zeige_wetter`-Aktion des Geräts suchen und darin folgende drei Vorlagen
+    `show_weather`-Aktion des Geräts suchen und darin folgende drei Vorlagen
     eintragen —
 
     ```
-    zustand: {{ zustand }}
-    temperatur: {{ temperatur }}
-    einheit: {{ einheit }}
+    condition: {{ zustand }}
+    temperature: {{ temperatur }}
+    unit: {{ einheit }}
     ```
 
     Ohne gewählte Aktion antwortet Lumi trotzdem gesprochen, zeigt aber
@@ -45,9 +45,9 @@ blueprint:
       selector:
         text:
           multiple: true
-    zeige_wetter_aktion:
+    show_weather_action:
       name: Wetter-Aktion (optional)
-      description: Die Lumi-Aktion `zeige_wetter` — siehe Beschreibung oben.
+      description: Die Lumi-Aktion `show_weather` — siehe Beschreibung oben.
       default: []
       selector:
         action: {}
@@ -88,7 +88,7 @@ actions:
             'windy-variant': 'windig'}.get(treffer.condition, treffer.condition) }}
       tag_text: "{{ 'Morgen' if trigger.slots.tag == 'morgen' else 'Heute' }}"
   - if: []
-    then: !input zeige_wetter_aktion
+    then: !input show_weather_action
   - set_conversation_response: >-
       {{ tag_text }} um {{ stunde_zahl }} Uhr ist es {{ zustand_text }} mit
       {{ temperatur | round(0) | int }} Grad.

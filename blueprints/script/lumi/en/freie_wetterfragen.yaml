@@ -16,7 +16,7 @@ blueprint:
 
     The weather action is optional and deliberately left free to choose,
     because its service name depends on the compiled device name: as the
-    action, look up the device's own `zeige_wetter` action and fill in
+    action, look up the device's own `show_weather` action and fill in
     these three templates —
 
     ```
@@ -35,9 +35,9 @@ blueprint:
       selector:
         entity:
           domain: weather
-    zeige_wetter_aktion:
+    show_weather_action:
       name: Weather Action (optional)
-      description: The Lumi action `zeige_wetter` — see the description above.
+      description: The Lumi action `show_weather` — see the description above.
       default: []
       selector:
         action: {}
@@ -75,6 +75,6 @@ sequence:
         temperature_min: "{{ match.templow }}"
         precipitation_probability_percent: "{{ match.precipitation_probability }}"
   - if: []
-    then: !input zeige_wetter_aktion
+    then: !input show_weather_action
   - stop: "Forecast delivered"
     response_variable: result
