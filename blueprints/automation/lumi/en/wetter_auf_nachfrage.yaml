@@ -12,7 +12,7 @@ blueprint:
 
     The weather action is optional and deliberately left free to choose,
     because its service name depends on the compiled device name: as the
-    action, look up the device's own `zeige_wetter` action and fill in
+    action, look up the device's own `show_weather` action and fill in
     these three templates —
 
     ```
@@ -46,9 +46,9 @@ blueprint:
       selector:
         text:
           multiple: true
-    zeige_wetter_aktion:
+    show_weather_action:
       name: Weather Action (optional)
-      description: The Lumi action `zeige_wetter` — see the description above.
+      description: The Lumi action `show_weather` — see the description above.
       default: []
       selector:
         action: {}
@@ -89,7 +89,7 @@ actions:
             'windy-variant': 'windy'}.get(match.condition, match.condition) }}
       day_text: "{{ 'Tomorrow' if trigger.slots.day in ['tomorrow', 'morgen'] else 'Today' }}"
   - if: []
-    then: !input zeige_wetter_aktion
+    then: !input show_weather_action
   - set_conversation_response: >-
       {{ day_text }} at {{ hour_number }} it will be {{ condition_text }} with
       {{ temperature | round(0) | int }} degrees.
