@@ -1,13 +1,13 @@
 {
   "name": "Lumi",
-  "version": "0.5.10",
+  "version": "0.5.11",
   "builds": [
     {
       "chipFamily": "ESP32-S3",
       "ota": {
         "path": "firmware.ota.bin",
-        "md5": "cfb821780c0a7f3f0cab8ddef76fb30e",
-        "release_url": "https://github.com/mohoel/home-assistant-voice-display/releases/tag/v0.5.10"
+        "md5": "25257f9f7816513d8ac51cae5d20d9b6",
+        "release_url": "https://github.com/mohoel/home-assistant-voice-display/releases/tag/v0.5.11"
       }
     }
   ]
