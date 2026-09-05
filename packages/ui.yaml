@@ -288,6 +288,12 @@ lvgl:
             arc_width: ${timer_ring_width}
             arc_color: ${color_timer}
             arc_opa: COVER
+            # arc_rounded: false gegen den 6-Uhr-Rest, siehe update_timer_ui:
+            # das Ende bei Wert 500 landet fast exakt auf dem Sued-
+            # Kardinalwinkel (90 Grad), und LVGLs runde Kappe zeichnet dort
+            # bei jedem Redraw neu einen Anti-Aliasing-Saum - kein
+            # Invalidierungs-Problem, das per lv_obj_invalidate behebbar waere.
+            arc_rounded: false
 
   pages:
     # ------------------------------------------------------------ Hauptseite
@@ -1726,6 +1732,17 @@ script:
                 // stehen. Volles Invalidieren kostet hier nichts: der Wert
                 // aendert sich nur einmal pro Sekunde, nicht 25 Mal.
                 lv_obj_invalidate(id(ring_timer));
+                // Wert 500 liegt bei start_angle 270 fast exakt auf dem
+                // Sued-Kardinalwinkel (270+179.5=449.5 mod 360=89.5 Grad,
+                // hinter dem Countdown-Text) - das trifft *jeden* Timer bei
+                // 50 % Restlaufzeit, unabhaengig von der Gesamtdauer. Das
+                // volle Invalidieren oben behebt nur die Redraw-Flaeche,
+                // nicht einen zusaetzlichen, davon unabhaengigen Rest: die
+                // runde Kappe von LVGLs Arc-Renderer zieht an exakten
+                // Kardinalwinkeln einen Anti-Aliasing-Saum, der bei jedem
+                // Redraw gleich wieder erscheint. Deshalb arc_rounded: false
+                // am Indikator oben, statt hier weiter an der
+                // Invalidierungsflaeche zu drehen.
           else:
             # Der Ring verschwand bisher von einem Bild aufs naechste - beim
             # Abbrechen eines Timers wirkte das wie ein Anzeigefehler. Jetzt
