@@ -167,6 +167,7 @@ interaction.
 | **Standby Brightness** | Brightness of Clock, Dial, Face, processing, reply, etc. — everything except listening, which stays fixed at 100% (percent, 10–100). |
 | **Display** | Brightness; turning it on from HA wakes the screen for the standby timeout. |
 | **Microphone Muted**, **Wake Word Engine**, **Wake Word Sensitivity** | Voice operation. |
+| **Wake Word Microphone Gain** | Microphone amplification for wake word detection only (1–64, default 4). Higher is louder, not "better" — raising it also raises the chance of false triggers from background noise or TV audio. Lower it if the device wakes up on its own; raise it only if it fails to hear a clearly spoken wake word. |
 | **Recognized Text**, **Response** | Question and answer of the last interaction. |
 | **Display Touch** (event) | `single_press` on a tap, `double_press` on a double tap — only while idle; during a voice interaction, tapping cancels instead. |
 

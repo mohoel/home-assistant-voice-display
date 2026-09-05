@@ -160,6 +160,7 @@ Sprachvorgang ab.
 | **Standby Brightness** | Helligkeit von Clock, Dial, Face, Verarbeitung, Antwort usw. — alles außer dem Zuhören, das fest auf 100 % läuft (Prozent, 10–100). |
 | **Display** | Helligkeit; Einschalten aus HA weckt den Bildschirm für die Standby-Zeit. |
 | **Microphone Muted**, **Wake Word Engine**, **Wake Word Sensitivity** | Sprachbetrieb. |
+| **Wake Word Microphone Gain** | Mikrofonverstärkung nur für die Wake-Word-Erkennung (1–64, Standard 4). Höher heißt lauter, nicht "besser" — ein höherer Wert erhöht auch die Chance auf Fehlauslösungen durch Hintergrundgeräusche oder Fernsehton. Bei ungewollten Auslösungen senken, nur erhöhen, wenn ein klar gesprochenes Wake Word nicht erkannt wird. |
 | **Recognized Text**, **Response** | Frage und Antwort des letzten Vorgangs. |
 | **Display Touch** (Event) | `single_press` bei einem Tipp, `double_press` bei einem Doppeltipp — nur im Wartezustand, während eines Sprachvorgangs bricht Tippen stattdessen ab. |
 

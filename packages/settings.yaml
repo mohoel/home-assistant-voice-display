@@ -175,6 +175,34 @@ number:
     initial_value: 100
     unit_of_measurement: "%"
 
+  # Mikrofonverstaerkung fuer die Wake-Word-Erkennung (mww_mic_source,
+  # packages/voice.yaml). Kein Compile-Zeit-Wert mehr wie vorher als reines
+  # gain_factor im YAML, sondern zur Laufzeit ueber
+  # microphone::MicrophoneSource::set_gain_factor() einstellbar - der
+  # Laufzeit-Setter existiert unabhaengig vom micro_wake_word-Modell selbst
+  # (esphome/components/microphone/microphone_source.h), geklemmt auf 1-64.
+  #
+  # Hoeher heisst empfindlicher, aber auch anfaelliger fuer Fehlauslösungen
+  # durch Hintergrundgeraeusche/Fernsehton - deshalb bewusst nicht
+  # "Empfindlichkeit" genannt, sondern beim Namen des Reglers ("Verstaerkung")
+  # belassen, damit klar bleibt, dass ein hoeherer Wert das Mikrofonsignal nur
+  # lauter macht, nicht "besser". initial_value 4 ist der bisherige, fest
+  # kompilierte Wert - unveraendertes Verhalten, bis jemand bewusst
+  # nachjustiert.
+  - platform: template
+    id: num_wake_word_gain
+    name: "Wake Word Microphone Gain"
+    icon: mdi:volume-plus
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    min_value: 1
+    max_value: 64
+    step: 1
+    initial_value: 4
+    on_value:
+      - lambda: id(mww_mic_source)->set_gain_factor((int32_t) x);
+
 script:
   # Uebertraegt den Select-Wert an LVGL. lvgl.display.set_rotation nimmt einen
   # Laufzeitwert an: der Parameter geht durch LValidator, der eine Lambda mit

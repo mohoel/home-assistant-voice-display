@@ -120,6 +120,10 @@ globals:
 micro_wake_word:
   id: mww
   microphone:
+    # Eigene id, damit num_wake_word_gain (packages/settings.yaml) das erzeugte
+    # MicrophoneSource-Objekt zur Laufzeit per set_gain_factor() anfassen kann -
+    # der Sub-Block hier legt beim Setup nur den Ausgangswert fest.
+    id: mww_mic_source
     microphone: mic
     # channels default ist "0" - explizit hier, weil mic seit dem Dual-Mic-
     # Umbau (packages/hardware.yaml) stereo liefert und die Wake-Word-Inferenz
