@@ -95,6 +95,7 @@ Ist **Face** gewählt, übernimmt es auch Zuhören, Verarbeiten und Antworten
 - Sticht die gewählte Standby-Seite aus, solange er läuft; während eines Sprachvorgangs bleibt es bei **Face**
 - Am Ende klingelt es und eine Glocke erscheint; Antippen beendet beides
 - Abbrechen per Sprache ("Timer abbrechen") — kein Bedienelement am Gerät
+- Restzeit und Name des nächstfälligen Timers stehen auch als Text-Sensoren in Home Assistant, für Dashboards oder Automationen
 
 ### Display-Verhalten
 - Standby heißt aus: nach einstellbarer Zeit ohne Berührung schaltet sich der Bildschirm komplett ab
@@ -162,6 +163,7 @@ Sprachvorgang ab.
 | **Microphone Muted**, **Wake Word Engine**, **Wake Word Sensitivity** | Sprachbetrieb. |
 | **Wake Word Microphone Gain** | Mikrofonverstärkung nur für die Wake-Word-Erkennung (1–64, Standard 4). Höher heißt lauter, nicht "besser" — ein höherer Wert erhöht auch die Chance auf Fehlauslösungen durch Hintergrundgeräusche oder Fernsehton. Bei ungewollten Auslösungen senken, nur erhöhen, wenn ein klar gesprochenes Wake Word nicht erkannt wird. |
 | **Recognized Text**, **Response** | Frage und Antwort des letzten Vorgangs. |
+| **Next Timer**, **Next Timer Name** | Restzeit des nächstfälligen Timers als `H:MM:SS` (z. B. `0:09:58`) und dessen Name; beide leer, solange kein Timer läuft. |
 | **Display Touch** (Event) | `single_press` bei einem Tipp, `double_press` bei einem Doppeltipp — nur im Wartezustand, während eines Sprachvorgangs bricht Tippen stattdessen ab. |
 
 Alle Einstellungen überstehen einen Neustart.

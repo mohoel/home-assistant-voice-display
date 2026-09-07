@@ -102,6 +102,7 @@ replying (eyes focus, mouth moves, color changes per phase); with
 - Overrides the selected standby page while it runs; during a voice interaction it stays with **Face**
 - Rings at the end and shows a bell; tapping stops both
 - Cancel by voice ("Timer abbrechen" — "Cancel timer") — no control on the device itself
+- Remaining time and name of the next-due timer are also available as text sensors in Home Assistant, for dashboards or automations
 
 ### Display Behavior
 - Standby means off: after a configurable time without a touch, the screen switches off completely
@@ -169,6 +170,7 @@ interaction.
 | **Microphone Muted**, **Wake Word Engine**, **Wake Word Sensitivity** | Voice operation. |
 | **Wake Word Microphone Gain** | Microphone amplification for wake word detection only (1–64, default 4). Higher is louder, not "better" — raising it also raises the chance of false triggers from background noise or TV audio. Lower it if the device wakes up on its own; raise it only if it fails to hear a clearly spoken wake word. |
 | **Recognized Text**, **Response** | Question and answer of the last interaction. |
+| **Next Timer**, **Next Timer Name** | Remaining time of the next-due timer as `H:MM:SS` (e.g. `0:09:58`), and its name; both empty while no timer is running. |
 | **Display Touch** (event) | `single_press` on a tap, `double_press` on a double tap — only while idle; during a voice interaction, tapping cancels instead. |
 
 All settings survive a restart.
