@@ -295,12 +295,16 @@ media_player:
       - script.execute: announcement_guard
 
 switch:
-  # Verstaerker-Enable. GPIO46 ist ein Strapping-Pin des ESP32-S3.
+  # Verstaerker-Enable. GPIO46 ist ein Strapping-Pin des ESP32-S3. Kein
+  # HA-Bedienelement (internal: true) - der Verstaerker muss dauerhaft an
+  # sein, sonst kommt kein Ton mehr aus dem Lautsprecher. Es gibt im ganzen
+  # Projekt keine Stelle, die ihn je ausschaltet; ohne Konfiguration bliebe
+  # GPIO46 als Strapping-Pin aber in undefiniertem Zustand, deshalb bleibt
+  # die Komponente selbst bestehen.
   - platform: gpio
     id: amp_enable
-    name: "Speaker Amplifier"
+    internal: true
     pin:
       number: GPIO46
       ignore_strapping_warning: true
     restore_mode: RESTORE_DEFAULT_ON
-    entity_category: config
