@@ -268,18 +268,22 @@ sensor:
     free:
       name: "Free Heap"
       entity_category: diagnostic
+      disabled_by_default: true
     psram:
       name: "Free PSRAM"
       entity_category: diagnostic
+      disabled_by_default: true
   - platform: wifi_signal
     name: "WiFi Signal"
     update_interval: 60s
     entity_category: diagnostic
+    disabled_by_default: true
 
 text_sensor:
   - platform: version
     name: "ESPHome Version"
     entity_category: diagnostic
+    disabled_by_default: true
 
 button:
   - platform: restart
