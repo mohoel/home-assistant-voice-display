@@ -102,6 +102,7 @@ replying (eyes focus, mouth moves, color changes per phase); with
 - Overrides the selected standby page while it runs; during a voice interaction it stays with **Face**
 - Rings at the end and shows a bell; tapping stops both
 - Cancel by voice ("Timer abbrechen" — "Cancel timer") — no control on the device itself
+- Remaining time and name of the next-due timer are also available as text sensors in Home Assistant, for dashboards or automations
 
 ### Display Behavior
 - Standby means off: after a configurable time without a touch, the screen switches off completely
@@ -168,6 +169,7 @@ interaction.
 | **Display** | Brightness; turning it on from HA wakes the screen for the standby timeout. |
 | **Microphone Muted**, **Wake Word Engine**, **Wake Word Sensitivity** | Voice operation. |
 | **Recognized Text**, **Response** | Question and answer of the last interaction. |
+| **Next Timer**, **Next Timer Name** | Remaining time of the next-due timer as `H:MM:SS` (e.g. `0:09:58`), and its name; both empty while no timer is running. |
 | **Display Touch** (event) | `single_press` on a tap, `double_press` on a double tap — only while idle; during a voice interaction, tapping cancels instead. |
 
 All settings survive a restart.

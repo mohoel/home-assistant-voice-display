@@ -595,6 +595,7 @@ voice_assistant:
         id(timer_left) = timer.seconds_left;
         id(timer_name) = timer.name;
     - script.execute: update_timer_ui
+    - script.execute: publish_next_timer
 
   on_timer_updated:
     - lambda: |-
@@ -603,6 +604,7 @@ voice_assistant:
         id(timer_left) = timer.seconds_left;
         id(timer_name) = timer.name;
     - script.execute: update_timer_ui
+    - script.execute: publish_next_timer
 
   # Der Takt korrigiert das gleich wieder, falls noch weitere Timer laufen -
   # er feuert weiter, solange die Liste in der Komponente nicht leer ist
@@ -611,10 +613,12 @@ voice_assistant:
   on_timer_cancelled:
     - lambda: id(timer_active) = false;
     - script.execute: update_timer_ui
+    - script.execute: publish_next_timer
 
   on_timer_finished:
     - lambda: id(timer_active) = false;
     - script.execute: update_timer_ui
+    - script.execute: publish_next_timer
     - script.execute: timer_start_ringing
 
   # Quelle der Wahrheit: jede Sekunde kommt die vollstaendige Liste. Angezeigt
@@ -640,6 +644,7 @@ voice_assistant:
           id(timer_name) = timers[naechster].name;
         }
     - script.execute: update_timer_ui
+    - script.execute: publish_next_timer
 
   on_client_connected:
     - lambda: id(init_in_progress) = false;
@@ -665,6 +670,20 @@ text_sensor:
     id: text_response
     name: "Response"
     icon: mdi:message-text
+
+  # Naechstfaelliger Timer als eigene HA-Entities - siehe publish_next_timer
+  # weiter unten. Zwei getrennte Entities statt einer mit Attribut, weil
+  # ESPHome-Entities ueber die API keine eigenen Attribute transportieren
+  # koennen (nur State/Unit/Icon/Device-Class); ein kombinierender
+  # Template-Sensor waere dafuer HA-seitig noetig.
+  - platform: template
+    id: sensor_next_timer
+    name: "Next Timer"
+    icon: mdi:timer-outline
+  - platform: template
+    id: sensor_next_timer_name
+    name: "Next Timer Name"
+    icon: mdi:timer-outline
 
 switch:
   - platform: template
@@ -1058,6 +1077,28 @@ script:
                   || id(voice_assistant_phase) == ${phase_muted};
           then:
             - script.execute: start_wake_word
+
+  # Schreibt den naechstfaelligen Timer (Globals timer_active/timer_left/
+  # timer_name) in die beiden HA-Entities sensor_next_timer/
+  # sensor_next_timer_name, aufgerufen von jedem on_timer_*-Handler oben.
+  # Die Dauer steht durchgehend als H:MM:SS da (kein Stufenwechsel auf
+  # "Minuten"/"Stunden"), ohne fuehrende Nullen bei den Stunden - dieselbe
+  # Formatierung wie strftime("%H:%M:%S") ohne die fuehrende Stundennull.
+  - id: publish_next_timer
+    then:
+      - lambda: |-
+          if (id(timer_active)) {
+            int rest = id(timer_left);
+            int stunden = rest / 3600;
+            int minuten = (rest % 3600) / 60;
+            int sekunden = rest % 60;
+            id(sensor_next_timer).publish_state(
+                esphome::str_sprintf("%d:%02d:%02d", stunden, minuten, sekunden));
+            id(sensor_next_timer_name).publish_state(id(timer_name));
+          } else {
+            id(sensor_next_timer).publish_state("");
+            id(sensor_next_timer_name).publish_state("");
+          }
 
   # ------------------------------------------- Ansage aus Home Assistant
   # Gerufen vom on_announcement des Media Players (packages/hardware.yaml),
