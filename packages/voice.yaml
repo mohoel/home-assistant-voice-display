@@ -210,13 +210,24 @@ voice_assistant:
     # verzoegertes set_idle_or_muted mitten in den neuen Vorgang hinein.
     - script.stop: end_session
     - script.stop: clear_error
-    # Ein klingelnder Timer soll verstummen, sobald gesprochen wird - sonst
-    # redet der Nutzer gegen die Glocke an. Das Skript laeuft ohne delay durch,
-    # setzt also synchron auf Idle; die Phase unten ueberschreibt das gleich
-    # wieder.
+    # Ein klingelnder Timer soll verstummen, sobald der Nutzer tatsaechlich
+    # dagegen anredet - nicht aber, wenn die Pipeline das Mikrofon von sich
+    # aus wieder oeffnet. on_listening feuert naemlich auch automatisch, wenn
+    # eine Rueckfrage aus Home Assistant (assist_satellite.ask_question) nach
+    # ihrer Ansage selbst in START_MICROPHONE weitergeht
+    # (voice_assistant.cpp:513, siehe "Nach der Antwort gehoert die Buehne
+    # noch der Pipeline" weiter unten) - ganz ohne dass id(wake_word_seen)
+    # dabei gesetzt wurde. Traf so eine Rueckfrage zufaellig waehrend ein
+    # Timer klingelte ein, loeschte dieser Zweig den Ton, bevor ihn jemand
+    # gehoert hat: der Nutzer hatte kein Wort gesagt, geschweige denn gegen
+    # die Glocke angeredet. id(wake_word_seen) unterscheidet das zuverlaessig,
+    # weil es hier noch seinen Wert aus on_wake_word_detected traegt - erst
+    # die Lambda weiter unten setzt es fuer den naechsten Durchgang zurueck.
+    # Das Skript laeuft ohne delay durch, setzt also synchron auf Idle; die
+    # Phase unten ueberschreibt das gleich wieder.
     - if:
         condition:
-          lambda: return id(timer_ringing);
+          lambda: return id(timer_ringing) && id(wake_word_seen);
         then:
           - script.execute: timer_stop_ringing
     # Kam kein Wake Word, ist das hier die Antwort auf eine Rueckfrage von Home
@@ -993,9 +1004,15 @@ script:
   - id: timer_start_ringing
     mode: restart
     then:
+      # Bleibt dauerhaft drin, analog zur "ergebnis"-Zeile oben: ohne sie laesst
+      # sich im Log nicht unterscheiden, ob on_timer_finished ueberhaupt
+      # gefeuert hat oder ob stattdessen der Ton (z. B. ein haengender I2S-Bus,
+      # siehe Memory i2s-speaker-stuck-bug) lautlos fehlschlug.
       - lambda: |-
           id(timer_ringing) = true;
           id(voice_assistant_phase) = ${phase_timer_ringing};
+          ESP_LOGI("timer", "Timer '%s' abgelaufen, Klingeln gestartet",
+                   id(timer_name).c_str());
       - script.execute: update_ui
       - script.execute: timer_ring_sound
       - script.execute: timer_ring_guard
