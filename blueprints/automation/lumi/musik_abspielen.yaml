@@ -7,8 +7,8 @@ blueprint:
     lokale Intent-Erkennung als Konversationsagent, funktioniert aber genauso
     mit einem LLM wie Claude, weil der Satzauslöser der Assist-Pipeline
     vorgeschaltet ist. Für frei formulierte Musikwünsche ("Spiel mal was
-    Entspanntes") reicht das nicht — dafür bräuchte es ein eigenes
-    LLM-Werkzeug-Skript nach demselben Muster wie „Freie Wetterfragen".
+    Entspanntes") reicht das nicht — dafür gibt es das Skript-Blueprint
+    „🇩🇪 Lumi: Musikwunsch (LLM-Tool)".
 
     Angelehnt an das offizielle Music-Assistant-Blueprint
     ["Lokale Sprachsteuerung"](https://github.com/music-assistant/voice-support),
@@ -24,9 +24,10 @@ blueprint:
     trotzdem findet, nur weniger präzise), und immer optional ein Zielraum
     oder -gerät ("in der Küche", "auf dem Wohnzimmer-Lautsprecher") — fehlt
     er, spielt der Bereich des ansprechenden Assist-Geräts, also derselbe
-    Raum, in dem der Sprachbefehl fiel. Steht dort kein
-    Music-Assistant-Player, bricht der Befehl mit einer gesprochenen
-    Fehlermeldung ab, statt irgendwo anders zu spielen.
+    Raum, in dem der Sprachbefehl fiel. Fernseher zählen dabei nicht mit:
+    sie spielen nur, wenn sie im Satz namentlich genannt werden. Steht im Raum
+    kein verfügbarer Music-Assistant-Player, bricht der Befehl mit einer
+    gesprochenen Fehlermeldung ab, statt irgendwo anders zu spielen.
 
     Beispiele:
 
@@ -61,12 +62,27 @@ blueprint:
     Schlägt die Suche fehl oder findet nichts, greift ersatzweise wieder der
     rohe, gesprochene Name wie zuvor — nichts wird dadurch unzuverlässiger
     als ohne diesen Schritt, nur ein klein wenig langsamer.
+
+    Suche und Wiedergabe laufen im Hintergrund: die Automation löst sich
+    selbst über das Ereignis `lumi_musik_abspielen` ein zweites Mal aus und
+    antwortet sofort. So bleibt Lumi nicht stumm, wenn ein Musikdienst lange
+    braucht — etwa weil Spotify gerade drosselt. Die Antwort heißt deshalb
+    „startet", nicht „läuft": scheitert die Wiedergabe danach, steht das nur
+    in der Automations-Ablaufverfolgung.
   domain: automation
   source_url: https://github.com/mohoel/home-assistant-voice-display/blob/main/blueprints/automation/lumi/musik_abspielen.yaml
   homeassistant:
     min_version: "2024.10.0"
 
+# parallel, weil der Hintergrundlauf startet, waehrend der Sprachlauf noch
+# seine Antwort abgibt - bei "single" wuerde das Ereignis verworfen.
+mode: parallel
+max: 5
+
 triggers:
+  - trigger: event
+    event_type: lumi_musik_abspielen
+    id: wiedergabe
   - trigger: conversation
     command:
       - "(spiele|höre|spiel) [(den|die) ](künstler|band|gruppe) {medium} [(im|in|auf|über) [(dem|der) ]{ziel}]"
@@ -95,28 +111,85 @@ triggers:
 conditions: []
 
 actions:
+  # Hintergrundlauf: der Sprachlauf weiter unten hat Ziel und Medium schon
+  # ermittelt. Hier darf es dauern - ein conversation-Trigger wartet auf das
+  # Ende seines Laufs, ein haengender Musikdienst liesse Assist sonst ohne
+  # Antwort in den Timeout laufen.
+  - if:
+      - condition: trigger
+        id: wiedergabe
+    then:
+      - variables:
+          medientyp: "{{ trigger.event.data.medientyp }}"
+          medium: "{{ trigger.event.data.medium }}"
+          kuenstler: "{{ trigger.event.data.kuenstler }}"
+          media_player_ziel: "{{ trigger.event.data.ziel }}"
+          mass_ergebnisfeld: >-
+            {{ {"artist": "artists", "track": "tracks", "album": "albums",
+                "playlist": "playlists", "podcast": "podcasts",
+                "radio": "radio"}[medientyp] }}
+          mass_config_entry_id: "{{ config_entry_id(media_player_ziel[0]) }}"
+      - alias: >-
+          Eindeutige URI für den Medienwunsch suchen, statt play_media raten
+          zu lassen
+        action: music_assistant.search
+        continue_on_error: true
+        response_variable: mass_suche
+        data: >-
+          {{ dict({"config_entry_id": mass_config_entry_id, "name": medium,
+                   "artist": kuenstler, "media_type": [medientyp],
+                   "limit": 25}.items() | selectattr('1')) }}
+      - variables:
+          mass_alle_uris: >-
+            {{ (mass_suche[mass_ergebnisfeld]
+                if mass_suche is defined and mass_suche is mapping else [])
+               | map(attribute='uri') | list }}
+          mass_exakte_uris: >-
+            {{ (mass_suche[mass_ergebnisfeld]
+                if mass_suche is defined and mass_suche is mapping else [])
+               | selectattr('name', 'match', '^' ~ medium ~ '$', ignorecase=true)
+               | map(attribute='uri') | list }}
+          spieldaten:
+            media_id: "{{ (mass_exakte_uris or mass_alle_uris) | first | default(medium) }}"
+            media_type: "{{ medientyp }}"
+            artist: "{{ kuenstler }}"
+      - alias: Medium an den ermittelten Music-Assistant-Player schicken
+        action: music_assistant.play_media
+        target:
+          entity_id: "{{ media_player_ziel }}"
+        data: "{{ dict(spieldaten.items() | selectattr('1')) }}"
+      - stop: Wiedergabe angestoßen
   - variables:
       medientyp: "{{ trigger.id }}"
       assist_geraet_id: "{{ trigger.device_id }}"
       medium: "{{ trigger.slots.medium }}"
       kuenstler: "{{ trigger.slots.kuenstler | default }}"
       ziel_name: "{{ trigger.slots.ziel | default }}"
-      mass_ergebnisfeld: >-
-        {{ {"artist": "artists", "track": "tracks", "album": "albums",
-            "playlist": "playlists", "podcast": "podcasts",
-            "radio": "radio"}[trigger.id] }}
+      # Nur echte, erreichbare Player: integration_entities liefert auch die
+      # Favoriten-Buttons von Music Assistant, und ein abgeschalteter Player
+      # wuerde als Ziel den ganzen Raum blockieren.
+      mass_spieler: >-
+        {{ integration_entities('music_assistant')
+           | select('match', 'media_player[.]')
+           | reject('is_state', ['unavailable', 'unknown']) | list }}
       spieler_nach_playername: >-
-        {{ integration_entities('music_assistant') | expand
+        {{ mass_spieler | expand
            | selectattr('name', 'match', ziel_name ~ '$', ignorecase=true)
            | map(attribute='entity_id') | list }}
+      # Ein Raum meint die Lautsprecher dort. Ein Fernseher spielt nur, wenn
+      # er oben namentlich getroffen wurde.
       spieler_nach_bereichsname: >-
         {{ areas() | map('area_name')
            | select('match', ziel_name ~ '$', ignorecase=true)
            | map('area_entities') | sum(start=[])
-           | select('in', integration_entities('music_assistant')) | list }}
+           | select('in', mass_spieler) | expand
+           | rejectattr('attributes.device_class', 'eq', 'tv')
+           | map(attribute='entity_id') | list }}
       spieler_nach_geraetebereich: >-
         {{ area_entities(area_id(assist_geraet_id))
-           | select('in', integration_entities('music_assistant')) | list }}
+           | select('in', mass_spieler) | expand
+           | rejectattr('attributes.device_class', 'eq', 'tv')
+           | map(attribute='entity_id') | list }}
       media_player_ziel: |
         {{ spieler_nach_playername or spieler_nach_bereichsname
            or spieler_nach_geraetebereich }}
@@ -124,7 +197,7 @@ actions:
   # Kein Ausweich-Player mehr: ohne Treffer im Satz zaehlt ausschliesslich
   # der Bereich des ansprechenden Assist-Geraets (= "gleicher Raum"). Findet
   # sich dort kein Music-Assistant-Player, bricht der Befehl hier ab -
-  # config_entry_id(media_player_ziel[0]) weiter unten wuerde sonst auf
+  # config_entry_id(media_player_ziel[0]) im Hintergrundlauf wuerde sonst auf
   # einer leeren Liste mit einem unklaren Fehler abbrechen.
   - if:
       - condition: template
@@ -136,35 +209,11 @@ actions:
       - stop: >-
           Kein Music-Assistant-Player im Satz, im genannten Bereich oder im
           Bereich des Assist-Geräts gefunden.
-  - variables:
-      mass_config_entry_id: "{{ config_entry_id(media_player_ziel[0]) }}"
-  - alias: >-
-      Eindeutige URI für den Medienwunsch suchen, statt play_media raten zu
-      lassen
-    action: music_assistant.search
-    continue_on_error: true
-    response_variable: mass_suche
-    data: >-
-      {{ dict({"config_entry_id": mass_config_entry_id, "name": medium,
-               "artist": kuenstler, "media_type": [medientyp],
-               "limit": 25}.items() | selectattr('1')) }}
-  - variables:
-      mass_alle_uris: >-
-        {{ (mass_suche[mass_ergebnisfeld]
-            if mass_suche is defined and mass_suche is mapping else [])
-           | map(attribute='uri') | list }}
-      mass_exakte_uris: >-
-        {{ (mass_suche[mass_ergebnisfeld]
-            if mass_suche is defined and mass_suche is mapping else [])
-           | selectattr('name', 'match', '^' ~ medium ~ '$', ignorecase=true)
-           | map(attribute='uri') | list }}
-      spieldaten:
-        media_id: "{{ (mass_exakte_uris or mass_alle_uris) | first | default(medium) }}"
-        media_type: "{{ medientyp }}"
-        artist: "{{ kuenstler }}"
-  - alias: Medium an den ermittelten Music-Assistant-Player schicken
-    action: music_assistant.play_media
-    target:
-      entity_id: "{{ media_player_ziel }}"
-    data: "{{ dict(spieldaten.items() | selectattr('1')) }}"
-  - set_conversation_response: "{{ medium }} wird auf {{ media_player_name }} abgespielt"
+  - alias: Suche und Wiedergabe an den Hintergrundlauf übergeben
+    event: lumi_musik_abspielen
+    event_data:
+      medientyp: "{{ medientyp }}"
+      medium: "{{ medium }}"
+      kuenstler: "{{ kuenstler }}"
+      ziel: "{{ media_player_ziel }}"
+  - set_conversation_response: "{{ medium }} startet auf {{ media_player_name }}"

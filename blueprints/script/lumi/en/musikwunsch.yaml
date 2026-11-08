@@ -1,0 +1,185 @@
+blueprint:
+  name: "🇬🇧 Lumi: Music Request (LLM Tool)"
+  description: >-
+    A script for an LLM conversation agent to use as a tool: plays music on a
+    Music Assistant player without any fixed sentence pattern, e.g. "Put on
+    some Grönemeyer", "Play something relaxing in the bathroom" or "I want to
+    hear the new album by BUNT.". Needs an AI/LLM pipeline as the conversation
+    agent — this doesn't work with the built-in local intent recognition. For
+    fixed sentences without an LLM, use the automation blueprint "🇬🇧 Lumi:
+    Play Music" instead.
+
+    No inputs needed. After creating it, the script entity still needs to be
+    exposed to voice assistants (entity settings → "Expose to voice
+    assistants") — no sentence trigger needed, the conversation agent calls
+    the script itself as a tool.
+
+    The script answers the agent right away and then searches and plays in
+    the background by starting itself a second time. That way the spoken
+    answer doesn't hang when a music service takes a long time. If no
+    matching player is found, it reports that back to the agent, which can
+    then ask. TVs don't count for a room, they only play when the agent names
+    them.
+  domain: script
+  source_url: https://github.com/mohoel/home-assistant-voice-display/blob/main/blueprints/script/lumi/en/musikwunsch.yaml
+  homeassistant:
+    min_version: "2024.10.0"
+
+description: >-
+  Plays music on a speaker. Use it for every music request, even vague ones
+  like "something relaxing": pick a fitting playlist as the search term then.
+
+# parallel because the background run starts while the tool call is still
+# returning its answer.
+mode: parallel
+max: 5
+
+fields:
+  search_term:
+    name: Search Term
+    description: >-
+      Name of the artist, track, album, playlist, podcast or radio station.
+      For vague requests, a fitting playlist name.
+    example: "Herbert Grönemeyer"
+    required: true
+    selector:
+      text: {}
+  media_type:
+    name: Media Type
+    description: The kind of search term.
+    example: "artist"
+    required: true
+    selector:
+      select:
+        options:
+          - artist
+          - track
+          - album
+          - playlist
+          - podcast
+          - radio
+  target:
+    name: Target
+    description: >-
+      Name of the room or speaker to play on. If the user names none, give
+      the room the conversation is taking place in.
+    example: "Living Room"
+    required: true
+    selector:
+      text: {}
+  artist:
+    name: Artist
+    description: Only for track and album, if known.
+    example: "Herbert Grönemeyer"
+    required: false
+    selector:
+      text: {}
+
+sequence:
+  # Background run: the tool call further down has already resolved the
+  # target and returned long ago. This part may take a while.
+  - if:
+      - condition: template
+        value_template: "{{ background | default(false) }}"
+    then:
+      - variables:
+          mass_result_field: >-
+            {{ {"artist": "artists", "track": "tracks", "album": "albums",
+                "playlist": "playlists", "podcast": "podcasts",
+                "radio": "radio"}[media_type] }}
+      - alias: Look up a unique URI instead of letting play_media guess
+        action: music_assistant.search
+        continue_on_error: true
+        response_variable: mass_search
+        data: >-
+          {{ dict({"config_entry_id": config_entry_id(players[0]),
+                   "name": search_term, "artist": artist,
+                   "media_type": [media_type], "limit": 25}.items()
+             | selectattr('1')) }}
+      - variables:
+          mass_hits: >-
+            {{ mass_search[mass_result_field]
+               if mass_search is defined and mass_search is mapping else [] }}
+          # Comparison instead of a regex: names like "AC/DC (Live)" contain
+          # special characters.
+          mass_exact_uris: >-
+            {% set ns = namespace(uris=[]) %}
+            {% for item in mass_hits %}
+              {% if item.name | lower == search_term | lower %}
+                {% set ns.uris = ns.uris + [item.uri] %}
+              {% endif %}
+            {% endfor %}
+            {{ ns.uris }}
+          play_data:
+            media_id: >-
+              {{ (mass_exact_uris or (mass_hits | map(attribute='uri') | list))
+                 | first | default(search_term) }}
+            media_type: "{{ media_type }}"
+            artist: "{{ artist }}"
+      - alias: Send the medium to the resolved Music Assistant player
+        action: music_assistant.play_media
+        target:
+          entity_id: "{{ players }}"
+        data: "{{ dict(play_data.items() | selectattr('1')) }}"
+      - stop: Playback requested
+  - variables:
+      target_lower: "{{ target | default('') | lower }}"
+      # Real, reachable players only: integration_entities also returns Music
+      # Assistant's favorite buttons.
+      mass_players: >-
+        {{ integration_entities('music_assistant')
+           | select('match', 'media_player[.]')
+           | reject('is_state', ['unavailable', 'unknown']) | list }}
+      player_by_name: >-
+        {% set ns = namespace(ids=[]) %}
+        {% for item in mass_players | expand %}
+          {% if item.name | lower == target_lower %}
+            {% set ns.ids = ns.ids + [item.entity_id] %}
+          {% endif %}
+        {% endfor %}
+        {{ ns.ids }}
+      # A room means the speakers in it. A TV only plays when it was matched
+      # by name above.
+      player_by_area: >-
+        {% set ns = namespace(ids=[]) %}
+        {% for area in areas() %}
+          {% if area_name(area) | lower == target_lower %}
+            {% set ns.ids = ns.ids + (area_entities(area)
+                 | select('in', mass_players) | expand
+                 | rejectattr('attributes.device_class', 'eq', 'tv')
+                 | map(attribute='entity_id') | list) %}
+          {% endif %}
+        {% endfor %}
+        {{ ns.ids }}
+      target_players: "{{ player_by_name or player_by_area }}"
+      answer_error:
+        success: false
+        error: "No available speaker found for this target."
+        available_speakers: >-
+          {{ mass_players | map('state_attr', 'friendly_name') | list }}
+      answer_started:
+        success: true
+        note: >-
+          Playback is starting in the background. Not yet confirmed to be
+          running.
+        speakers: >-
+          {{ target_players | map('state_attr', 'friendly_name') | list }}
+  - if:
+      - condition: template
+        value_template: "{{ target_players == [] }}"
+    then:
+      - stop: No matching speaker
+        response_variable: answer_error
+  - alias: Hand search and playback over to the background run
+    action: script.turn_on
+    target:
+      entity_id: "{{ this.entity_id }}"
+    data:
+      variables:
+        background: true
+        search_term: "{{ search_term }}"
+        media_type: "{{ media_type }}"
+        artist: "{{ artist | default('') }}"
+        players: "{{ target_players }}"
+  - stop: Playback handed over
+    response_variable: answer_started

@@ -308,3 +308,193 @@ switch:
       number: GPIO46
       ignore_strapping_warning: true
     restore_mode: RESTORE_DEFAULT_ON
+
+# Batteriemodus: kein USB-C-Strom, obwohl ein Akku angeschlossen ist. Gesetzt
+# im AXP2101-Takt weiter unten (VBUS Good, Register 0x00 Bit 5) - ein
+# zweiter I2C-Poll auf demselben Bus wie Touch und Audio waere unnoetig dafuer.
+# Ohne angeschlossenen Akku bleibt der Wert immer false, das Geraet laeuft
+# dann ohnehin nur am Netz.
+globals:
+  - id: on_battery
+    type: bool
+    restore_value: false
+    initial_value: "false"
+
+# -------------------------------------------------------------- Akkustand ---
+# Das Board hat einen AXP2101 (Power-Path, Laden, Akku-Telemetrie) auf
+# demselben I2C-Bus wie Touch und die Audio-Codecs, Adresse 0x34 - verifiziert
+# gegen das offizielle Waveshare-Repo
+# (waveshareteam/ESP32-S3-Touch-AMOLED-1.75, HARDWARE_REFERENCE.md und
+# examples/esp-idf/01_AXP2101), nicht nur gegen die Produktseite.
+#
+# Es gibt dafuer **keinen** core-ESPHome-Baustein und auch keinen brauchbaren
+# externen: die einzigen bekannten Community-Komponenten
+# (stefanthoss/esphome-axp2101 und ihre Forks) kennen nur ein einziges,
+# hartcodiertes model: M5CORE2 - andere Register/Boards sind nicht vorgesehen,
+# und dieselbe Zurueckhaltung gegenueber unmaintained External Components wie
+# bei shelson/esphome-cst9217 (siehe CLAUDE.md, "Verifizierte
+# Hardware-Fakten") gilt hier genauso. Gelesen wird deshalb roh ueber
+# esphome::i2c::I2CDevice, denselben Weg, den ESPHomes eigene Komponenten
+# intern nutzen - keine externe Abhaengigkeit, keine Registerannahme ohne
+# Beleg.
+#
+# Registeradressen und ihre Bedeutung sind gegen lewisxhe/XPowersLib
+# (XPowersAXP2101.hpp, REG/AXP2101Constants.h) verifiziert - genau die
+# Referenzbibliothek, die Waveshares eigenes AXP2101-Beispiel fuer dieses
+# Board einbindet:
+# - Register 0x00 (STATUS1), Bit 3: Akku angeschlossen (isBatteryConnect()).
+# - Register 0xA4 (BAT_PERCENT_DATA): eingebauter Fuel-Gauge-Prozentwert
+#   0-100, direkt vom PMU berechnet - keine eigene Kennlinie noetig, und ohne
+#   weitere Freischaltung gueltig (Waveshares eigenes Beispiel liest es direkt
+#   nach PMU.begin()).
+# Diese zwei Register werden hier rein lesend genutzt - keine ADC-Kanaele
+# werden umkonfiguriert. Das Laden selbst regelt der AXP2101 autonom in
+# Hardware; der Ladestopp-Takt weiter unten greift nur mit einem einzigen,
+# gezielten Bit ein (Register 0x18, Bit 1), siehe dort. Spannung zeigt die
+# Entity bewusst nicht - angefragt war nur der Akkustand.
+#
+# disabled_by_default, weil das Geraet im Normalbetrieb am Netzteil haengt und
+# ohne Akku isBatteryConnect() ohnehin dauerhaft false liefert (NAN). Wer
+# einen Akku nutzt, aktiviert die Entity in Home Assistant von Hand - derselbe
+# Schalter wie bei den uebrigen Diagnose-Entities in packages/core.yaml.
+sensor:
+  - platform: template
+    name: "Akkustand"
+    device_class: battery
+    unit_of_measurement: "%"
+    state_class: measurement
+    accuracy_decimals: 0
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 60s
+    lambda: |-
+      esphome::i2c::I2CDevice pmu;
+      pmu.set_i2c_bus(id(bus_i2c));
+      pmu.set_i2c_address(0x34);
+      uint8_t status1;
+      if (!pmu.read_byte(0x00, &status1) || !(status1 & 0x08)) {
+        return NAN;  // kein Akku angeschlossen
+      }
+      uint8_t percent;
+      if (!pmu.read_byte(0xA4, &percent)) {
+        return NAN;
+      }
+      return (float) percent;
+
+# ---------------------------------------------------------- Ladestopp ---
+# Ohne Eingriff haelt der AXP2101 den Akku im Dauerbetrieb am Netzteil in
+# einer endlosen Erhaltungsladung nahe 4.2V (er laedt bei jedem leichten
+# Abfall sofort wieder nach) - schlecht fuer die Lebensdauer eines
+# Li-Ion-Akkus. Dieser Takt schaltet das Laden deshalb ab, sobald USB-C-Strom
+# anliegt UND der Akku 100% zeigt, und wieder an, sobald eine der beiden
+# Bedingungen nicht mehr gilt (Akku faellt unter 100%, oder USB-C wird
+# gezogen). Derselbe Durchlauf veroeffentlicht auch gleich den tatsaechlichen
+# Ladezustand an den binary_sensor "Lädt" unten - ein zweiter, eigener Takt
+# dafuer waere ein zweiter I2C-Poll fuer dieselbe Information.
+#
+# Gegen lewisxhe/XPowersLib verifiziert, dieselbe Referenz wie beim
+# Akkustand oben:
+# - Register 0x18 (CHARGE_GAUGE_WDT_CTRL), Bit 1: Ladefreigabe fuer den
+#   Hauptakku (enableCellbatteryCharge()/disableCellbatteryCharge()). Bit 0
+#   ist der Watchdog, Bit 2 die Knopfzellenladung - beide bleiben unberuehrt,
+#   deshalb Lesen-Aendern-Schreiben statt eines vollen Byte-Writes.
+# - Register 0x00 (STATUS1), Bit 5: VBUS Good (isVbusGood()) - derselbe
+#   Registerblock, aus dem Bit 3 oben schon "Akku angeschlossen" liest.
+# - Register 0x01 (STATUS2), Bits 5-7: PMU-Gesamtzustand, 1 = Laden
+#   (isCharging()) - eine ehrliche Momentaufnahme der Hardware, keine
+#   Ableitung aus dem selbst gesetzten Bit 1 von Register 0x18: nach dem
+#   Ladestopp bei 100% steht hier korrekt "false", genauso waehrend einer
+#   Temperaturschutz-Pause, die der AXP2101 autonom einlegt.
+#
+# Bewusst NICHT ueber BATFET (Register 0x12, Bit 3, disableBATFET()): das
+# trennt den Akku komplett vom System-Rail statt nur den Ladestrom. Faellt
+# USB-C dann kurz aus - Wackelkontakt, Steckdosenleiste - haette das Geraet
+# ohne Backup sofort keine Spannung mehr, mitten in einem OTA-Schreibvorgang
+# waere das ein beschaedigtes Flash. Reines Laden-Stoppen laesst den Akku als
+# Backup verbunden, nur der Ladestrom bleibt aus.
+#
+# Ohne angeschlossenen Akku (Bit 3 von STATUS1) ist nichts zu tun - der Takt
+# liest dann nur das eine Byte und kehrt zurueck, weder Schreibzugriff noch
+# Statuspublikation ohne Akku. Geschrieben wird an Register 0x18 zusaetzlich
+# nur bei einem tatsaechlichen Zustandswechsel, nicht bei jedem Durchlauf -
+# und genau dieser Wechsel bekommt eine eigene ESP_LOGI-Zeile ("ladestopp"),
+# analog zur Wachhund-WARN-Zeile weiter unten: ohne sie liesse sich von
+# aussen nicht unterscheiden, ob der Takt ueberhaupt eingreift oder ob der
+# Akku einfach nie gleichzeitig 100% und USB-C erreicht.
+#
+# Derselbe Durchlauf setzt zusaetzlich das Global on_battery (oben) und den
+# binary_sensor "Netzbetrieb" (unten) aus demselben VBUS-Good-Bit, das hier
+# schon fuer den Ladestopp gelesen wird - wieder kein zweiter I2C-Poll fuer
+# dieselbe Information. Reaktionszeit ist dieser Takt selbst, also bis zu
+# 60 s nach dem Ziehen oder Stecken von USB-C; fuer eine Statusanzeige
+# unkritisch. Bislang wirkt sich on_battery auf nichts weiter aus - die
+# Wake-Word-Erkennung laeuft im Batteriemodus unveraendert weiter (siehe
+# CLAUDE.md fuer den geplanten naechsten Schritt, Tap-to-Talk statt
+# Dauerlauschen).
+interval:
+  - interval: 60s
+    then:
+      - lambda: |-
+          esphome::i2c::I2CDevice pmu;
+          pmu.set_i2c_bus(id(bus_i2c));
+          pmu.set_i2c_address(0x34);
+          uint8_t status1;
+          if (!pmu.read_byte(0x00, &status1) || !(status1 & 0x08)) {
+            id(on_battery) = false;  // kein Akku -> immer Netzbetrieb
+            return;
+          }
+          bool vbus_good = status1 & 0x20;
+          id(on_battery) = !vbus_good;
+          id(bin_mains_power).publish_state(vbus_good);
+          uint8_t percent;
+          if (!pmu.read_byte(0xA4, &percent)) {
+            return;
+          }
+          uint8_t reg18;
+          if (!pmu.read_byte(0x18, &reg18)) {
+            return;
+          }
+          bool charge_enabled = reg18 & 0x02;
+          bool should_charge = !(vbus_good && percent >= 100);
+          if (should_charge != charge_enabled) {
+            uint8_t new_reg18 = should_charge ? (uint8_t) (reg18 | 0x02)
+                                               : (uint8_t) (reg18 & ~0x02);
+            pmu.write_byte(0x18, new_reg18);
+            ESP_LOGI("ladestopp", "Laden %s (USB-C=%s, Akku=%u%%)",
+                     should_charge ? "wieder freigegeben" : "gestoppt bei 100%",
+                     vbus_good ? "an" : "aus", percent);
+          }
+          uint8_t status2;
+          if (pmu.read_byte(0x01, &status2)) {
+            id(bin_charging).publish_state((status2 >> 5) == 0x01);
+          }
+
+# Beide Sensoren unten haben kein eigenes lambda - sie warten nur auf
+# publish_state() aus dem Takt oben. Ein binary_sensor.template *mit* eigenem
+# lambda kennt kein update_interval (anders als sensor.template) und wuerde
+# stattdessen bei jedem einzelnen loop()-Durchlauf neu ausgewertet
+# (template_binary_sensor.cpp: setup() ruft ohne lambda disable_loop() auf,
+# mit lambda dagegen jeden Tick loop()) - viel zu oft fuer einen I2C-Zugriff
+# auf einem Bus, der auch Touch und Audio bedient.
+binary_sensor:
+  - platform: template
+    id: bin_charging
+    name: "Lädt"
+    device_class: battery_charging
+    entity_category: diagnostic
+    disabled_by_default: true
+
+  # device_class power: HA zeigt "on" als "Power detected", "off" als
+  # "No power" - trifft VBUS Good direkt, ohne Umdeutung. Batteriemodus ist
+  # damit bewusst der "off"-Zustand dieser Entity und keine eigene mit
+  # umgekehrtem Namen: das Global on_battery (oben) traegt die invertierte
+  # Bedeutung intern, die HA-Entity bleibt bei der natuerlichen Lesart eines
+  # Netzteil-Sensors. disabled_by_default aus demselben Grund wie bei
+  # Akkustand/Lädt - ohne Akku liefe on_battery ohnehin immer false, dann ist
+  # die Entity bedeutungslos.
+  - id: bin_mains_power
+    name: "Netzbetrieb"
+    platform: template
+    device_class: power
+    entity_category: diagnostic
+    disabled_by_default: true

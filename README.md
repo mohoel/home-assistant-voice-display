@@ -29,6 +29,7 @@ replying — optionally with a small animated face.
   - [Weather on Request (local)](#weather-on-request-local)
   - [Play Music (local)](#play-music-local)
   - [Free-Form Weather Questions (not local)](#free-form-weather-questions-not-local)
+  - [Music Request (not local)](#music-request-not-local)
   - [Delayed Actions (not local)](#delayed-actions-not-local)
 - [Background](#background)
 - [License](#license)
@@ -325,8 +326,9 @@ runs ahead of it. The automation must be exposed to the voice assistant.
 Import it, create an automation from it — no further inputs needed. If the
 sentence names no room or device, the Music Assistant player in the area
 of the addressed Assist device plays automatically, i.e. the same room
-the voice command was spoken in. If there's no Music Assistant player
-there, the command fails with a spoken error message instead — a
+the voice command was spoken in. TVs don't count here, they only play
+when named in the sentence. If there's no available Music Assistant player
+in the room, the command fails with a spoken error message instead — a
 different room is only reached if it's named in the sentence. Six media
 types are recognized, each introduced with "Play"/"Listen to"/"Put on":
 
@@ -357,10 +359,17 @@ stations with many similarly named entries (e.g. via Radio Browser) that
 was otherwise often unsuccessful. If this search also finds nothing, the
 raw spoken name is used as a fallback, as before.
 
+Search and playback run in the background, and Lumi answers right away with
+"Starting … on …". That also means if playback fails afterward, Lumi says
+nothing more about it, and the error shows up in the automation trace. If the
+music stays off and Music Assistant's log shows `Spotify Rate Limiter`, your
+[own Spotify Client ID](https://www.music-assistant.io/music-providers/spotify/)
+helps. Artists are affected most, because Music Assistant loads all of their
+tracks individually.
+
 For freely phrased music requests without a fixed sentence pattern ("Spiel
 mal was zum Entspannen" — "Play something relaxing"), this blueprint isn't
-enough — an LLM tool script along the lines of "Free-Form Weather
-Questions" below doesn't exist for this yet.
+enough — use [Music Request](#music-request-not-local) further down.
 
 **Pause, resume, next track, and volume already work without this
 blueprint** — those are built-in local Home Assistant intents
@@ -392,6 +401,30 @@ Import it, create a script from it, and pick your own `weather.*` entity
 — as with "Weather on Request" above, optionally also your own
 `show_weather` action with the same three templates. Afterward, expose the
 script to voice assistants.
+
+### Music Request (not local)
+
+Plays music without a fixed sentence pattern, e.g. "Mach mal Grönemeyer an"
+("Put on some Grönemeyer") or "Spiel was Entspanntes im Bad" ("Play something
+relaxing in the bathroom"). Needs an AI/LLM pipeline as the conversation agent
+and a configured Music Assistant integration — this doesn't work with the
+built-in local intent recognition.
+
+🇩🇪 [![Blueprint importieren](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmohoel%2Fhome-assistant-voice-display%2Fblob%2Fmain%2Fblueprints%2Fscript%2Flumi%2Fmusikwunsch.yaml)
+
+🇬🇧 [![Import Blueprint](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmohoel%2Fhome-assistant-voice-display%2Fblob%2Fmain%2Fblueprints%2Fscript%2Flumi%2Fen%2Fmusikwunsch.yaml)
+
+Import it, create a script from it — no further inputs needed — and expose
+the script to voice assistants. The agent picks the search term, media type
+and target itself. If the sentence names no room, it gives the room the
+conversation is taking place in, which requires the Assist device to be
+assigned to an area. If the script finds no speaker there, it reports that
+back to the agent along with the available speakers, so it can ask.
+
+As with "Play Music" above, search and playback run in the background: the
+answer comes right away, and playback that fails afterward isn't announced.
+Both routes can be used at the same time. If a sentence fits the fixed
+patterns of "Play Music", that one takes over, otherwise the agent does.
 
 ### Delayed Actions (not local)
 

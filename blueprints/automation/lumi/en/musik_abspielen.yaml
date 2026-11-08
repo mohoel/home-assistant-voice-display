@@ -7,8 +7,8 @@ blueprint:
     local intent recognition as the conversation agent, but works just the
     same with an LLM like Claude, because the sentence trigger runs ahead
     of the Assist pipeline. For freely phrased music requests ("Play
-    something relaxing") this isn't enough — that would need its own LLM
-    tool script along the same lines as "Free-Form Weather Questions".
+    something relaxing") this isn't enough — use the script blueprint
+    "🇬🇧 Lumi: Music Request (LLM Tool)" for those.
 
     Modeled after the official Music Assistant blueprint
     ["Local voice control"](https://github.com/music-assistant/voice-support),
@@ -26,9 +26,10 @@ blueprint:
     room or device ("in the kitchen", "on the living room speaker") — if
     missing, the Music Assistant player in the area of the addressed
     Assist device plays instead (the same room the voice command was
-    spoken in). If there's no Music Assistant player there either, the
-    command fails with a spoken error message rather than playing
-    somewhere else.
+    spoken in). TVs don't count here: they only play when named in the
+    sentence. If there's no available Music Assistant player in the room
+    either, the command fails with a spoken error message rather than
+    playing somewhere else.
 
     Examples:
 
@@ -63,12 +64,27 @@ blueprint:
     finds nothing, the raw spoken name is used as a fallback, as before —
     nothing gets any less reliable because of this step, just a little
     slower.
+
+    Search and playback run in the background: the automation triggers
+    itself a second time through the event `lumi_musik_abspielen` and
+    answers right away. That way Lumi doesn't go silent when a music service
+    takes a long time, for instance because Spotify is rate limiting. The
+    answer therefore says "starting", not "playing": if playback fails after
+    that, it only shows up in the automation trace.
   domain: automation
   source_url: https://github.com/mohoel/home-assistant-voice-display/blob/main/blueprints/automation/lumi/en/musik_abspielen.yaml
   homeassistant:
     min_version: "2024.10.0"
 
+# parallel because the background run starts while the voice run is still
+# handing over its answer - with "single" the event would be dropped.
+mode: parallel
+max: 5
+
 triggers:
+  - trigger: event
+    event_type: lumi_musik_abspielen
+    id: playback
   - trigger: conversation
     command:
       - "(play|listen to|put on) [the ](artist|band|group) {medium} [(in|on) [the ]{target}]"
@@ -97,28 +113,85 @@ triggers:
 conditions: []
 
 actions:
+  # Background run: the voice run further down has already resolved target
+  # and medium. This part may take a while - a conversation trigger waits
+  # for its run to end, so a hanging music service would otherwise leave
+  # Assist timing out without an answer.
+  - if:
+      - condition: trigger
+        id: playback
+    then:
+      - variables:
+          media_type_id: "{{ trigger.event.data.media_type }}"
+          medium: "{{ trigger.event.data.medium }}"
+          artist: "{{ trigger.event.data.artist }}"
+          media_player_target: "{{ trigger.event.data.target }}"
+          mass_result_field: >-
+            {{ {"artist": "artists", "track": "tracks", "album": "albums",
+                "playlist": "playlists", "podcast": "podcasts",
+                "radio": "radio"}[media_type_id] }}
+          mass_config_entry_id: "{{ config_entry_id(media_player_target[0]) }}"
+      - alias: >-
+          Look up a unique URI for the media request instead of letting
+          play_media guess
+        action: music_assistant.search
+        continue_on_error: true
+        response_variable: mass_search
+        data: >-
+          {{ dict({"config_entry_id": mass_config_entry_id, "name": medium,
+                   "artist": artist, "media_type": [media_type_id],
+                   "limit": 25}.items() | selectattr('1')) }}
+      - variables:
+          mass_all_uris: >-
+            {{ (mass_search[mass_result_field]
+                if mass_search is defined and mass_search is mapping else [])
+               | map(attribute='uri') | list }}
+          mass_exact_uris: >-
+            {{ (mass_search[mass_result_field]
+                if mass_search is defined and mass_search is mapping else [])
+               | selectattr('name', 'match', '^' ~ medium ~ '$', ignorecase=true)
+               | map(attribute='uri') | list }}
+          play_data:
+            media_id: "{{ (mass_exact_uris or mass_all_uris) | first | default(medium) }}"
+            media_type: "{{ media_type_id }}"
+            artist: "{{ artist }}"
+      - alias: Send the medium to the resolved Music Assistant player
+        action: music_assistant.play_media
+        target:
+          entity_id: "{{ media_player_target }}"
+        data: "{{ dict(play_data.items() | selectattr('1')) }}"
+      - stop: Playback requested
   - variables:
       media_type_id: "{{ trigger.id }}"
       assist_device_id: "{{ trigger.device_id }}"
       medium: "{{ trigger.slots.medium }}"
       artist: "{{ trigger.slots.artist | default }}"
       target_name: "{{ trigger.slots.target | default }}"
-      mass_result_field: >-
-        {{ {"artist": "artists", "track": "tracks", "album": "albums",
-            "playlist": "playlists", "podcast": "podcasts",
-            "radio": "radio"}[trigger.id] }}
+      # Real, reachable players only: integration_entities also returns Music
+      # Assistant's favorite buttons, and a player that's switched off would
+      # block the whole room as a target.
+      mass_players: >-
+        {{ integration_entities('music_assistant')
+           | select('match', 'media_player[.]')
+           | reject('is_state', ['unavailable', 'unknown']) | list }}
       player_by_name: >-
-        {{ integration_entities('music_assistant') | expand
+        {{ mass_players | expand
            | selectattr('name', 'match', target_name ~ '$', ignorecase=true)
            | map(attribute='entity_id') | list }}
+      # A room means the speakers in it. A TV only plays when it was matched
+      # by name above.
       player_by_area_name: >-
         {{ areas() | map('area_name')
            | select('match', target_name ~ '$', ignorecase=true)
            | map('area_entities') | sum(start=[])
-           | select('in', integration_entities('music_assistant')) | list }}
+           | select('in', mass_players) | expand
+           | rejectattr('attributes.device_class', 'eq', 'tv')
+           | map(attribute='entity_id') | list }}
       player_by_device_area: >-
         {{ area_entities(area_id(assist_device_id))
-           | select('in', integration_entities('music_assistant')) | list }}
+           | select('in', mass_players) | expand
+           | rejectattr('attributes.device_class', 'eq', 'tv')
+           | map(attribute='entity_id') | list }}
       media_player_target: |
         {{ player_by_name or player_by_area_name
            or player_by_device_area }}
@@ -126,8 +199,8 @@ actions:
   # No fallback player anymore: without a match in the sentence, only the
   # area of the addressed Assist device counts (= "same room"). If there's
   # no Music Assistant player there, the command fails here -
-  # config_entry_id(media_player_target[0]) below would otherwise fail on
-  # an empty list with an unclear error.
+  # config_entry_id(media_player_target[0]) in the background run would
+  # otherwise fail on an empty list with an unclear error.
   - if:
       - condition: template
         value_template: "{{ media_player_target == [] }}"
@@ -137,35 +210,11 @@ actions:
       - stop: >-
           No Music Assistant player found in the sentence, the named area,
           or the Assist device's area.
-  - variables:
-      mass_config_entry_id: "{{ config_entry_id(media_player_target[0]) }}"
-  - alias: >-
-      Look up a unique URI for the media request instead of letting
-      play_media guess
-    action: music_assistant.search
-    continue_on_error: true
-    response_variable: mass_search
-    data: >-
-      {{ dict({"config_entry_id": mass_config_entry_id, "name": medium,
-               "artist": artist, "media_type": [media_type_id],
-               "limit": 25}.items() | selectattr('1')) }}
-  - variables:
-      mass_all_uris: >-
-        {{ (mass_search[mass_result_field]
-            if mass_search is defined and mass_search is mapping else [])
-           | map(attribute='uri') | list }}
-      mass_exact_uris: >-
-        {{ (mass_search[mass_result_field]
-            if mass_search is defined and mass_search is mapping else [])
-           | selectattr('name', 'match', '^' ~ medium ~ '$', ignorecase=true)
-           | map(attribute='uri') | list }}
-      play_data:
-        media_id: "{{ (mass_exact_uris or mass_all_uris) | first | default(medium) }}"
-        media_type: "{{ media_type_id }}"
-        artist: "{{ artist }}"
-  - alias: Send the medium to the resolved Music Assistant player
-    action: music_assistant.play_media
-    target:
-      entity_id: "{{ media_player_target }}"
-    data: "{{ dict(play_data.items() | selectattr('1')) }}"
-  - set_conversation_response: "Playing {{ medium }} on {{ media_player_name }}"
+  - alias: Hand search and playback over to the background run
+    event: lumi_musik_abspielen
+    event_data:
+      media_type: "{{ media_type_id }}"
+      medium: "{{ medium }}"
+      artist: "{{ artist }}"
+      target: "{{ media_player_target }}"
+  - set_conversation_response: "Starting {{ medium }} on {{ media_player_name }}"

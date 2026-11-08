@@ -28,6 +28,7 @@ Gesicht.
   - [Wetter auf Nachfrage (lokal)](#wetter-auf-nachfrage-lokal)
   - [Musik abspielen (lokal)](#musik-abspielen-lokal)
   - [Freie Wetterfragen (nicht lokal)](#freie-wetterfragen-nicht-lokal)
+  - [Musikwunsch (nicht lokal)](#musikwunsch-nicht-lokal)
   - [Verzögerte Aktionen (nicht lokal)](#verzögerte-aktionen-nicht-lokal)
 - [Hintergrund](#hintergrund)
 - [Lizenz](#lizenz)
@@ -311,10 +312,11 @@ vorgeschaltet ist. Die Automation muss für den Sprachassistenten freigegeben we
 Importieren und daraus eine Automation anlegen — ohne weitere Eingaben nötig.
 Nennt der Satz keinen Raum und kein Gerät, spielt automatisch der
 Music-Assistant-Player im Bereich des ansprechenden Assist-Geräts, also
-derselbe Raum, in dem der Sprachbefehl fiel. Steht dort kein
-Music-Assistant-Player, bricht der Befehl mit einer gesprochenen
-Fehlermeldung ab — ein anderer Raum wird dann nur erreicht, wenn er im Satz
-genannt wird. Erkannt werden sechs Medientypen, jeweils eingeleitet mit
+derselbe Raum, in dem der Sprachbefehl fiel. Fernseher zählen dabei nicht
+mit, sie spielen nur, wenn sie im Satz namentlich genannt werden. Steht im
+Raum kein verfügbarer Music-Assistant-Player, bricht der Befehl mit einer
+gesprochenen Fehlermeldung ab — ein anderer Raum wird dann nur erreicht, wenn
+er im Satz genannt wird. Erkannt werden sechs Medientypen, jeweils eingeleitet mit
 "Spiele"/"Höre"/"Spiel":
 
 | Medientyp | Beispielsatz (Deutsch) | Beispielsatz (Englisch, mit der [englischen Blueprint-Fassung](#blueprints)) |
@@ -344,10 +346,18 @@ Radiosendern mit vielen ähnlich benannten Einträgen (z. B. über
 Radio-Browser) blieb die sonst öfter erfolglos. Findet auch diese Suche
 nichts, greift ersatzweise der rohe gesprochene Name wie zuvor.
 
+Suche und Wiedergabe laufen im Hintergrund, Lumi antwortet sofort mit
+"… startet auf …". Das heißt auch: scheitert die Wiedergabe danach, sagt
+Lumi nichts mehr dazu, der Fehler steht dann in der Ablaufverfolgung der
+Automation. Bleibt die Musik aus und das Log von Music Assistant zeigt
+`Spotify Rate Limiter`, hilft eine
+[eigene Spotify Client ID](https://www.music-assistant.io/music-providers/spotify/).
+Besonders Künstler sind davon betroffen, weil Music Assistant dafür alle
+Titel einzeln nachlädt.
+
 Für frei formulierte Musikwünsche ohne festen Satz ("Spiel mal was zum
-Entspannen") reicht dieses Blueprint nicht — dafür fehlt bislang ein
-eigenes LLM-Werkzeug-Skript nach dem Muster von „Freie Wetterfragen"
-unten.
+Entspannen") reicht dieses Blueprint nicht — dafür gibt es
+[Musikwunsch](#musikwunsch-nicht-lokal) weiter unten.
 
 **Pause, weiter, nächster Titel und Lautstärke laufen bereits ohne dieses
 Blueprint** — das sind eingebaute lokale Intents von Home Assistant
@@ -377,6 +387,30 @@ Importieren, daraus ein Skript anlegen und darin die eigene `weather.*`-Entity
 auswählen sowie — wie bei „Wetter auf Nachfrage" oben — optional die eigene
 `show_weather`-Aktion mit denselben drei Vorlagen. Anschließend das Skript
 für Sprachassistenten freigeben.
+
+### Musikwunsch (nicht lokal)
+
+Spielt Musik ohne festen Satz, z. B. "Mach mal Grönemeyer an" (engl. "Put on
+some Grönemeyer") oder "Spiel was Entspanntes im Bad" (engl. "Play something
+relaxing in the bathroom"). Braucht eine KI/LLM-Pipeline als
+Konversationsagent und eine eingerichtete Music-Assistant-Integration — mit
+der eingebauten lokalen Intent-Erkennung funktioniert das nicht.
+
+🇩🇪 [![Blueprint importieren](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmohoel%2Fhome-assistant-voice-display%2Fblob%2Fmain%2Fblueprints%2Fscript%2Flumi%2Fmusikwunsch.yaml)
+🇬🇧 [![Import Blueprint](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmohoel%2Fhome-assistant-voice-display%2Fblob%2Fmain%2Fblueprints%2Fscript%2Flumi%2Fen%2Fmusikwunsch.yaml)
+
+Importieren, daraus ein Skript anlegen — ohne weitere Eingaben — und das
+Skript für Sprachassistenten freigeben. Der Agent wählt Suchbegriff,
+Medientyp und Ziel selbst. Nennt der Satz keinen Raum, gibt er den Raum an, in
+dem das Gespräch stattfindet; dafür muss das Assist-Gerät einem Bereich
+zugeordnet sein. Findet das Skript dort keinen Lautsprecher, meldet es das
+dem Agenten samt der verfügbaren Lautsprecher zurück, sodass er nachfragen
+kann.
+
+Wie bei „Musik abspielen" oben wird im Hintergrund gesucht und gespielt: die
+Antwort kommt sofort, eine danach scheiternde Wiedergabe bleibt ohne Ansage.
+Beide Wege lassen sich gleichzeitig nutzen. Passt ein Satz auf die festen
+Muster von „Musik abspielen", greift dieser, sonst der Agent.
 
 ### Verzögerte Aktionen (nicht lokal)
 
