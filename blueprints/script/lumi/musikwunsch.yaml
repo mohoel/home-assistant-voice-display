@@ -1,0 +1,186 @@
+blueprint:
+  name: "🇩🇪 Lumi: Musikwunsch (LLM-Tool)"
+  description: >-
+    Skript für einen LLM-Konversationsagenten als Werkzeug: spielt Musik auf
+    einem Music-Assistant-Player, ganz ohne festen Satz, z. B. "Mach mal
+    Grönemeyer an", "Spiel was Entspanntes im Bad" oder "Ich will das neue
+    Album von BUNT. hören". Braucht eine KI/LLM-Pipeline als
+    Konversationsagent — mit der eingebauten lokalen Intent-Erkennung
+    funktioniert das nicht. Für feste Sätze ohne LLM stattdessen das
+    Automations-Blueprint „🇩🇪 Lumi: Musik abspielen" verwenden.
+
+    Keine Eingaben nötig. Nach dem Erstellen muss die Skript-Entity noch für
+    Sprachassistenten freigegeben werden (Entität-Einstellungen → „Für
+    Sprachassistenten verfügbar machen") — kein Satzauslöser nötig, der
+    Konversationsagent ruft das Skript selbst als Werkzeug auf.
+
+    Das Skript antwortet dem Agenten sofort und sucht und spielt danach im
+    Hintergrund, indem es sich selbst noch einmal startet. So bleibt die
+    Sprachantwort nicht hängen, wenn ein Musikdienst lange braucht. Findet
+    sich kein passender Player, meldet es das dem Agenten zurück, der dann
+    nachfragen kann. Fernseher zählen bei einem Raum nicht mit, sie spielen
+    nur, wenn der Agent sie namentlich nennt.
+  domain: script
+  source_url: https://github.com/mohoel/home-assistant-voice-display/blob/main/blueprints/script/lumi/musikwunsch.yaml
+  homeassistant:
+    min_version: "2024.10.0"
+
+description: >-
+  Spielt Musik auf einem Lautsprecher. Für jeden Musikwunsch verwenden, auch
+  für vage wie "etwas Entspanntes": dann eine passende Playlist als
+  Suchbegriff wählen.
+
+# parallel, weil der Hintergrundlauf startet, waehrend der Werkzeugaufruf noch
+# seine Antwort zurueckgibt.
+mode: parallel
+max: 5
+
+fields:
+  suchbegriff:
+    name: Suchbegriff
+    description: >-
+      Name des Künstlers, Titels, Albums, der Playlist, des Podcasts oder
+      Radiosenders. Bei vagen Wünschen ein passender Playlist-Name.
+    example: "Herbert Grönemeyer"
+    required: true
+    selector:
+      text: {}
+  medientyp:
+    name: Medientyp
+    description: Art des Suchbegriffs.
+    example: "artist"
+    required: true
+    selector:
+      select:
+        options:
+          - artist
+          - track
+          - album
+          - playlist
+          - podcast
+          - radio
+  ziel:
+    name: Ziel
+    description: >-
+      Name des Raums oder Lautsprechers, auf dem gespielt werden soll. Nennt
+      der Nutzer keinen, den Raum angeben, in dem das Gespräch stattfindet.
+    example: "Wohnzimmer"
+    required: true
+    selector:
+      text: {}
+  kuenstler:
+    name: Künstler
+    description: Nur bei track und album, sofern bekannt.
+    example: "Herbert Grönemeyer"
+    required: false
+    selector:
+      text: {}
+
+sequence:
+  # Hintergrundlauf: der Werkzeugaufruf weiter unten hat das Ziel schon
+  # ermittelt und ist laengst zurueck. Hier darf es dauern.
+  - if:
+      - condition: template
+        value_template: "{{ hintergrund | default(false) }}"
+    then:
+      - variables:
+          mass_ergebnisfeld: >-
+            {{ {"artist": "artists", "track": "tracks", "album": "albums",
+                "playlist": "playlists", "podcast": "podcasts",
+                "radio": "radio"}[medientyp] }}
+      - alias: Eindeutige URI suchen, statt play_media raten zu lassen
+        action: music_assistant.search
+        continue_on_error: true
+        response_variable: mass_suche
+        data: >-
+          {{ dict({"config_entry_id": config_entry_id(spieler[0]),
+                   "name": suchbegriff, "artist": kuenstler,
+                   "media_type": [medientyp], "limit": 25}.items()
+             | selectattr('1')) }}
+      - variables:
+          mass_treffer: >-
+            {{ mass_suche[mass_ergebnisfeld]
+               if mass_suche is defined and mass_suche is mapping else [] }}
+          # Vergleich statt Regex: Namen wie "AC/DC (Live)" enthalten
+          # Sonderzeichen.
+          mass_exakte_uris: >-
+            {% set ns = namespace(uris=[]) %}
+            {% for eintrag in mass_treffer %}
+              {% if eintrag.name | lower == suchbegriff | lower %}
+                {% set ns.uris = ns.uris + [eintrag.uri] %}
+              {% endif %}
+            {% endfor %}
+            {{ ns.uris }}
+          spieldaten:
+            media_id: >-
+              {{ (mass_exakte_uris or (mass_treffer | map(attribute='uri') | list))
+                 | first | default(suchbegriff) }}
+            media_type: "{{ medientyp }}"
+            artist: "{{ kuenstler }}"
+      - alias: Medium an den ermittelten Music-Assistant-Player schicken
+        action: music_assistant.play_media
+        target:
+          entity_id: "{{ spieler }}"
+        data: "{{ dict(spieldaten.items() | selectattr('1')) }}"
+      - stop: Wiedergabe angestoßen
+  - variables:
+      ziel_klein: "{{ ziel | default('') | lower }}"
+      # Nur echte, erreichbare Player: integration_entities liefert auch die
+      # Favoriten-Buttons von Music Assistant.
+      mass_spieler: >-
+        {{ integration_entities('music_assistant')
+           | select('match', 'media_player[.]')
+           | reject('is_state', ['unavailable', 'unknown']) | list }}
+      spieler_nach_name: >-
+        {% set ns = namespace(ids=[]) %}
+        {% for eintrag in mass_spieler | expand %}
+          {% if eintrag.name | lower == ziel_klein %}
+            {% set ns.ids = ns.ids + [eintrag.entity_id] %}
+          {% endif %}
+        {% endfor %}
+        {{ ns.ids }}
+      # Ein Raum meint die Lautsprecher dort. Ein Fernseher spielt nur, wenn
+      # er oben namentlich getroffen wurde.
+      spieler_nach_bereich: >-
+        {% set ns = namespace(ids=[]) %}
+        {% for bereich in areas() %}
+          {% if area_name(bereich) | lower == ziel_klein %}
+            {% set ns.ids = ns.ids + (area_entities(bereich)
+                 | select('in', mass_spieler) | expand
+                 | rejectattr('attributes.device_class', 'eq', 'tv')
+                 | map(attribute='entity_id') | list) %}
+          {% endif %}
+        {% endfor %}
+        {{ ns.ids }}
+      ziel_spieler: "{{ spieler_nach_name or spieler_nach_bereich }}"
+      antwort_fehler:
+        erfolg: false
+        fehler: "Kein verfügbarer Lautsprecher für dieses Ziel gefunden."
+        verfuegbare_lautsprecher: >-
+          {{ mass_spieler | map('state_attr', 'friendly_name') | list }}
+      antwort_gestartet:
+        erfolg: true
+        hinweis: >-
+          Die Wiedergabe startet im Hintergrund. Noch nicht bestätigt, dass
+          sie läuft.
+        lautsprecher: >-
+          {{ ziel_spieler | map('state_attr', 'friendly_name') | list }}
+  - if:
+      - condition: template
+        value_template: "{{ ziel_spieler == [] }}"
+    then:
+      - stop: Kein passender Lautsprecher
+        response_variable: antwort_fehler
+  - alias: Suche und Wiedergabe an den Hintergrundlauf übergeben
+    action: script.turn_on
+    target:
+      entity_id: "{{ this.entity_id }}"
+    data:
+      variables:
+        hintergrund: true
+        suchbegriff: "{{ suchbegriff }}"
+        medientyp: "{{ medientyp }}"
+        kuenstler: "{{ kuenstler | default('') }}"
+        spieler: "{{ ziel_spieler }}"
+  - stop: Wiedergabe übergeben
+    response_variable: antwort_gestartet
