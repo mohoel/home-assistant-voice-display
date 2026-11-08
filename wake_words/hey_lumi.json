@@ -1,0 +1,18 @@
+{
+  "type": "micro",
+  "wake_word": "Hey Lumi",
+  "author": "Tater Totterson",
+  "website": "https://github.com/TaterTotterson/microWakeWord-Trainer-AppleSilicon",
+  "model": "hey_lumi.tflite",
+  "trained_languages": [
+    "de"
+  ],
+  "version": 2,
+  "micro": {
+    "probability_cutoff": 0.95,
+    "sliding_window_size": 5,
+    "feature_step_size": 10,
+    "tensor_arena_size": 30000,
+    "minimum_esphome_version": "2024.7.0"
+  }
+}

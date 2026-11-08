@@ -141,6 +141,12 @@ micro_wake_word:
       id: mww_hey_jarvis
     - model: hey_mycroft
       id: mww_hey_mycroft
+    # Eigenes Modell, trainiert mit microWakeWord-Trainer-AppleSilicon, eigene
+    # Lizenz CC BY-NC 4.0 (wake_words/README.md). Steht bewusst hinten:
+    # ESPHome aktiviert ab Werk nur den ersten Eintrag
+    # (micro_wake_word/__init__.py), gewaehlt wird es in Home Assistant.
+    - model: wake_words/hey_lumi.json
+      id: mww_hey_lumi
   on_wake_word_detected:
     - if:
         condition:
@@ -758,19 +764,26 @@ select:
     on_value:
       # Kalibrierte Schwellwerte aus home-assistant-voice-pe.
       # Werte sind quantisierte uint8 (0-255) der Wahrscheinlichkeit.
+      # hey_lumi ist nicht von dort: 242 ist die Trainer-Kalibrierung (0.95),
+      # 215/176 stammen aus Messungen mit macOS-Stimmen. Am Geraetemikrofon
+      # erkannte es eine echte Stimme auf allen drei Stufen gleich gut, die
+      # hoeheren bringen nur mehr Fehlausloeser (wake_words/README.md).
       - lambda: |-
           if (x == "Low") {
             id(mww_okay_nabu).set_probability_cutoff(217);
             id(mww_hey_jarvis).set_probability_cutoff(247);
             id(mww_hey_mycroft).set_probability_cutoff(253);
+            id(mww_hey_lumi).set_probability_cutoff(242);
           } else if (x == "Medium") {
             id(mww_okay_nabu).set_probability_cutoff(176);
             id(mww_hey_jarvis).set_probability_cutoff(235);
             id(mww_hey_mycroft).set_probability_cutoff(242);
+            id(mww_hey_lumi).set_probability_cutoff(215);
           } else {
             id(mww_okay_nabu).set_probability_cutoff(143);
             id(mww_hey_jarvis).set_probability_cutoff(212);
             id(mww_hey_mycroft).set_probability_cutoff(237);
+            id(mww_hey_lumi).set_probability_cutoff(176);
           }
 
 script:
