@@ -74,6 +74,7 @@ fun with Lumi!
 
 ### Voice Control
 - Wake word locally (`micro_wake_word`) or via Home Assistant — switchable per entity, no restart needed
+- Its own German wake word **"Hey Lumi"** alongside Okay Nabu, Hey Jarvis, and Hey Mycroft — Okay Nabu stays the default
 - Recognized text and response appear as text sensors in Home Assistant
 - Always an acoustic confirmation: normally the spoken reply, a short tone for silently executed commands
 - Follow-up questions show a question mark instead of the microphone
@@ -173,6 +174,23 @@ interaction.
 | **Display Touch** (event) | `single_press` on a tap, `double_press` on a double tap — only while idle; during a voice interaction, tapping cancels instead. |
 
 All settings survive a restart.
+
+### Wake Word "Hey Lumi"
+
+Besides ESPHome's English models, Lumi ships its own German model. Like the
+others, it runs entirely on the device. To switch, leave **Wake Word Engine**
+on `On Device` in Home Assistant and pick "Hey Lumi" under **Wake word**.
+`Low` is the recommended **Wake Word Sensitivity**: in testing, detection
+was just as good there, and the higher levels only add false triggers.
+
+So far it has been tested on one device and essentially with one voice. It
+responds reliably, even when the command follows without a pause ("Hey Lumi
+mach das Licht an"). During longer conversations it can occasionally trigger
+by mistake and then sends a few seconds of audio to the configured Assist
+pipeline — so it's best to turn on **Microphone Muted** during calls or
+meetings. The model has its own non-commercial license; origin,
+measurements, and license are in
+[`wake_words/README.md`](wake_words/README.md) (German).
 
 ## Blueprints
 
@@ -438,4 +456,6 @@ automatically land here.
 
 The code is under the [MIT license](LICENSE). The embedded sounds in
 `sounds/` have their own license (CC BY 4.0) — see
-[`sounds/README.md`](sounds/README.md).
+[`sounds/README.md`](sounds/README.md). The "Hey Lumi" wake word model in
+`wake_words/` is under CC BY-NC 4.0, so it may only be used
+non-commercially — see [`wake_words/README.md`](wake_words/README.md).

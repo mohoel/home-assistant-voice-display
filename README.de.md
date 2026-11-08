@@ -67,6 +67,7 @@ Ich habe dieses Tool für meinen eigenen Gebrauch und meine Bedürfnisse mit Cla
 
 ### Sprachsteuerung
 - Wake Word lokal (`micro_wake_word`) oder über Home Assistant — per Entity umschaltbar, ohne Neustart
+- Eigenes deutsches Wake Word **„Hey Lumi“** neben Okay Nabu, Hey Jarvis und Hey Mycroft — ab Werk bleibt Okay Nabu aktiv
 - **Recognized Text** und **Response** erscheinen als Text-Sensoren in Home Assistant
 - Akustische Bestätigung immer: normalerweise die gesprochene Antwort, bei stummer Ausführung ein kurzer Ton
 - Rückfragen zeigen ein Fragezeichen statt des Mikrofons
@@ -166,6 +167,24 @@ Sprachvorgang ab.
 | **Display Touch** (Event) | `single_press` bei einem Tipp, `double_press` bei einem Doppeltipp — nur im Wartezustand, während eines Sprachvorgangs bricht Tippen stattdessen ab. |
 
 Alle Einstellungen überstehen einen Neustart.
+
+### Wake Word „Hey Lumi“
+
+Neben den englischen Modellen von ESPHome bringt Lumi ein eigenes, deutsches
+Modell mit. Es läuft wie die anderen komplett auf dem Gerät. Zum Umstellen in
+Home Assistant beim Gerät **Wake Word Engine** auf `On Device` lassen und
+unter **Aktivierungswort** „Hey Lumi“ wählen. Als **Wake Word Sensitivity**
+ist `Low` empfohlen: Im Test war die Erkennung dort genauso gut, die höheren
+Stufen bringen nur mehr Fehlauslöser.
+
+Getestet ist es bisher auf einem Gerät und im Wesentlichen mit einer Stimme.
+Es reagiert zuverlässig, auch wenn der Befehl ohne Pause folgt („Hey Lumi
+mach das Licht an“). In längeren Gesprächen kann es gelegentlich fälschlich
+auslösen und schickt dann einige Sekunden Ton an die eingestellte
+Assist-Pipeline — in Telefonaten oder Meetings deshalb am besten
+**Microphone Muted** einschalten. Das Modell hat eine eigene,
+nicht-kommerzielle Lizenz; Herkunft, Messwerte und Lizenz stehen in
+[`wake_words/README.md`](wake_words/README.md).
 
 ## Blueprints
 
@@ -422,4 +441,6 @@ nicht automatisch hier an.
 
 Der Code steht unter der [MIT-Lizenz](LICENSE). Die eingebetteten Klänge in
 `sounds/` haben eine eigene Lizenz (CC BY 4.0) — siehe
-[`sounds/README.md`](sounds/README.md).
+[`sounds/README.md`](sounds/README.md). Das Wake-Word-Modell „Hey Lumi“ in
+`wake_words/` steht unter CC BY-NC 4.0, ist also nur nicht-kommerziell
+nutzbar — siehe [`wake_words/README.md`](wake_words/README.md).
