@@ -121,9 +121,9 @@ stays intact, because it was never part of the firmware image.
 
 ### Hardware
 
-You only need the **Waveshare ESP32-S3-Touch-AMOLED-1.75**. Display,
-microphones, and speaker are all on the board, so there's nothing to
-solder.
+You only need the **Waveshare ESP32-S3-Touch-AMOLED-1.75**. Display and
+microphones are on the board, and the speaker plugs into it, so there's
+nothing to solder.
 
 > **Known issue: board revision Rev1.1.** On the Rev1.1 revision of the
 > standard board (SKU 31261), the image currently appears shifted to the
@@ -145,6 +145,26 @@ needed:
 [`Lumi Stand.stl`](Lumi%20Stand.stl) still contains all three parts in one
 file. If you use that one, split it into separate objects in your slicer
 first.
+
+#### Assembling the Stand
+
+For the USB-C port, an ultra-thin flat USB-C extension cable (male to
+female) fits through the enclosure, for example the "cablecc Ultra-Thin
+Flat Cable" on Amazon.
+
+1. Cover the whole front of the front mask (the side with the speaker
+   cutout) and all its sides, including the edge of the display opening,
+   with double-sided tape.
+2. Insert the speaker. Attach the fabric to the front only for now.
+3. Peel the protective film off the tape on the sides. Then press the
+   front mask with the fabric through the
+   [helper frame](stl/lumi-stand-fabric-helper.stl). This wraps the fabric
+   around the sides and pulls it tight. Whether it fits depends on how
+   thick your fabric is: try it first, and scale the frame in your slicer
+   if needed.
+4. Cut the fabric over the display opening into small "pizza slices" and
+   glue each strip to the back. Finally, trim everything neatly on the
+   back.
 
 ### 1. Flash the Firmware
 

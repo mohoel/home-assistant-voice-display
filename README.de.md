@@ -114,8 +114,9 @@ WLAN bleibt dabei erhalten, weil es nie Teil des Firmware-Images war.
 
 ### Hardware
 
-Du brauchst nur den **Waveshare ESP32-S3-Touch-AMOLED-1.75**. Display,
-Mikrofone und Lautsprecher sitzen alle auf dem Board, gelötet wird nichts.
+Du brauchst nur den **Waveshare ESP32-S3-Touch-AMOLED-1.75**. Display und
+Mikrofone sitzen auf dem Board, der Lautsprecher wird eingesteckt, gelötet
+wird nichts.
 
 > **Bekanntes Problem: Board-Revision Rev1.1.** Auf der Revision Rev1.1
 > des Standard-Boards (SKU 31261) erscheint das Bild derzeit nach links
@@ -138,6 +139,27 @@ nötig:
 [`Lumi Stand.stl`](Lumi%20Stand.stl) enthält weiterhin alle drei Teile in
 einer Datei. Wer die nimmt, teilt sie im Slicer zuerst in einzelne Objekte
 auf.
+
+#### Ständer zusammenbauen
+
+Für den USB-C-Anschluss passt ein ultradünnes, flaches
+USB-C-Verlängerungskabel (Stecker auf Buchse) durchs Gehäuse, zum Beispiel
+das „cablecc Ultradünnes Flachkabel“ von Amazon.
+
+1. Die ganze Vorderseite der Frontmaske (die Seite mit der
+   Lautsprecher-Aussparung) und alle ihre Seiten, auch den Rand der
+   Display-Öffnung, mit doppelseitigem Klebeband bekleben.
+2. Den Lautsprecher einsetzen. Den Stoff vorerst nur auf der Vorderseite
+   festkleben.
+3. Die Schutzfolie vom Klebeband an den Seiten abziehen. Dann die
+   Frontmaske samt Stoff durch den
+   [Spannrahmen](stl/lumi-stand-fabric-helper.stl) drücken. So legt sich
+   der Stoff um die Seiten und wird dabei gespannt. Ob das klappt, hängt
+   von der Stoffdicke ab: am besten erst ausprobieren und den Rahmen im
+   Slicer passend skalieren.
+4. Den Stoff über der Display-Öffnung in kleine „Pizzastücke“
+   einschneiden und die einzelnen Streifen auf der Rückseite festkleben.
+   Zum Schluss alles auf der Rückseite sauber zuschneiden.
 
 ### 1. Firmware flashen
 
