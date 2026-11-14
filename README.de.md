@@ -112,6 +112,56 @@ WLAN bleibt dabei erhalten, weil es nie Teil des Firmware-Images war.
 
 ## Einrichtung
 
+### Hardware
+
+Du brauchst nur den **Waveshare ESP32-S3-Touch-AMOLED-1.75**. Display und
+Mikrofone sitzen auf dem Board, der Lautsprecher wird eingesteckt, gelötet
+wird nichts.
+
+> **Bekanntes Problem: Board-Revision Rev1.1.** Auf der Revision Rev1.1
+> des Standard-Boards (SKU 31261) erscheint das Bild derzeit nach links
+> verschoben, mit einem hellen Streifen am rechten Rand. Die Ursache wird
+> noch in
+> [Issue #39](https://github.com/mohoel/home-assistant-voice-display/issues/39)
+> untersucht. Andere Boards laufen mit derselben Firmware ohne dieses
+> Problem.
+
+**Ständer (optional):** drei Druckteile in [`stl/`](stl/). Jedes liegt
+schon flach auf dem Druckbett, Stützen oder Zurechtrücken sind nicht
+nötig:
+
+| Datei | Teil | Größe (mm) |
+|---|---|---|
+| [`lumi-stand-enclosure.stl`](stl/lumi-stand-enclosure.stl) | Gehäuse | 65 × 52 × 80 |
+| [`lumi-stand-front.stl`](stl/lumi-stand-front.stl) | Frontmaske | 61 × 78 × 11 |
+| [`lumi-stand-fabric-helper.stl`](stl/lumi-stand-fabric-helper.stl) | Hilfe zum Bespannen mit Stoff | 82 × 100 × 8 |
+
+[`Lumi Stand.stl`](Lumi%20Stand.stl) enthält weiterhin alle drei Teile in
+einer Datei. Wer die nimmt, teilt sie im Slicer zuerst in einzelne Objekte
+auf.
+
+#### Ständer zusammenbauen
+
+Für den USB-C-Anschluss passt ein ultradünnes, flaches
+USB-C-Verlängerungskabel (Stecker auf Buchse) durchs Gehäuse, zum Beispiel
+das [cablecc Ultradünnes Flachkabel](https://amzn.eu/d/0guy8NPT) von
+Amazon.
+
+1. Die ganze Vorderseite der Frontmaske (die Seite mit der
+   Lautsprecher-Aussparung) und alle ihre Seiten, auch den Rand der
+   Display-Öffnung, mit doppelseitigem Klebeband bekleben.
+2. Den Lautsprecher einsetzen. Den Stoff vorerst nur auf der Vorderseite
+   festkleben.
+3. Die Schutzfolie vom Klebeband an den Seiten abziehen. Dann die
+   Frontmaske samt Stoff durch den
+   [Spannrahmen](stl/lumi-stand-fabric-helper.stl) drücken. So legt sich
+   der Stoff um die Seiten und wird dabei gespannt. Ob das klappt, hängt
+   von der Stoffdicke ab: am besten erst ausprobieren und den Rahmen im
+   Slicer passend skalieren.
+4. Den Stoff über der Display-Öffnung in kleine „Pizzastücke“
+   einschneiden und die einzelnen Streifen auf der Rückseite festkleben.
+   Zum Schluss alles auf der Rückseite sauber zuschneiden.
+
 ### 1. Firmware flashen
 
 Geflasht wird im Browser, ganz ohne Terminal:
@@ -139,6 +189,16 @@ Flashen"), von Hand einzutragen:
 ```
 Bw1nT2P6zfBP++xn1gTvfloJweHwPrXXRj0I01RdKZk=
 ```
+
+> **Hinweis zur Sicherheit:** Jedes Lumi nutzt genau diesen
+> veröffentlichten Schlüssel und dasselbe veröffentlichte OTA-Passwort.
+> Wer **in deinem Heimnetz** ist, kann sich deshalb mit dem Gerät
+> verbinden oder eine andere Firmware aufspielen. Aus dem Internet ist
+> nichts erreichbar. Ist dir das für dein Netz zu offen, baust du die
+> Firmware selbst mit einer eigenen `secrets.yaml` (eigener Schlüssel,
+> eigenes OTA-Passwort). Updates installierst du dann nicht mehr über
+> Home Assistant, denn die brächten die veröffentlichten Platzhalter
+> zurück. Jede neue Version baust du stattdessen selbst.
 
 Danach unter *Einstellungen → Sprachassistenten* eine Assist-Pipeline mit
 deutschem STT/TTS zuweisen.

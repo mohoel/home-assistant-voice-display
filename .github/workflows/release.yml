@@ -61,7 +61,10 @@ jobs:
           python-version: "3.12"
 
       - name: ESPHome installieren
-        run: pip install esphome
+        # Feste Version, damit ein Release genau mit dem ESPHome baut, das
+        # vorher lokal getestet wurde. Beim Wechsel lokal mit
+        # `pip install esphome==<neu>` gegenpruefen, dann hier anheben.
+        run: pip install esphome==2026.7.3
 
       - name: Platzhalter-Secrets einsetzen
         run: cp secrets.public.yaml secrets.yaml
