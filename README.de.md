@@ -144,7 +144,8 @@ auf.
 
 Für den USB-C-Anschluss passt ein ultradünnes, flaches
 USB-C-Verlängerungskabel (Stecker auf Buchse) durchs Gehäuse, zum Beispiel
-das „cablecc Ultradünnes Flachkabel“ von Amazon.
+das [cablecc Ultradünnes Flachkabel](https://amzn.eu/d/0guy8NPT) von
+Amazon.
 
 1. Die ganze Vorderseite der Frontmaske (die Seite mit der
    Lautsprecher-Aussparung) und alle ihre Seiten, auch den Rand der

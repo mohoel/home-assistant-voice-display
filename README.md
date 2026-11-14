@@ -149,8 +149,8 @@ first.
 #### Assembling the Stand
 
 For the USB-C port, an ultra-thin flat USB-C extension cable (male to
-female) fits through the enclosure, for example the "cablecc Ultra-Thin
-Flat Cable" on Amazon.
+female) fits through the enclosure, for example the
+[cablecc Ultra-Thin Flat Cable](https://amzn.eu/d/0guy8NPT) on Amazon.
 
 1. Cover the whole front of the front mask (the side with the speaker
    cutout) and all its sides, including the edge of the display opening,
