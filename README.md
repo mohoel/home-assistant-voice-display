@@ -119,6 +119,33 @@ stays intact, because it was never part of the firmware image.
 
 ## Setup
 
+### Hardware
+
+You only need the **Waveshare ESP32-S3-Touch-AMOLED-1.75**. Display,
+microphones, and speaker are all on the board, so there's nothing to
+solder.
+
+> **Known issue: board revision Rev1.1.** On the Rev1.1 revision of the
+> standard board (SKU 31261), the image currently appears shifted to the
+> left, with a bright band along the right edge. The cause is still being
+> investigated in
+> [issue #39](https://github.com/mohoel/home-assistant-voice-display/issues/39).
+> Other boards run the same firmware without this problem.
+
+**Stand (optional):** three printed parts in [`stl/`](stl/). Each one
+already lies flat on the bed, so no supports or manual placement are
+needed:
+
+| File | Part | Size (mm) |
+|---|---|---|
+| [`lumi-stand-enclosure.stl`](stl/lumi-stand-enclosure.stl) | Enclosure | 65 × 52 × 80 |
+| [`lumi-stand-front.stl`](stl/lumi-stand-front.stl) | Front mask | 61 × 78 × 11 |
+| [`lumi-stand-fabric-helper.stl`](stl/lumi-stand-fabric-helper.stl) | Helper for wrapping the fabric | 82 × 100 × 8 |
+
+[`Lumi Stand.stl`](Lumi%20Stand.stl) still contains all three parts in one
+file. If you use that one, split it into separate objects in your slicer
+first.
+
 ### 1. Flash the Firmware
 
 Flashing happens right in the browser, no terminal required:
@@ -146,6 +173,15 @@ it by hand:
 ```
 Bw1nT2P6zfBP++xn1gTvfloJweHwPrXXRj0I01RdKZk=
 ```
+
+> **Note on security:** every Lumi uses this same published key and the
+> same published OTA password. So anyone **on your local network** can
+> connect to the device or flash different firmware onto it. Nothing is
+> reachable from the internet. If that matters for your network, build
+> the firmware yourself with your own `secrets.yaml` (your own key and OTA
+> password). In that case, don't install updates through Home Assistant:
+> they would bring the published placeholders back. Rebuild each new
+> version yourself instead.
 
 Afterward, assign an Assist pipeline with STT/TTS in your language under
 *Settings → Voice assistants*.
